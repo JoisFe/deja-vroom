@@ -1,6 +1,6 @@
 # Claude Code 하네스
 
-이 저장소에서 Claude Code가 따르는 규칙, 스킬, 에이전트예요. 진입점은 [`CLAUDE.md`](../CLAUDE.md)이고, 흐름은 [개발 흐름](../docs/workflow.md)에 있어요.
+이 저장소에서 Claude Code가 따르는 규칙, 스킬, 에이전트다. 진입점은 [`CLAUDE.md`](../CLAUDE.md), 흐름은 [개발 흐름](../docs/workflow.md)에 있다.
 
 ```mermaid
 flowchart LR
@@ -15,15 +15,15 @@ flowchart LR
 
 ## 에이전트 (`agents/`)
 
-| 에이전트 | 하는 일 |
+| 에이전트 | 역할 |
 |---|---|
 | `pleos-app-developer` | Kotlin + Compose + Pleos SDK로 앱 기능 구현 |
-| `test-runner` | Gradle 빌드·테스트를 돌리고 실패만 보고 |
-| `build-fixer` | 컴파일·의존성 오류를 최소 수정으로 고침 |
+| `test-runner` | Gradle 빌드·테스트 실행 후 실패만 보고 |
+| `build-fixer` | 컴파일·의존성 오류를 최소 수정으로 해결 |
 | `app-evaluator` | 에뮬레이터에 설치하고 Virtual Console로 신호를 넣어 스펙의 성공 기준(SC-*)을 PASS/FAIL로 확인 |
 | `code-reviewer` | diff를 정확성·보안·컨벤션 기준으로 리뷰 |
-| `explorer` | 코드베이스에서 파일·심볼 찾기 (읽기 전용) |
-| `doc-writer` | 문서를 짧고 표·다이어그램 위주로 작성 |
+| `explorer` | 코드베이스에서 파일·심볼 검색 (읽기 전용) |
+| `doc-writer` | 문서를 짧게, 표·다이어그램 위주로 작성 |
 
 ## 스킬 (`skills/`)
 
@@ -45,7 +45,7 @@ flowchart LR
 
 ## 훅 (`hooks/`)
 
-| 훅 | 하는 일 |
+| 훅 | 역할 |
 |---|---|
-| `guard-main-commit.sh` | `main`에 커밋·푸시하거나 강제 푸시하는 것을 막아요 |
-| `quiet-gradle.sh` | Gradle 출력을 줄여 실패만 보이게 해요 |
+| `guard-main-commit.sh` | `main` 커밋·푸시와 강제 푸시를 차단한다 |
+| `quiet-gradle.sh` | Gradle 출력을 줄여 실패만 보여 준다 |
