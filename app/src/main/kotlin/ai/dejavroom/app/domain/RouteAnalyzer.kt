@@ -92,14 +92,15 @@ class RouteAnalyzer(
         additionalCandidates: List<RouteSegmentCandidate> = emptyList(),
     ): List<BriefingSegment> = select(route, candidateDetector.detect(route, features) + additionalCandidates)
 
-    private fun score(candidate: RouteSegmentCandidate): Double =
+    /** Weighted sum of 0..1 signals; see docs/algorithm.md for what each one means. */
+    internal fun score(candidate: RouteSegmentCandidate): Double =
         (candidate.complexity.clamped() * weights.complexity) +
+            (candidate.ambiguity.clamped() * weights.ambiguity) +
+            (candidate.errorCost.clamped() * weights.errorCost) +
+            (candidate.lanePressure.clamped() * weights.lanePressure) +
             (candidate.maneuverDensity.clamped() * weights.maneuverDensity) +
-            (candidate.highwayJunction.clamped() * weights.highwayJunction) +
             (candidate.destinationProximity.clamped() * weights.destinationProximity) +
-            (candidate.historicIncidentSignal.clamped() * weights.historicIncidentSignal) +
-            (candidate.usableRoadView.clamped() * weights.usableRoadView) +
-            (candidate.dataConfidence.clamped() * weights.dataConfidence)
+            (candidate.historicIncidentSignal.clamped() * weights.historicIncidentSignal)
 
     private fun isDuplicate(candidate: RouteSegmentCandidate, existing: RouteSegmentCandidate): Boolean =
         abs(candidate.routeOffsetMeters - existing.routeOffsetMeters) <= duplicateDistanceMeters ||

@@ -28,6 +28,11 @@ data class RouteMapFeature(
     val branchCount: Int = 0,
     val historicalIncidentSignal: Double = 0.0,
     val routeLanes: List<RouteLane> = emptyList(),
+    val ambiguitySignal: Double = 0.0,
+    val errorCostSignal: Double = 0.0,
+    val lanePressureSignal: Double = 0.0,
+    /** Korean reasons, strongest first, shown to the driver as "why this point". */
+    val reasons: List<String> = emptyList(),
 ) {
     enum class Type { COMPLEX_INTERSECTION, HIGHWAY_JUNCTION, DESTINATION_ACCESS, HISTORICAL_ACCIDENT_HOTSPOT }
 
@@ -39,6 +44,7 @@ data class RouteMapFeature(
         require(highwayJunctionSignal.isFinite() && highwayJunctionSignal in 0.0..1.0)
         require(branchCount >= 0)
         require(historicalIncidentSignal.isFinite() && historicalIncidentSignal in 0.0..1.0)
+        require(ambiguitySignal in 0.0..1.0 && errorCostSignal in 0.0..1.0 && lanePressureSignal in 0.0..1.0)
     }
 }
 
@@ -100,11 +106,16 @@ class RouteCandidateDetector(
                     coordinateAtOffset(route.geometry, offsets, matchOffset),
                     coordinateAtOffset(route.geometry, offsets, (matchOffset + 20.0).coerceAtMost(routeLength)),
                 ),
-                complexity = angleStrength,
+                // Shape alone cannot tell a turn at a junction from a bend in the road.
+                complexity = angleStrength * GEOMETRY_ONLY_FACTOR,
                 maneuverDensity = density,
                 destinationProximity = (offset / routeLength).takeIf { it >= 0.85 }?.let { ((it - 0.85) / 0.15).coerceIn(0.0, 1.0) } ?: 0.0,
                 dataConfidence = 0.55,
-                evidence = listOf("경로 선형 분석", "방향 전환 ${strongest.angleDegrees.toInt()}°", "전환 ${cluster.size}회 / ${clusterGapMeters.toInt()}m 이내"),
+                evidence = listOfNotNull(
+                    "방향 전환 ${strongest.angleDegrees.toInt()}°",
+                    if (cluster.size > 1) "${clusterGapMeters.toInt()}m 안에 전환 ${cluster.size}회" else null,
+                    "경로 형상만으로 추정",
+                ),
                 sourceRouteId = route.routeId,
             )
         }
@@ -131,20 +142,40 @@ class RouteCandidateDetector(
                 complexity = feature.complexitySignal,
                 maneuverDensity = feature.maneuverDensitySignal,
                 highwayJunction = feature.highwayJunctionSignal,
-                destinationProximity = if (feature.type == RouteMapFeature.Type.DESTINATION_ACCESS) 1.0 else 0.0,
+                ambiguity = feature.ambiguitySignal,
+                errorCost = feature.errorCostSignal,
+                lanePressure = feature.lanePressureSignal,
+                destinationProximity = if (feature.type == RouteMapFeature.Type.DESTINATION_ACCESS) 1.0 else destinationProximity(projection.offsetMeters, routeLength),
                 historicIncidentSignal = feature.historicalIncidentSignal.coerceIn(0.0, 1.0),
                 dataConfidence = feature.confidence.coerceIn(0.0, 1.0),
                 routeLanes = feature.routeLanes,
-                evidence = listOf("도로 그래프: ${feature.source}", "경로와 거리 ${projection.lateralDistanceMeters.toInt()}m 이내")
-                    .plus(if (feature.branchCount > 0) listOf("진입 가능한 갈래 ${feature.branchCount}개") else emptyList())
+                evidence = feature.reasons
+                    .plus(if (feature.type == RouteMapFeature.Type.HISTORICAL_ACCIDENT_HOTSPOT) emptyList() else listOf("도로 그래프: ${feature.source}"))
                     .plus(
                     if (feature.type == RouteMapFeature.Type.HISTORICAL_ACCIDENT_HOTSPOT) listOf("과거 사고 이력 신호 · 현재 위험도 의미 아님") else emptyList(),
                 ),
                 sourceRouteId = route.routeId,
             )
         }
-        return candidates
+        return withManeuverDensity(candidates)
     }
+
+    /** Raises density for map maneuvers that sit within [clusterGapMeters] of other map maneuvers. */
+    private fun withManeuverDensity(candidates: List<RouteSegmentCandidate>): List<RouteSegmentCandidate> {
+        val mapManeuvers = candidates.filter { it.type != SegmentType.COMPLEX_TURN && it.type != SegmentType.HISTORICAL_RISK }
+        return candidates.map { candidate ->
+            if (candidate !in mapManeuvers) return@map candidate
+            val neighbors = mapManeuvers.count { it !== candidate && abs(it.routeOffsetMeters - candidate.routeOffsetMeters) <= clusterGapMeters }
+            if (neighbors == 0) return@map candidate
+            candidate.copy(
+                maneuverDensity = maxOf(candidate.maneuverDensity, (neighbors / 2.0).coerceIn(0.0, 1.0)),
+                evidence = candidate.evidence + "${clusterGapMeters.toInt()}m 안에 조작 ${neighbors + 1}회",
+            )
+        }
+    }
+
+    private fun destinationProximity(offset: Double, routeLength: Double): Double =
+        (offset / routeLength).takeIf { it >= 0.85 }?.let { ((it - 0.85) / 0.15).coerceIn(0.0, 1.0) } ?: 0.0
 
     private data class Turn(val pointIndex: Int, val offsetMeters: Double, val angleDegrees: Double)
     private data class Projection(val offsetMeters: Double, val lateralDistanceMeters: Double)
@@ -212,5 +243,8 @@ class RouteCandidateDetector(
         return minOf(difference, 360.0 - difference)
     }
 
-    private companion object { const val EARTH_RADIUS = 6_371_000.0 }
+    private companion object {
+        const val EARTH_RADIUS = 6_371_000.0
+        const val GEOMETRY_ONLY_FACTOR = 0.6
+    }
 }
