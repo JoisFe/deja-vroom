@@ -82,7 +82,7 @@ class RoadviewHandler(SimpleHTTPRequestHandler):
         })
         request = Request(
             f"https://graph.mapillary.com/images?{params}",
-            headers={"Authorization": f"OAuth {token}", "Accept": "application/json", "User-Agent": "FirstLook/0.1"},
+            headers={"Authorization": f"OAuth {token}", "Accept": "application/json", "User-Agent": "DejaVroom/0.1"},
         )
         try:
             with urlopen(request, timeout=8) as response:

@@ -1,6 +1,9 @@
 package ai.dejavroom.app.data
 
 /** Only fixed status messages from the local Kakao Roadview page are accepted. */
+/** JS object name the Roadview page (web/roadview/index.html) uses to post events back to the app. */
+const val ROADVIEW_BRIDGE_NAME = "DejaVroomBridge"
+
 sealed interface RoadViewPageEvent {
     data object Ready : RoadViewPageEvent
     data object ConfigReceived : RoadViewPageEvent
