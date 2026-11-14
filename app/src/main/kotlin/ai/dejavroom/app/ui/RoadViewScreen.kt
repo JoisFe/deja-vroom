@@ -1,5 +1,10 @@
 package ai.dejavroom.app.ui
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.font.FontWeight
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Handler
@@ -78,7 +83,10 @@ internal fun RoadViewScreen(
     val photo = view?.content as? RoadViewContent.StillImage
     val state = remember { mutableStateOf(PREPARING_MESSAGE) }
     val failureMessage = remember { mutableStateOf<String?>(null) }
+    // The detailed progress text in [state] is for logcat; the driver only needs to know it is still loading.
+    val shown = remember { mutableStateOf(false) }
     LaunchedEffect(selectedIndex, lookup) {
+        shown.value = false
         failureMessage.value = when {
             endpoint != null || photo != null -> null
             view?.content == RoadViewContent.Illustration -> "데모 제공자는 도로 사진을 보여 주지 않습니다 · config/roadview.yml에서 kakao 또는 mapillary를 선택하세요."
@@ -91,7 +99,7 @@ internal fun RoadViewScreen(
             Modifier.fillMaxWidth().height(48.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onBack) { Text("‹  후보 목록", color = DejaVroomTheme.colors.white) }
+            TextButton(onClick = onBack) { Text("‹  목록", color = DejaVroomTheme.colors.white) }
             Text(
                 route?.let { "${selectedIndex + 1}/${candidates.size} · ${candidates.getOrNull(selectedIndex)?.name.orEmpty()}" } ?: "고정 OSM fixture 테스트",
                 Modifier.weight(1f),
@@ -182,18 +190,20 @@ internal fun RoadViewScreen(
                                 RoadViewPageEvent.CspBlocked -> state.value = "Kakao SDK 후속 리소스가 페이지 보안 정책에 차단됐습니다."
                                 RoadViewPageEvent.Shown -> {
                                     timeout?.let(timeoutHandler::removeCallbacks)
+                                    shown.value = true
                                     if (!state.value.startsWith("선택 후보")) {
                                         state.value = if (route != null) "Kakao Roadview · 분석 경로 후보" else "Kakao Roadview · OSM fixture"
                                     }
                                 }
                                 is RoadViewPageEvent.RouteCandidateSelected -> {
+                                    shown.value = true
                                     val candidate = candidates.getOrNull(event.index)
                                     state.value = candidate?.let { "선택 후보 ${event.index + 1}/${candidates.size} · ${it.name} · 점수 ${it.selectionScore?.times(100)?.toInt() ?: 0}" }
                                         ?: "분석된 경로 후보를 Roadview에 표시했습니다."
                                 }
                                 RoadViewPageEvent.CandidateNoCoverage -> {
                                     timeout?.let(timeoutHandler::removeCallbacks)
-                                    failureMessage.value = "선택한 후보 근처에 Kakao 로드뷰가 없습니다. 후보 목록으로 돌아가 다른 구간을 고를 수 있습니다."
+                                    failureMessage.value = "이 지점 근처에는 로드뷰 사진이 없습니다. 목록으로 돌아가 다른 지점을 볼 수 있습니다."
                                 }
                                 is RoadViewPageEvent.NativeArrowCandidatesHidden -> state.value = "화살표 후보 DOM ${event.count}개 숨김 · Kakao 기본 요소인지 미검증"
                                 RoadViewPageEvent.NativeArrowLayerUnverified -> Unit
@@ -255,12 +265,14 @@ internal fun RoadViewScreen(
                 },
             )
             }
-            Text(
-                state.value,
-                Modifier.align(Alignment.BottomCenter).padding(8.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xE6111B33)).padding(horizontal = 10.dp, vertical = 7.dp),
-                color = Color.White,
-                fontSize = 11.sp,
-            )
+            if (!shown.value) {
+                Text(
+                    "로드뷰를 불러오는 중…",
+                    Modifier.align(Alignment.BottomCenter).padding(12.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xE6111B33)).padding(horizontal = 14.dp, vertical = 9.dp),
+                    color = Color.White,
+                    fontSize = 14.sp,
+                )
+            }
             } else {
                 Column(
                     Modifier.fillMaxSize().padding(32.dp),
@@ -275,15 +287,19 @@ internal fun RoadViewScreen(
                         fontSize = 15.sp,
                     )
                     Text(
-                        "설정 방법은 docs/roadview-setup.md에 있습니다. 후보 목록으로 돌아가 다른 화면은 계속 사용할 수 있습니다.",
+                        "목록으로 돌아가 다른 지점은 계속 볼 수 있습니다.",
                         Modifier.padding(top = 8.dp),
                         color = Color(0xFF9EACC0),
                         fontSize = 13.sp,
                     )
                     TextButton(onClick = onBack, modifier = Modifier.padding(top = 20.dp)) {
-                        Text("DejaVroom 화면으로 돌아가기", color = Color(0xFF8AB4FF))
+                        Text("목록으로 돌아가기", color = Color(0xFF8AB4FF))
                     }
                 }
+            }
+            val selected = candidates.getOrNull(selectedIndex)
+            if (failureMessage.value == null && route != null && selected != null) {
+                ManeuverBanner(selected, Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
             }
         }
         if (route != null) {
@@ -304,20 +320,39 @@ internal fun RoadViewScreen(
                         disabledContentColor = Color(0xFF65758A),
                     ),
                 ) {
-                    Text("‹  이전 후보")
+                    Text("‹  이전 지점")
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("${selectedIndex + 1} / ${candidates.size}", color = DejaVroomTheme.colors.white, fontSize = 15.sp)
-                    Text("현재 후보", color = DejaVroomTheme.colors.muted, fontSize = 10.sp)
+                    Text("가는 순서", color = DejaVroomTheme.colors.muted, fontSize = 10.sp)
                 }
                 Button(
                     onClick = if (selectedIndex < candidates.lastIndex) onNext else onBack,
                     modifier = Modifier.weight(1.25f),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1555C9)),
                 ) {
-                    Text(if (selectedIndex < candidates.lastIndex) "다음 후보 로드뷰  ›" else "후보 목록으로")
+                    Text(if (selectedIndex < candidates.lastIndex) "다음 지점  ›" else "목록으로")
                 }
             }
+        }
+    }
+}
+
+/** What to do at the point ahead, readable at a glance over the road view. */
+@Composable
+private fun ManeuverBanner(segment: BriefingSegment, modifier: Modifier = Modifier) {
+    val cue = segment.cue ?: return
+    Row(
+        modifier.clip(RoundedCornerShape(22.dp)).background(Color(0xEB0B1730)).padding(start = 10.dp, end = 20.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(54.dp).background(Color(0xFF1F6BFF), CircleShape), contentAlignment = Alignment.Center) {
+            DirectionArrow(cue.direction, Modifier.size(34.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(bannerTitle(cue, segment.approach?.leadMeters), color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            if (cue.sign.isNotBlank()) Text("표지 ${cue.sign}", color = Color(0xFFCFE0FF), fontSize = 15.sp, maxLines = 1)
         }
     }
 }

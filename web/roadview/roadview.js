@@ -104,9 +104,7 @@
           roadview.setViewpoint({ pan: Number(config.heading) || 0, tilt: 0, zoom: 0 });
           inspectNativeArrowLayer();
           renderSelectedCandidate(config);
-          status.textContent = config.selectedCandidate
-            ? `${config.selectedCandidate.name} · 복잡 교차로 후보 표시 중`
-            : "Kakao Roadview";
+          status.textContent = config.selectedCandidate ? "! 표시가 분기점입니다" : "Kakao Roadview";
           if (config.thumbnail) status.style.display = "none";
           send("shown");
         });
@@ -180,12 +178,7 @@
     overlay.setRange(Math.max(120, leadMeters + 100));
     overlay.setMap(roadview);
     routeOverlays.push(overlay);
-    const evidence = (candidate.evidence || []).slice(0, 2).join(" · ");
-    const label = document.createElement("div");
-    label.className = "firstlook-candidate-label";
-    const leadText = leadMeters > 0 ? ` · ${leadMeters}m 전 시점(! 표시가 분기점)` : "";
-    label.textContent = `${candidate.name}${leadText}${evidence ? ` · ${evidence}` : ""}`;
-    document.body.appendChild(label);
+    // The app shows the maneuver, the distance and the sign in its own banner over this page.
     document.getElementById("attribution").textContent = "Kakao Maps · © OpenStreetMap contributors · ODbL 1.0 · OSRM";
     send(`route-candidate-selected:${config.selectedCandidateIndex}`);
   }
@@ -193,15 +186,14 @@
   function renderLaneGuidance(candidate) {
     const panel = document.getElementById("segment-context");
     const lanes = Array.isArray(candidate.routeLanes) ? candidate.routeLanes : [];
+    // The panel exists for the lane diagram; without lane data there is nothing a driver needs from it.
+    if (lanes.length === 0) {
+      panel.hidden = true;
+      return;
+    }
     const validLanes = lanes.filter((lane) => lane.validForRoute === true);
-    document.getElementById("lane-title").textContent = candidate.name || "선택한 경로 구간";
-    const evidence = Array.isArray(candidate.evidence) ? candidate.evidence.slice(0, 2).join(" · ") : "";
-    const score = Math.round((Number(candidate.score) || 0) * 100);
-    document.getElementById("lane-subtitle").textContent = [
-      `경로 분석 점수 ${score}점`,
-      evidence,
-      validLanes.length ? "초록색 차로가 경로에 유효합니다." : "노면 화살표가 경로 진행 방향을 나타냅니다."
-    ].filter(Boolean).join(" · ");
+    document.getElementById("lane-title").textContent = "차로 안내";
+    document.getElementById("lane-subtitle").textContent = validLanes.length ? "초록색 차로로 가면 됩니다." : "";
     const laneList = document.getElementById("lane-list");
     laneList.replaceChildren();
     laneList.hidden = lanes.length === 0;
@@ -212,9 +204,7 @@
       slot.title = `왼쪽에서 ${index + 1}번째 차로${lane.validForRoute ? " · 경로 유효" : ""}`;
       laneList.appendChild(slot);
     }
-    const missing = document.getElementById("lane-data-missing");
-    missing.hidden = lanes.length > 0;
-    missing.textContent = lanes.length > 0 ? "" : "차로별 안내 정보 없음";
+    document.getElementById("lane-data-missing").hidden = true;
     panel.hidden = false;
   }
 

@@ -19,7 +19,7 @@ Reply to the user in Korean. Code and identifiers in English; commit messages, P
 ## Product rules (see `docs/concept.md`)
 - Read and speak only; no vehicle control.
 - Never repeat what the navigation already says; speak actions, not states; stay silent on known roads.
-- Do not record speed or harsh braking. Do not claim unverified lane numbers or turn directions.
+- Do not record speed or harsh braking. Turn arrows show the computed route's own maneuver; never claim a lane number that is not verified.
 - Demo data is fake and labeled as Demo on screen.
 
 ## Blind review
