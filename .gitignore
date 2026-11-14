@@ -1,0 +1,45 @@
+# Claude Code
+.claude/settings.local.json
+.claude/cache/
+.claude/work/
+CLAUDE.local.md
+
+# Secrets
+.env
+.env.*
+secrets.properties
+keystore.properties
+*.jks
+*.keystore
+google-services.json
+
+# Gradle / build
+build/
+.gradle/
+local.properties
+.kotlin/
+.cxx/
+.externalNativeBuild/
+captures/
+*.hprof
+
+# APKs: only the contest submission folder apk/ is tracked
+*.apk
+*.aab
+!apk/*.apk
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tooling
+__pycache__/
+*.pyc
+.omc/
+node_modules/

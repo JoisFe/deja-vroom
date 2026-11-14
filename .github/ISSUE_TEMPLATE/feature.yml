@@ -1,0 +1,28 @@
+name: 기능 제안
+description: 새 장면, 안내 규칙, 개선 아이디어
+labels: [enhancement]
+body:
+  - type: textarea
+    id: moment
+    attributes:
+      label: 어떤 순간인가요
+      description: 기어·주행 상태와 운전자가 겪는 상황
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 앱이 무엇을 하면 좋을까요
+  - type: textarea
+    id: signals
+    attributes:
+      label: 쓰는 차량 신호 · Pleos API
+      description: 예) TurnSignal, SteeringWheel, NaviHelper onTBTInfo
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: 제품 규칙
+      options:
+        - label: 내비가 이미 하는 말을 반복하지 않는다
+        - label: 상태가 아니라 행동을 말한다
+        - label: 차량 제어 없이 읽기·안내만 한다
