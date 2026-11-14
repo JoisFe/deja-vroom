@@ -1,0 +1,36 @@
+{
+  "id": "hannam-daero-demo-junction",
+  "routeId": "hannam-daero-southbound-demo-v1",
+  "junction": [
+    37.5372981,
+    127.004718
+  ],
+  "backMeters": 150,
+  "message": "한남대로 진행 방향을 확인하세요.",
+  "directSeconds": null,
+  "detourSeconds": null,
+  "retrievedAt": "2026-11-14T00:35:00+09:00",
+  "ways": {
+    "approach": {
+      "wayId": "1346179854",
+      "splitIndex": 13,
+      "outwardDirection": "toward_start"
+    },
+    "keep": {
+      "wayId": "218655248",
+      "splitIndex": 0,
+      "outwardDirection": "toward_end"
+    },
+    "trap": {
+      "wayId": "267929583",
+      "splitIndex": 18,
+      "outwardDirection": "toward_start"
+    }
+  },
+  "review": {
+    "manuallyVerified": true,
+    "roadviewCoverageVerified": true,
+    "reviewedAt": "2026-11-14",
+    "notes": "개발용 fixture. OSM one-way 접근/진행 way와 실제 Kakao Roadview coverage를 에뮬레이터에서 대조 검토함; 공식 차로 안내 아님."
+  }
+}

@@ -13,7 +13,7 @@ Pleos Connect(Android Automotive) 차량 앱 · 현대자동차그룹 차량용 
 </div>
 
 > [!NOTE]
-> **현재 상태: 기획과 시연 시나리오 단계 (2026-11-14).** 앱 코드는 다듬은 뒤 PR로 공개하고, release APK는 [`apk/`](apk/)에 올립니다. 아래에서 "예정"이라고 적은 것은 아직 동작하지 않습니다.
+> **현재 상태: 기획·하네스와 개발 프로토타입.** 저장소에는 출발지·목적지 기반 경로 분석과 Roadview 확인을 위한 FirstLook 프로토타입이 포함돼 있습니다. 이는 Déjà Vroom의 최종 차량 기능을 구현한 앱이 아니며, Pleos 차량 신호·실차 경로·운전 중 UX는 아직 연결되지 않았습니다. 제안 단계 기능과 동작 확인된 프로토타입 범위를 각 문서에서 구분합니다.
 
 ## 이름
 
@@ -52,7 +52,7 @@ flowchart LR
 ## 실행 방법
 
 > [!IMPORTANT]
-> 앱 소스는 아직 이 저장소에 없습니다(공개 예정). 소스가 올라오면 아래 명령으로 빌드합니다.
+> 아래 앱은 FirstLook 경로 분석 프로토타입입니다. Déjà Vroom의 차량 신호 기반 안내는 아직 구현되지 않았습니다.
 
 ```bash
 git clone https://github.com/JoisFe/deja-vroom.git
@@ -62,7 +62,13 @@ cd deja-vroom
 ./gradlew :app:installDebug         # 실행 중인 에뮬레이터에 설치
 ```
 
-시연은 **Demo 모드**로 실행해요. 경로, 볼 곳, 사진은 가짜 데이터이고 화면에 Demo라고 표시해요. 차량 신호는 Pleos Virtual Console로 넣어요(순서: [시연 시나리오 §시연 순서](docs/scenario.md#virtual-console-시연-순서)).
+현재 route preview는 외부 공개 개발 서비스(Nominatim·OSRM·Kakao Roadview)를 사용하고 네트워크 연결이 필요해요. 실제 차량 위치·Pleos NaviHelper·Vehicle 신호를 사용하지 않으므로 실차 주행 기능으로 간주하지 않습니다. 제품 방향과 Virtual Console 기반 시연 목표는 [시연 시나리오](docs/scenario.md)에 정리했습니다.
+
+### 현재 구현된 경로 미리보기 프로토타입
+
+출발지와 목적지를 직접 입력하면 각각 지오코딩한 뒤 실제 도로 geometry/분기 데이터를 분석해 복잡 구간 후보를 보여줍니다. 후보를 선택하면 Kakao Roadview를 열고, 화면 안에서 이전·다음 후보로 이동할 수 있습니다. 출발지 초기값은 `수원시 영통구`지만 수정할 수 있습니다. 현재 위치 자동 감지는 연결하지 않았습니다. Roadview에는 경로 진행 방향 화살표가 표시되며, 차로 데이터가 없는 경우 특정 차선을 추정하지 않습니다.
+
+상세 실행·API 키 설정·검증 범위는 [프로토타입 구현 가이드](docs/firstlook/implementation-guide.md)와 [구현 상태 보고서](docs/firstlook/kakao-roadview-implementation-status.md)를 참고하세요. Kakao JS 키 및 Mapillary 토큰은 개발자 로컬 `local.properties`에만 둡니다.
 
 ## 테스트 환경과 필요한 설정
 
@@ -121,6 +127,8 @@ flowchart TB
 | [개발 흐름](docs/workflow.md) | Spec Kit 스펙 → Claude Code 하네스 구현 → 에뮬레이터 검증 |
 | [제출물 체크리스트](docs/submission.md) | 공모전 제출물, 블라인드 점검, 라이선스 |
 | [Claude Code 하네스](.claude/README.md) | 이 저장소의 에이전트·스킬·규칙 |
+| [경로 미리보기 구현 가이드](docs/firstlook/implementation-guide.md) | 현재 앱의 실행, 경로 후보 분석, Roadview와 검증 경계 |
+| [FirstLook 프로토타입 스펙](specs/001-firstlook-real-road-briefing/spec.md) | 구현·검증 이력과 현재 프로토타입 범위 |
 
 ## 개발 방식
 
