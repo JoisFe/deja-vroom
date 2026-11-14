@@ -159,9 +159,10 @@ internal fun SegmentCard(number: Int, total: Int, segment: BriefingSegment, comp
             Text(when (number) { 1 -> "◉"; 2 -> "╱"; else -> "↱" }, color = DejaVroomTheme.colors.blueLight, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
-                Text(segment.description, color = DejaVroomTheme.colors.white, fontSize = 13.sp, lineHeight = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                val score = segment.selectionScore?.let { " · 점수 ${(it * 100).toInt()}" }.orEmpty()
-                Text("${selectionSourceLabel(segment.selectionSource)}$score · 거리뷰 보기 ›", color = DejaVroomTheme.colors.muted, fontSize = 12.sp)
+                Text(segment.name, color = DejaVroomTheme.colors.white, fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // Show why this point was picked, not just a number.
+                val reasons = selectionReasons(segment)
+                Text(if (reasons.isEmpty()) "${selectionSourceLabel(segment.selectionSource)} · 거리뷰 보기 ›" else "$reasons · 거리뷰 ›", color = DejaVroomTheme.colors.muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -206,3 +207,9 @@ internal fun RoadviewThumbnail(segment: BriefingSegment, compact: Boolean, modif
         },
     )
 }
+
+/** Top two human-readable reasons; source and provenance tags are left out. */
+internal fun selectionReasons(segment: BriefingSegment): String = segment.selectionEvidence
+    .filterNot { it.startsWith("도로 그래프") || it.startsWith("경로와 거리") || it == "경로 형상만으로 추정" }
+    .take(2)
+    .joinToString(" · ")

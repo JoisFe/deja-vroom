@@ -1,6 +1,8 @@
 package ai.dejavroom.app.data
 
 import ai.dejavroom.app.domain.RouteAnalyzer
+import ai.dejavroom.app.domain.ManeuverObservation
+import ai.dejavroom.app.domain.ManeuverScorer
 import ai.dejavroom.app.domain.RouteMapFeature
 import ai.dejavroom.app.model.GeoCoordinate
 import ai.dejavroom.app.model.RouteGeometryStatus
@@ -15,7 +17,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.util.Locale
-import kotlin.math.abs
 
 private const val OPENSTREETMAP_ATTRIBUTION = "© OpenStreetMap contributors · ODbL 1.0"
 
@@ -45,8 +46,8 @@ class OsmRouteRepository(
             geometryStatus = RouteGeometryStatus.VERIFIED,
             geometry = result.geometry,
         )
-        val candidates = result.intersections.mapIndexedNotNull { index, intersection ->
-            intersection.toFeature("$routeId-junction-$index")
+        val candidates = result.intersections.mapIndexedNotNull { index, observation ->
+            observation.toFeature("$routeId-junction-$index")
         }
         val selected = analyzer.analyze(route, candidates)
         require(selected.isNotEmpty()) { "이 경로에서 복잡한 교차로 후보를 찾지 못했습니다. 다른 목적지를 입력해 주세요." }
@@ -60,20 +61,11 @@ fun interface DestinationGeocoder {
     fun resolve(query: String): GeocodedDestination
 }
 
-data class RouteIntersectionObservation(
-    val coordinate: GeoCoordinate,
-    val branchCount: Int,
-    val maneuverType: String,
-    val roadName: String,
-    val highwayJunction: Boolean,
-    val routeLanes: List<RouteLane> = emptyList(),
-)
-
 data class DrivingRouteResult(
     val distanceMeters: Double,
     val durationSeconds: Double,
     val geometry: List<GeoCoordinate>,
-    val intersections: List<RouteIntersectionObservation>,
+    val intersections: List<ManeuverObservation>,
 )
 
 fun interface DrivingRouteClient {
@@ -109,7 +101,7 @@ private object NominatimDestinationGeocoder : DestinationGeocoder {
     }
 }
 
-private object OsrmDrivingRouteClient : DrivingRouteClient {
+internal object OsrmDrivingRouteClient : DrivingRouteClient {
     override fun route(origin: GeoCoordinate, destination: GeoCoordinate): DrivingRouteResult {
         val coordinates = "${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}"
         val url = URL("https://router.project-osrm.org/route/v1/driving/$coordinates?steps=true&alternatives=false&geometries=geojson&overview=full")
@@ -126,67 +118,76 @@ private object OsrmDrivingRouteClient : DrivingRouteClient {
         return DrivingRouteResult(route.getDouble("distance"), route.getDouble("duration"), geometry, intersections)
     }
 
-    private fun parseIntersections(legs: JSONArray): List<RouteIntersectionObservation> {
-        val results = mutableListOf<RouteIntersectionObservation>()
+    /** Every intersection on the route; [ManeuverScorer] later decides which ones matter. */
+    internal fun parseIntersections(legs: JSONArray): List<ManeuverObservation> {
+        val results = mutableListOf<ManeuverObservation>()
         for (legIndex in 0 until legs.length()) {
             val steps = legs.optJSONObject(legIndex)?.optJSONArray("steps") ?: continue
             for (stepIndex in 0 until steps.length()) {
                 val step = steps.optJSONObject(stepIndex) ?: continue
                 val maneuver = step.optJSONObject("maneuver") ?: JSONObject()
-                val maneuverType = maneuver.optString("type")
-                val rampOrFork = maneuverType in setOf("fork", "merge", "on ramp", "off ramp", "roundabout", "rotary")
                 val intersections = step.optJSONArray("intersections") ?: continue
                 for (intersectionIndex in 0 until intersections.length()) {
                     val intersection = intersections.optJSONObject(intersectionIndex) ?: continue
-                    val bearings = intersection.optJSONArray("bearings") ?: continue
-                    val entry = intersection.optJSONArray("entry") ?: continue
-                    val choices = (0 until minOf(bearings.length(), entry.length())).count { entry.optBoolean(it) }
-                    val routeLanes = intersection.optJSONArray("lanes")
-                    if (choices < 3 && !rampOrFork && (routeLanes?.length() ?: 0) == 0) continue
                     val location = intersection.optJSONArray("location") ?: continue
                     if (location.length() < 2) continue
                     val coordinate = runCatching { GeoCoordinate(location.getDouble(1), location.getDouble(0)) }.getOrNull() ?: continue
-                    results += RouteIntersectionObservation(
+                    val bearings = intersection.optJSONArray("bearings") ?: JSONArray()
+                    val entry = intersection.optJSONArray("entry") ?: JSONArray()
+                    val outIndex = intersection.optInt("out", -1)
+                    results += ManeuverObservation(
                         coordinate = coordinate,
-                        branchCount = choices,
-                        maneuverType = maneuverType,
                         roadName = step.optString("name").ifBlank { "도로 분기점" },
-                        highwayJunction = rampOrFork,
-                        routeLanes = (0 until (routeLanes?.length() ?: 0)).mapNotNull { laneIndex ->
-                            val lane = routeLanes?.optJSONObject(laneIndex) ?: return@mapNotNull null
-                            RouteLane(
-                                indications = lane.optJSONArray("indications")?.let { indications ->
-                                    (0 until indications.length()).map { indications.optString(it) }.filter(String::isNotBlank)
-                                }.orEmpty(),
-                                validForRoute = lane.optBoolean("valid", false),
-                            )
-                        },
+                        // Only the first intersection of a step is where the maneuver happens.
+                        isManeuverPoint = intersectionIndex == 0,
+                        maneuverType = maneuver.optString("type"),
+                        modifier = maneuver.optString("modifier").ifBlank { null },
+                        roadClasses = intersection.optJSONArray("classes")?.let { classes ->
+                            (0 until classes.length()).map { classes.optString(it) }.toSet()
+                        }.orEmpty(),
+                        outBearing = if (outIndex in 0 until bearings.length()) bearings.optInt(outIndex) else null,
+                        allowedBearings = (0 until minOf(bearings.length(), entry.length()))
+                            .filter { entry.optBoolean(it) }
+                            .map { bearings.optInt(it) },
+                        lanes = parseLanes(intersection.optJSONArray("lanes")),
                     )
                 }
             }
         }
         return results.distinctBy { "${(it.coordinate.latitude * 100_000).toInt()}:${(it.coordinate.longitude * 100_000).toInt()}" }
     }
+
+    private fun parseLanes(lanes: JSONArray?): List<RouteLane> = (0 until (lanes?.length() ?: 0)).mapNotNull { index ->
+        val lane = lanes?.optJSONObject(index) ?: return@mapNotNull null
+        RouteLane(
+            indications = lane.optJSONArray("indications")?.let { indications ->
+                (0 until indications.length()).map { indications.optString(it) }.filter(String::isNotBlank)
+            }.orEmpty(),
+            validForRoute = lane.optBoolean("valid", false),
+        )
+    }
 }
 
-private fun RouteIntersectionObservation.toFeature(id: String): RouteMapFeature {
-    val topologyComplexity = ((branchCount - 2) / 3.0).coerceIn(0.0, 1.0)
-    val maneuverSignal = if (maneuverType in setOf("fork", "merge", "on ramp", "off ramp", "roundabout", "rotary")) .9 else 0.0
-    val junctionSignal = if (highwayJunction) .9 else 0.0
-    val type = if (highwayJunction) RouteMapFeature.Type.HIGHWAY_JUNCTION else RouteMapFeature.Type.COMPLEX_INTERSECTION
+/** Pass-through intersections return null and never become candidates. */
+internal fun ManeuverObservation.toFeature(id: String): RouteMapFeature? {
+    val assessment = ManeuverScorer.assess(this) ?: return null
+    val type = if (assessment.highway) RouteMapFeature.Type.HIGHWAY_JUNCTION else RouteMapFeature.Type.COMPLEX_INTERSECTION
     return RouteMapFeature(
         id = id,
         type = type,
         name = roadName,
-        description = "$roadName · 진입 가능한 갈래 ${branchCount}개",
+        description = assessment.evidence.firstOrNull()?.let { "$roadName · $it" } ?: roadName,
         coordinate = coordinate,
-        source = "OSRM route steps / OSM road graph",
+        source = "OSRM · OpenStreetMap",
         confidence = .72,
-        complexitySignal = topologyComplexity,
-        maneuverDensitySignal = maneuverSignal,
-        highwayJunctionSignal = junctionSignal,
-        branchCount = branchCount,
-        routeLanes = routeLanes,
+        complexitySignal = assessment.difficulty,
+        highwayJunctionSignal = if (assessment.highway) 1.0 else 0.0,
+        branchCount = allowedBearings.size,
+        routeLanes = lanes,
+        ambiguitySignal = assessment.ambiguity,
+        errorCostSignal = assessment.errorCost,
+        lanePressureSignal = assessment.lanePressure,
+        reasons = assessment.evidence,
     )
 }
 

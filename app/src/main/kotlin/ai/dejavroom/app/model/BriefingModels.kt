@@ -78,9 +78,17 @@ data class RouteSegmentCandidate(
     val coordinate: GeoCoordinate,
     val approachCoordinate: GeoCoordinate?,
     val headingDegrees: Double?,
+    /** How hard the maneuver itself is (U-turn, sharp or left turn > right turn > straight). */
     val complexity: Double = 0.0,
+    /** Other maneuvers packed within a few hundred meters. */
     val maneuverDensity: Double = 0.0,
     val highwayJunction: Double = 0.0,
+    /** Another allowed branch points almost the same way as the chosen exit. */
+    val ambiguity: Double = 0.0,
+    /** How costly a miss is: highway exits and forks are hard to undo. */
+    val errorCost: Double = 0.0,
+    /** Only a small share of lanes continue on the route. */
+    val lanePressure: Double = 0.0,
     val destinationProximity: Double = 0.0,
     val historicIncidentSignal: Double = 0.0,
     val usableRoadView: Double = 0.0,
@@ -94,12 +102,17 @@ data class RouteSegmentCandidate(
     val routeLanes: List<RouteLane> = emptyList(),
 )
 
+/**
+ * Weights for ranking preview points. Ranking asks "what would a first-time driver most regret
+ * missing?", so a miss's cost and look-alike branches weigh as much as turn difficulty. Data
+ * confidence and road-view availability do not affect rank.
+ */
 data class RouteScoringWeights(
     val complexity: Double = 0.25,
-    val maneuverDensity: Double = 0.20,
-    val highwayJunction: Double = 0.15,
+    val ambiguity: Double = 0.20,
+    val errorCost: Double = 0.25,
+    val lanePressure: Double = 0.10,
+    val maneuverDensity: Double = 0.05,
     val destinationProximity: Double = 0.10,
     val historicIncidentSignal: Double = 0.05,
-    val usableRoadView: Double = 0.10,
-    val dataConfidence: Double = 0.15,
 )
