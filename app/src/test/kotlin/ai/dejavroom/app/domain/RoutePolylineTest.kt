@@ -46,4 +46,31 @@ class RoutePolylineTest {
         assertEquals(0.0, north[0].bearingTo(north[1]), 0.5)
         assertEquals(90.0, north.last().bearingTo(east.first()), 0.5)
     }
+
+    @Test
+    fun `the drive toward a junction runs from the viewpoint through it and turns with the route`() {
+        val drive = route.driveThrough(corner, leadMeters = 150.0, pastMeters = 60.0, stepMeters = 20.0, maxSteps = 30)
+        // 210 m in 20 m hops: 11 hops, 12 frames, counting down to the junction and then past it.
+        assertEquals(12, drive.size)
+        assertEquals(150, drive.first().remainingMeters)
+        assertEquals(-60, drive.last().remainingMeters)
+        assertTrue(drive.zipWithNext().all { (a, b) -> a.remainingMeters > b.remainingMeters })
+        assertEquals(route.viewpointBefore(corner, 150.0).coordinate, drive.first().coordinate)
+        assertEquals(0.0, drive.first().headingDegrees, 1.0) // driving north toward the corner
+        assertEquals(90.0, drive.last().headingDegrees, 1.0) // and east once past it
+    }
+
+    @Test
+    fun `a long approach is thinned so the drive still plays quickly`() {
+        val drive = RoutePolyline(north).driveThrough(900.0, leadMeters = 350.0, pastMeters = 60.0, stepMeters = 20.0, maxSteps = 10)
+        assertEquals(11, drive.size)
+        assertEquals(350, drive.first().remainingMeters)
+    }
+
+    @Test
+    fun `the drive to an arrival point stops at the end of the route`() {
+        val drive = route.driveThrough(route.lengthMeters, leadMeters = 80.0, pastMeters = 0.0, stepMeters = 20.0, maxSteps = 10)
+        assertEquals(0, drive.last().remainingMeters)
+        assertEquals(80, drive.first().remainingMeters)
+    }
 }

@@ -19,6 +19,8 @@
     #attribution { position: fixed; z-index: 2; right: 8px; bottom: 8px; padding: 4px 7px; border-radius: 5px; background: #101827bf; color: white; font-size: 10px; }
     #legend { position: fixed; z-index: 2; left: 8px; bottom: 8px; display: flex; gap: 12px; padding: 7px 10px; border-radius: 7px; background: #101827df; color: white; font-size: 12px; }
     #legend[hidden] { display: none; }
+    #autodrive { position: fixed; z-index: 4; left: 12px; bottom: 12px; min-height: 44px; padding: 10px 16px; border: 1px solid #5f7396; border-radius: 12px; background: #101827e8; color: #f3f6fc; font: 600 14px/1 system-ui, sans-serif; }
+    #autodrive[hidden] { display: none; }
     #segment-context { position: fixed; z-index: 5; top: 12px; right: 12px; width: min(340px, calc(100% - 24px)); padding: 13px 16px; border: 1px solid #79b7ff; border-radius: 14px; background: #07172beF; box-shadow: 0 4px 18px #0008; }
     #segment-context[hidden] { display: none; }
     #context-eyebrow { color: #8dbdff; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
@@ -29,7 +31,7 @@
     .lane-slot.valid { border: 2px solid #50e0a1; background: #087b4b; color: white; box-shadow: 0 0 12px #50e0a188; }
     .lane-data-missing { margin-top: 9px; color: #ffd27a; font-size: 12px; font-weight: 700; }
     /* Thumbnail mode (?thumb=1): a still Kakao Roadview inside a summary card; the card handles taps. */
-    body.thumbnail #status, body.thumbnail #legend, body.thumbnail .firstlook-candidate-label, body.thumbnail #segment-context { display: none !important; }
+    body.thumbnail #status, body.thumbnail #legend, body.thumbnail #autodrive, body.thumbnail .firstlook-candidate-label, body.thumbnail #segment-context { display: none !important; }
     body.thumbnail { position: relative; }
     body.thumbnail #roadview { pointer-events: none; }
     body.thumbnail.failed #roadview { display: none; }
@@ -56,6 +58,7 @@
     <div id="lane-list"></div><div id="lane-data-missing" class="lane-data-missing" hidden></div>
   </section>
   <div id="legend" hidden><span class="legend-keep">● 권장 경로</span><span class="legend-trap">● 다른 갈래</span><span class="legend-caution">! 분기 주의</span></div>
+  <button id="autodrive" type="button" hidden>분기점까지 다시 보기</button>
   <div id="attribution">Kakao Maps</div>
   <script src="roadview.js"></script>
 </body>

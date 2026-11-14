@@ -69,6 +69,18 @@ flowchart LR
 
 시점의 방향은 그 지점의 진행 방향이다. 로드뷰 페이지는 시점에서 파노라마를 열고, 분기점 위치에 "!" 표시를 둔다.
 
+### 자동 재생
+
+시점에서 멈춰 있지 않고, 분기점을 지나 나가는 방향이 보일 때까지 앞으로 간다. 운전하듯 사진이 한 장씩 넘어간다.
+
+| 항목 | 값 |
+|---|---|
+| 구간 | 시점 → 분기점 → 분기점 60 m 뒤. 도착 지점은 도착점에서 끝난다 |
+| 간격 | 약 20 m마다 한 장. 접근 구간이 길면 간격을 넓혀 10번 안에 끝낸다 |
+| 방향 | 각 사진에서 경로의 진행 방향. 분기점을 지나면 나가는 길 쪽으로 돈다 |
+| 안내 띠 | 남은 거리가 "300m 앞 → 150m 앞 → …"으로 줄어든다. 도로 위 화살표로 직접 이동해도 사진 위치에 맞춰 바뀐다 |
+| 조작 | 화면을 만지면 멈춘다. 왼쪽 아래 버튼으로 다시 본다 |
+
 | 실제 경로의 예 | 진입 속도 | 시작 지점 |
 |---|---|---|
 | 경부고속도로 진출로(양재) | 88 km/h | 300 m 전 |
@@ -115,6 +127,7 @@ flowchart LR
 | | `maneuverDensity`, `destinationProximity`, `historicIncident` | 0.05, 0.10, 0.05 |
 | `approach` | `leadSeconds`, `minLeadMeters`, `maxLeadMeters` | 12, 70, 350 |
 | | `highwayMinLeadMeters`, `defaultLeadMeters`, `arrivalLeadMeters` | 300, 150, 80 |
+| | `driveStepMeters`, `drivePastMeters`, `driveMaxSteps` (자동 재생) | 20, 60, 10 |
 | `maneuver` | `lookAlikeAngleDegrees`, `highwaySpeedKmh` | 30, 70 |
 
 | 상수로 둔 것 | 이유 |

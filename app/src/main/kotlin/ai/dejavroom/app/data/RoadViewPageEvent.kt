@@ -21,6 +21,10 @@ sealed interface RoadViewPageEvent {
     data class OverlaySuppressed(val reason: String) : RoadViewPageEvent
     data class Failed(val reason: FailureReason) : RoadViewPageEvent
 
+    /** The page is playing the approach; [remainingMeters] is negative once the point has been passed. */
+    data class DriveProgress(val remainingMeters: Int) : RoadViewPageEvent
+    data object DriveFinished : RoadViewPageEvent
+
     enum class FailureReason { CONFIG, SDK_LOAD, NO_PANO, TIMEOUT, RENDER }
 
     companion object {
@@ -34,6 +38,8 @@ sealed interface RoadViewPageEvent {
             message.startsWith("route-overlay-ready:") -> message.substringAfter(':').toIntOrNull()?.takeIf { it in 1..50 }?.let(::RouteOverlayReady)
             message.startsWith("junction-overlay-ready:") -> message.substringAfter(':').toIntOrNull()?.takeIf { it in 1..7 }?.let(::JunctionOverlayReady)
             message.startsWith("overlay-suppressed:") -> message.substringAfter(':').takeIf { it.matches(Regex("[a-z0-9-]{1,80}")) }?.let(::OverlaySuppressed)
+            message.startsWith("drive-progress:") -> message.substringAfter(':').toIntOrNull()?.takeIf { it in -500..1000 }?.let(::DriveProgress)
+            message == "drive-finished" -> DriveFinished
             message == "ready" -> Ready
             message == "config-received" -> ConfigReceived
             message == "sdk-loaded" -> SdkLoaded

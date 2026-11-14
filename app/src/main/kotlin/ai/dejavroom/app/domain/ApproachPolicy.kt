@@ -27,6 +27,12 @@ data class ApproachPolicy(
     val defaultLeadMeters: Double = 150.0,
     val arrivalLeadMeters: Double = 80.0,
     val previousManeuverMarginMeters: Double = 15.0,
+    /** The preview can play the approach as a drive: one frame about every [driveStepMeters]... */
+    val driveStepMeters: Double = 20.0,
+    /** ...continuing this far past the point, so the driver sees which way the route leaves it... */
+    val drivePastMeters: Double = 60.0,
+    /** ...in at most this many hops, however long the approach is. */
+    val driveMaxSteps: Int = 10,
 ) {
     init {
         require(leadTime.isPositive()) { "approach.leadSeconds는 0보다 커야 한다" }
@@ -34,6 +40,9 @@ data class ApproachPolicy(
         require(highwayMinLeadMeters in minLeadMeters..maxLeadMeters) { "approach.highwayMinLeadMeters는 min~max 사이여야 한다" }
         require(defaultLeadMeters in minLeadMeters..maxLeadMeters) { "approach.defaultLeadMeters는 min~max 사이여야 한다" }
         require(arrivalLeadMeters >= 0.0 && previousManeuverMarginMeters >= 0.0) { "approach의 거리 값은 0 이상이어야 한다" }
+        require(driveStepMeters >= 5.0) { "approach.driveStepMeters는 5 이상이어야 한다" }
+        require(drivePastMeters in 0.0..300.0) { "approach.drivePastMeters는 0~300이어야 한다" }
+        require(driveMaxSteps in 1..30) { "approach.driveMaxSteps는 1~30이어야 한다" }
     }
 
     /** Meters before the point at [routeOffsetMeters] where its preview should stand. */
@@ -51,4 +60,7 @@ data class ApproachPolicy(
         }
         return min(lead, routeOffsetMeters).coerceAtLeast(0.0)
     }
+
+    /** How far past the point the drive continues: an arrival is the end of the road, so not at all. */
+    fun drivePastMeters(conditions: ApproachConditions): Double = if (conditions.arrival) 0.0 else drivePastMeters
 }
