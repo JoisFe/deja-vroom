@@ -67,6 +67,8 @@ sequenceDiagram
 | 에뮬레이터 화면 녹화 (가산점 제출용) | 준비 중. 공개 시 [Discussions](../../../discussions)의 시연 영상 글과 이 표에 링크 |
 | 숏폼 (30초~1분, 세로) | 선택 |
 
+녹화·설명 음성·자막 생성 스크립트: [scripts/demo-video](../scripts/demo-video/README.md)
+
 ## 시연 전 확인 사항
 
 | 항목 | 불가 시 대안 |
