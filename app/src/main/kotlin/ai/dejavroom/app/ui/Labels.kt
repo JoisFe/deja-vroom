@@ -107,7 +107,7 @@ internal fun routeMatchLabel(status: RouteMatchStatus): String = when (status) {
 internal fun roadViewStatusMessage(result: RoadViewLookupResult?): String = when (result) {
     null -> "도로 사진 정보를 확인 중입니다."
     RoadViewLookupResult.NoCoverage -> "이 구간은 사진 제공 범위 밖입니다. 실제 경로 안내를 확인하세요."
-    RoadViewLookupResult.NotAuthorized -> "도로 사진 제공자가 연결되지 않았습니다. Demo 그림만 표시합니다."
+    is RoadViewLookupResult.NotConfigured -> result.message
     is RoadViewLookupResult.Unavailable -> when (result.reason) {
         ai.dejavroom.app.data.RoadViewUnavailableReason.OFFLINE -> "네트워크 연결을 확인할 수 없습니다."
         ai.dejavroom.app.data.RoadViewUnavailableReason.TIMEOUT -> "사진 조회 시간이 초과되었습니다."

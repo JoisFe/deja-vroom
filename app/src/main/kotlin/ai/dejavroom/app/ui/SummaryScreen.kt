@@ -1,6 +1,5 @@
 package ai.dejavroom.app.ui
 
-import ai.dejavroom.app.data.RoadViewEndpoint
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import androidx.compose.runtime.mutableStateOf
@@ -97,7 +96,7 @@ internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, comp
             Spacer(Modifier.height(8.dp))
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 visibleSegments.forEachIndexed { index, segment ->
-                    SegmentCard(index + 1, segments.size, segment, compact = true, modifier = Modifier.fillMaxWidth().height(260.dp), onClick = { vm.openSegmentRoadView(index) })
+                    SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = true, modifier = Modifier.fillMaxWidth().height(260.dp), onClick = { vm.openSegmentRoadView(index) })
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -122,7 +121,7 @@ internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, comp
         Spacer(Modifier.height(21.dp))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(13.dp)) {
             visibleSegments.forEachIndexed { index, segment ->
-                SegmentCard(index + 1, segments.size, segment, compact = false, modifier = Modifier.weight(1f), onClick = { vm.openSegmentRoadView(index) })
+                SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = false, modifier = Modifier.weight(1f), onClick = { vm.openSegmentRoadView(index) })
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -148,7 +147,7 @@ internal fun CandidateCountSelector(selectedCount: Int, onSelect: (Int) -> Unit)
 }
 
 @Composable
-internal fun SegmentCard(number: Int, total: Int, segment: BriefingSegment, compact: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun SegmentCard(number: Int, total: Int, segment: BriefingSegment, lookup: RoadViewLookupResult?, compact: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val tint = when (number) { 2 -> DejaVroomTheme.colors.violet; 3 -> DejaVroomTheme.colors.teal; else -> DejaVroomTheme.colors.blue }
     Column(modifier.clip(RoundedCornerShape(22.dp)).background(DejaVroomTheme.colors.panel).border(1.dp, DejaVroomTheme.colors.stroke.copy(alpha = .8f), RoundedCornerShape(22.dp)).clickable(onClick = onClick)) {
         Row(Modifier.fillMaxWidth().height(50.dp).padding(horizontal = 13.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -157,7 +156,7 @@ internal fun SegmentCard(number: Int, total: Int, segment: BriefingSegment, comp
             Text(segment.type.label, Modifier.background(tint.copy(alpha = .10f), CircleShape).padding(horizontal = 11.dp, vertical = 7.dp), color = tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Box(Modifier.fillMaxWidth().height(if (compact) 140.dp else 300.dp)) {
-            RoadviewThumbnail(segment, compact, Modifier.fillMaxSize())
+            RoadViewThumbnail(lookup, compact, Modifier.fillMaxSize())
             Box(Modifier.fillMaxSize().clickable(onClick = onClick))
         }
         Row(Modifier.fillMaxWidth().height(68.dp).background(DejaVroomTheme.colors.panelRaised).padding(horizontal = 13.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -170,62 +169,6 @@ internal fun SegmentCard(number: Int, total: Int, segment: BriefingSegment, comp
                 Text(if (reasons.isEmpty()) "${selectionSourceLabel(segment.selectionSource)} · 거리뷰 보기 ›" else "$reasons · 거리뷰 ›", color = DejaVroomTheme.colors.muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
-    }
-}
-
-@Composable
-internal fun RoadviewThumbnail(segment: BriefingSegment, compact: Boolean, modifier: Modifier = Modifier) {
-    val endpoint = remember { RoadViewEndpoint.parse(BuildConfig.ROADVIEW_BASE_URL) }
-    val coordinate = segment.coordinate
-    val unavailable = when {
-        endpoint == null -> RoadViewEndpoint.SETUP_MESSAGE
-        coordinate == null -> "실제 도로 좌표 없음"
-        else -> null
-    }
-    if (unavailable != null || endpoint == null || coordinate == null) {
-        ThumbnailMessage(unavailable.orEmpty(), modifier)
-        return
-    }
-    val url = endpoint.thumbnailUrl(coordinate, segment.headingDegrees)
-    var loadFailed by remember(url) { mutableStateOf(false) }
-    if (loadFailed) {
-        ThumbnailMessage("로드뷰 페이지에 연결할 수 없습니다", modifier)
-        return
-    }
-    AndroidView(
-        modifier = modifier,
-        factory = { context ->
-            WebView(context).apply {
-                tag = url
-                setBackgroundColor(android.graphics.Color.rgb(29, 41, 57))
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.allowFileAccess = false
-                settings.allowContentAccess = false
-                webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                        !endpoint.isRoadViewPage(request.url.toString())
-
-                    override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                        if (request.isForMainFrame) loadFailed = true
-                    }
-                }
-                loadUrl(url)
-            }
-        },
-        update = { view -> if (view.tag != url) { view.tag = url; view.loadUrl(url) } },
-        onRelease = { view ->
-            view.stopLoading()
-            view.loadUrl("about:blank")
-            view.destroy()
-        },
-    )
-}
-
-@Composable
-private fun ThumbnailMessage(message: String, modifier: Modifier) {
-    Box(modifier.background(DejaVroomTheme.colors.panelRaised).padding(12.dp), contentAlignment = Alignment.Center) {
-        Text(message, color = DejaVroomTheme.colors.muted, fontSize = 11.sp, textAlign = TextAlign.Center)
     }
 }
 

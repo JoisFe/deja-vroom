@@ -41,12 +41,12 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
-import ai.dejavroom.app.BuildConfig
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
 import ai.dejavroom.app.data.JunctionRecordMatch
 import ai.dejavroom.app.data.JunctionRecordMatcher
 import ai.dejavroom.app.data.ROADVIEW_BRIDGE_NAME
-import ai.dejavroom.app.data.RoadViewEndpoint
+import ai.dejavroom.app.data.RoadViewContent
+import ai.dejavroom.app.data.RoadViewLookupResult
 import ai.dejavroom.app.data.RoadViewPageEvent
 import ai.dejavroom.app.model.GeoCoordinate
 import ai.dejavroom.app.model.JunctionDataSource
@@ -64,6 +64,8 @@ private const val JUNCTION_FIXTURE = "junctions/hannam-daero-demo-record.json"
 
 @Composable
 internal fun RoadViewScreen(
+    /** Result of the configured provider for the selected point; the screen renders it by content type. */
+    lookup: RoadViewLookupResult?,
     route: RouteSnapshot?,
     candidates: List<BriefingSegment>,
     selectedIndex: Int,
@@ -71,11 +73,17 @@ internal fun RoadViewScreen(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
 ) {
-    val endpoint = remember { RoadViewEndpoint.parse(BuildConfig.ROADVIEW_BASE_URL) }
+    val view = (lookup as? RoadViewLookupResult.Available)?.views?.firstOrNull()
+    val endpoint = (view?.content as? RoadViewContent.InteractivePage)?.endpoint
+    val photo = view?.content as? RoadViewContent.StillImage
     val state = remember { mutableStateOf(PREPARING_MESSAGE) }
     val failureMessage = remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(selectedIndex) {
-        failureMessage.value = if (endpoint == null) RoadViewEndpoint.SETUP_MESSAGE else null
+    LaunchedEffect(selectedIndex, lookup) {
+        failureMessage.value = when {
+            endpoint != null || photo != null -> null
+            view?.content == RoadViewContent.Illustration -> "데모 제공자는 도로 사진을 보여 주지 않습니다 · config/roadview.yml에서 kakao 또는 mapillary를 선택하세요."
+            else -> roadViewStatusMessage(lookup)
+        }
         state.value = "후보 ${selectedIndex + 1}/${candidates.size} · Roadview를 불러오고 있습니다."
     }
     Column(Modifier.fillMaxSize().padding(8.dp)) {
@@ -95,7 +103,9 @@ internal fun RoadViewScreen(
         Box(
             Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF17202D)),
         ) {
-            if (failureMessage.value == null && endpoint != null) {
+            if (failureMessage.value == null && photo != null && view != null) {
+                RoadViewPhoto(view, photo, Modifier.fillMaxSize())
+            } else if (failureMessage.value == null && endpoint != null) {
             key(route?.routeId, selectedIndex) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),

@@ -4,6 +4,7 @@ import ai.dejavroom.app.BuildConfig
 import ai.dejavroom.app.R
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
 import ai.dejavroom.app.core.designsystem.dejaVroomColors
+import ai.dejavroom.app.data.RoadViewContent
 import ai.dejavroom.app.data.RoadViewLookupResult
 import ai.dejavroom.app.feature.DejaVroomScreen
 import ai.dejavroom.app.feature.DejaVroomUiState
@@ -172,10 +173,11 @@ internal fun BriefingHero(
     Box(modifier.clip(RoundedCornerShape(if (compact) 16.dp else 20.dp))) {
         val views = (roadViewLookup as? RoadViewLookupResult.Available)?.views.orEmpty()
         val currentView = views.getOrNull(viewIndex)
-        when {
-            currentView?.contentOrigin == RoadViewContentOrigin.DEMO_ILLUSTRATION -> RoadScene(Modifier.fillMaxSize(), variant = index, large = true)
-            currentView != null -> RoadViewUnavailableCanvas("사진 데이터 수신 · 화면 표시 모듈 미연결", Modifier.fillMaxSize())
-            else -> RoadViewUnavailableCanvas(roadViewStatusMessage(roadViewLookup), Modifier.fillMaxSize())
+        when (val content = currentView?.content) {
+            RoadViewContent.Illustration -> RoadScene(Modifier.fillMaxSize(), variant = index, large = true)
+            is RoadViewContent.StillImage -> RoadViewPhoto(currentView, content, Modifier.fillMaxSize())
+            is RoadViewContent.InteractivePage -> RoadViewThumbnail(roadViewLookup, compact = compact, modifier = Modifier.fillMaxSize())
+            null -> RoadViewUnavailableCanvas(roadViewStatusMessage(roadViewLookup), Modifier.fillMaxSize())
         }
         if (views.size > 1) {
             Row(Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -205,7 +207,7 @@ internal fun BriefingHero(
                     )
                 }
                 if (views.size > 1) Text("시점 ${viewIndex + 1} / ${views.size}", color = Color(0xFFE6ECF8), fontSize = 10.sp)
-                if (roadViewLookup is RoadViewLookupResult.Unavailable || roadViewLookup == RoadViewLookupResult.NotAuthorized) {
+                if (roadViewLookup is RoadViewLookupResult.Unavailable || roadViewLookup is RoadViewLookupResult.NotConfigured) {
                     TextButton(onClick = onRetry) { Text("다시 확인", color = Color.White, fontSize = 11.sp) }
                 }
             }

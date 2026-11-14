@@ -73,7 +73,7 @@ cd deja-vroom
 ./gradlew :app:installDebug         # 실행 중인 에뮬레이터에 설치
 ```
 
-현재 앱은 출발지와 목적지를 직접 입력해 Nominatim/OSRM 경로를 미리 보고, 선택한 후보의 Kakao Roadview를 여는 프로토타입이다. 출발지 초기값은 수원시 영통구이며 직접 바꿀 수 있다. 실차 위치와 Pleos 내비 경로를 쓰지 않는다. 후보 로드뷰는 GitHub Pages에 올린 Kakao 로드뷰 페이지를 연다. 빌드 전에 `local.properties`에 `roadviewBaseUrl`을 채운다. 설정 방법은 [로드뷰 설정](docs/roadview-setup.md)에 있다. 최종 Déjà Vroom 시연 목표는 [시연 시나리오](docs/scenario.md)에 있다.
+현재 앱은 출발지와 목적지를 직접 입력해 Nominatim/OSRM 경로를 미리 보고, 선택한 후보의 Kakao Roadview를 여는 프로토타입이다. 출발지 초기값은 수원시 영통구이며 직접 바꿀 수 있다. 실차 위치와 Pleos 내비 경로를 쓰지 않는다. 후보 로드뷰는 `config/roadview.yml`에서 고른 제공자(기본 Kakao 로드뷰, 또는 Mapillary)로 보여 준다. 빌드 전에 선택한 제공자의 설정(Kakao 페이지 주소 또는 Mapillary 토큰)을 채운다. 설정 방법은 [로드뷰 설정](docs/roadview-setup.md)에 있다. 최종 Déjà Vroom 시연 목표는 [시연 시나리오](docs/scenario.md)에 있다.
 
 ## 테스트 환경과 필요한 설정
 
@@ -84,7 +84,7 @@ cd deja-vroom
 | 앱 | Kotlin, Jetpack Compose, minSdk 28 |
 | 빌드 | Gradle Wrapper (`./gradlew`), Gradle 실행 JDK 17 또는 21 |
 | Pleos SDK | Vehicle, NaviHelper 3.0.5, TextToSpeech. Pleos Playground 프로젝트 승인 필요 |
-| 로드뷰 | `local.properties`의 `roadviewBaseUrl` (비어 있으면 앱이 설정 안내를 보여 준다). [로드뷰 설정](docs/roadview-setup.md) |
+| 로드뷰 | 제공자는 `config/roadview.yml`. Kakao는 페이지 주소, Mapillary는 `local.properties`의 `mapillaryClientToken` (비어 있으면 앱이 설정 안내를 보여 준다). [로드뷰 설정](docs/roadview-setup.md) |
 | 비밀 값 | 저장소에 두지 않는다. Kakao JavaScript 키는 저장소 Secret `KAKAO_JS_KEY`, 그 밖의 값은 `secrets.properties`(git 제외) |
 
 ## APK
@@ -122,6 +122,39 @@ flowchart TB
 
 계층, SDK 매핑, 한계는 [구성도 문서](docs/architecture.md)에 있다.
 
+## 로드뷰 제공자 선택
+
+후보 지점의 도로 사진은 제공자를 바꿔 끼울 수 있다. 화면과 ViewModel은 `RoadViewProvider` 인터페이스와 결과 타입만 알고, 어떤 구현체를 쓸지는 `config/roadview.yml`이 정한다.
+
+```mermaid
+flowchart LR
+    Y["config/roadview.yml<br/>provider: kakao"] --> F["RoadViewProviderFactory"]
+    L["local.properties<br/>(덮어쓰기 · 토큰)"] --> F
+    F --> I{{"RoadViewProvider<br/>lookup(target)"}}
+    I --> K["KakaoRoadViewProvider<br/>GitHub Pages 페이지 · 파노라마"]
+    I --> M["MapillaryRoadViewProvider<br/>Graph API · 사진 1장"]
+    I --> D["DemoRoadViewProvider<br/>자체 그림"]
+    I --> U["UnconfiguredRoadViewProvider<br/>설정 안내"]
+    K & M & D & U --> R["RoadViewLookupResult<br/>InteractivePage · StillImage · Illustration"]
+    R --> UI["화면 (내용 타입으로만 분기)"]
+```
+
+| 구현체 | `provider` | 결과 | 필요한 설정 |
+|---|---|---|---|
+| `KakaoRoadViewProvider` | `kakao` | `InteractivePage`: Kakao 로드뷰 페이지를 WebView로 연다 | 페이지 주소(`kakao.baseUrl` 또는 `roadviewBaseUrl`), Pages 배포 |
+| `MapillaryRoadViewProvider` | `mapillary` | `StillImage`: 경로 방향에 가장 가까운 사진 한 장 | `mapillaryClientToken` |
+| `DemoRoadViewProvider` | `demo` | `Illustration`: 네트워크 없이 자체 그림 | 없음 |
+| `UnconfiguredRoadViewProvider` | (자동) | `NotConfigured`: 무엇을 채워야 하는지 안내 | 선택한 제공자의 설정이 비었을 때 팩토리가 대신 쓴다 |
+
+바꾸는 방법:
+
+```yaml
+# config/roadview.yml
+provider: mapillary   # kakao | mapillary | demo
+```
+
+같은 항목은 Gradle 속성(`-P…`) > `local.properties` > `config/roadview.yml` 순서로 정해진다. 키와 토큰은 `local.properties`에만 둔다. 잘못된 `provider` 값은 빌드 단계에서 막힌다. 제공자를 하나 더 붙일 때는 `RoadViewProvider`를 구현하고 `RoadViewProviderId`와 `RoadViewProviderFactory`에 한 줄씩 더하면 된다. 화면 코드는 바꾸지 않는다. 설정 절차는 [로드뷰 설정](docs/roadview-setup.md)에 있다.
+
 ## 문서
 
 | 문서 | 내용 |
@@ -131,7 +164,7 @@ flowchart TB
 | [구성도](docs/architecture.md) | 앱 계층, Pleos SDK·API 매핑, 알려진 한계 |
 | [코드 컨벤션](docs/conventions.md) | Kotlin·Compose 규칙, 브랜치·커밋·PR |
 | [개발 흐름](docs/workflow.md) | Spec Kit 스펙 → Claude Code 하네스 구현 → 에뮬레이터 검증 |
-| [로드뷰 설정](docs/roadview-setup.md) | Kakao 키·도메인, GitHub Pages 배포, `local.properties`, 문제 해결 |
+| [로드뷰 설정](docs/roadview-setup.md) | 제공자 선택(Kakao·Mapillary·데모), Kakao 키·도메인·Pages 배포, Mapillary 토큰, 문제 해결 |
 | [제출물 체크리스트](docs/submission.md) | 공모전 제출물, 블라인드 점검, 라이선스 |
 | [Claude Code 하네스](.claude/README.md) | 이 저장소의 에이전트·스킬·규칙 |
 

@@ -1,18 +1,69 @@
 package ai.dejavroom.app.data
 
-import ai.dejavroom.app.model.BriefingSegment
 import ai.dejavroom.app.model.GeoCoordinate
 import ai.dejavroom.app.model.RoadViewContentOrigin
 import ai.dejavroom.app.model.RouteMatchStatus
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+
+/**
+ * Street-level imagery for one briefing point. Every provider (Kakao, Mapillary, demo) implements this one
+ * contract; the UI only sees [RoadViewLookupResult] and [RoadViewContent], never a concrete provider.
+ * Which implementation runs is chosen by config/roadview.yml through [RoadViewProviderFactory].
+ * Provider terms must permit the intended in-vehicle display.
+ */
+interface RoadViewProvider {
+    val id: RoadViewProviderId
+
+    /** Short credit line shown next to the imagery. */
+    val attribution: String
+
+    suspend fun lookup(target: RoadViewTarget): RoadViewLookupResult
+}
+
+/** Implementations selectable in config/roadview.yml (`provider:`). */
+enum class RoadViewProviderId(val key: String) {
+    KAKAO("kakao"),
+    MAPILLARY("mapillary"),
+    DEMO("demo");
+
+    companion object {
+        fun fromKey(key: String?): RoadViewProviderId? =
+            entries.firstOrNull { it.key == key?.trim()?.lowercase() }
+    }
+}
+
+/** Where to look and which way the driver will be facing. */
+data class RoadViewTarget(
+    val coordinate: GeoCoordinate,
+    val headingDegrees: Double?,
+    val radiusMeters: Int = DEFAULT_RADIUS_METERS,
+) {
+    init { require(radiusMeters in 1..500) }
+
+    companion object { const val DEFAULT_RADIUS_METERS = 80 }
+}
+
+/** How a found view is rendered. The UI switches on this type, not on the provider. */
+sealed interface RoadViewContent {
+    /** A provider page rendered in a WebView (Kakao Roadview). [thumbnailUrl] is a still, non-interactive variant. */
+    data class InteractivePage(val endpoint: RoadViewEndpoint, val thumbnailUrl: String) : RoadViewContent
+
+    /** A single photo (Mapillary). */
+    data class StillImage(
+        val imageUrl: String,
+        val distanceMeters: Int,
+        val headingDifferenceDegrees: Int,
+    ) : RoadViewContent
+
+    /** Locally drawn demo artwork; not a real photo. */
+    data object Illustration : RoadViewContent
+}
 
 data class RoadViewResult(
-    val imageUrl: String?,
-    val capturedAt: String?,
+    val content: RoadViewContent,
     val providerName: String,
-    val headingDegrees: Double?,
     val attribution: String?,
+    val capturedAt: String? = null,
+    val headingDegrees: Double? = null,
     val coordinate: GeoCoordinate? = null,
     val viewId: String? = null,
     val contentOrigin: RoadViewContentOrigin = RoadViewContentOrigin.DEMO_ILLUSTRATION,
@@ -25,93 +76,37 @@ data class RoadViewResult(
 sealed interface RoadViewLookupResult {
     data class Available(val views: List<RoadViewResult>) : RoadViewLookupResult
     data object NoCoverage : RoadViewLookupResult
-    data object NotAuthorized : RoadViewLookupResult
+
+    /** The selected provider is missing a setting (URL, token). [message] tells the team what to set. */
+    data class NotConfigured(val message: String) : RoadViewLookupResult
     data class Unavailable(val reason: RoadViewUnavailableReason) : RoadViewLookupResult
 }
 
 enum class RoadViewUnavailableReason { OFFLINE, TIMEOUT, QUOTA, PROVIDER_ERROR }
 
-/** Provider adapter contract. Provider terms must permit the intended in-vehicle display. */
-interface RoadViewProvider {
-    suspend fun findNearestViews(segment: BriefingSegment, radiusMeters: Int): RoadViewLookupResult
-}
-
-/** The demo renderer uses locally drawn artwork and deliberately does not represent a real panorama. */
+/** Locally drawn artwork for demos without network; deliberately not a real panorama. */
 class DemoRoadViewProvider : RoadViewProvider {
-    override suspend fun findNearestViews(segment: BriefingSegment, radiusMeters: Int): RoadViewLookupResult =
+    override val id = RoadViewProviderId.DEMO
+    override val attribution = "자체 제작 데모 일러스트 · 실제 도로 사진 아님"
+
+    override suspend fun lookup(target: RoadViewTarget): RoadViewLookupResult =
         RoadViewLookupResult.Available(listOf(RoadViewResult(
-            imageUrl = null,
-            capturedAt = null,
+            content = RoadViewContent.Illustration,
             providerName = "Déjà Vroom demo artwork",
-            headingDegrees = null,
-            attribution = "자체 제작 데모 일러스트 · 실제 도로 사진 아님",
-            viewId = "${segment.id}-demo",
+            attribution = attribution,
+            coordinate = target.coordinate,
             contentOrigin = RoadViewContentOrigin.DEMO_ILLUSTRATION,
             routeMatchStatus = RouteMatchStatus.NOT_APPLICABLE,
         )))
 }
 
-/** Live providers stay disabled until route data and in-vehicle display rights are confirmed. */
-class UnconfiguredRoadViewProvider : RoadViewProvider {
-    override suspend fun findNearestViews(segment: BriefingSegment, radiusMeters: Int): RoadViewLookupResult =
-        RoadViewLookupResult.NotAuthorized
-}
+/** Stands in for a selected provider whose settings are missing, so the app explains instead of failing. */
+class UnconfiguredRoadViewProvider(
+    override val id: RoadViewProviderId,
+    private val message: String,
+) : RoadViewProvider {
+    override val attribution = ""
 
-interface BriefingSpeechOutput {
-    val outputAvailable: Boolean get() = false
-    suspend fun speak(text: String)
-    fun stop()
-}
-
-class NoopBriefingSpeechOutput : BriefingSpeechOutput {
-    override suspend fun speak(text: String) = Unit
-    override fun stop() = Unit
-}
-
-/** Test/demo fake. It records requests but makes no audible output. */
-class RecordingBriefingSpeechOutput : BriefingSpeechOutput {
-    val spoken = mutableListOf<String>()
-    var stopCount: Int = 0
-        private set
-
-    override suspend fun speak(text: String) { spoken += text }
-    override fun stop() { stopCount++ }
-}
-
-class BriefingSpeechController(private val output: BriefingSpeechOutput) {
-    val outputAvailable: Boolean get() = output.outputAvailable
-
-    suspend fun announce(text: String, enabled: Boolean, restricted: Boolean, briefingVisible: Boolean) {
-        if (enabled && !restricted && briefingVisible) output.speak(text)
-    }
-
-    fun stop() = output.stop()
-}
-
-/** Vehicle restrictions are supplied by an approved platform adapter in a Pleos build. */
-interface DrivingRestrictionSource {
-    val isRestricted: StateFlow<Boolean>
-}
-
-/** Mutable source for tests and the in-app safety demo; it is not a vehicle signal. */
-class FakeDrivingRestrictionSource(initiallyRestricted: Boolean = false) : DrivingRestrictionSource {
-    private val mutableIsRestricted = MutableStateFlow(initiallyRestricted)
-    override val isRestricted: StateFlow<Boolean> = mutableIsRestricted
-
-    fun setRestricted(restricted: Boolean) { mutableIsRestricted.value = restricted }
-}
-
-interface PleosNavigationGateway {
-    suspend fun requestDestination(name: String): NavigationRequestResult
-    suspend fun showNavigation(): NavigationRequestResult
-}
-
-sealed interface NavigationRequestResult {
-    data object Submitted : NavigationRequestResult
-    data class Unavailable(val reason: String) : NavigationRequestResult
-}
-
-class MockPleosNavigationGateway : PleosNavigationGateway {
-    override suspend fun requestDestination(name: String) = NavigationRequestResult.Unavailable("NaviHelper 미연동")
-    override suspend fun showNavigation() = NavigationRequestResult.Unavailable("Pleos 내비게이션 화면 전환 미연동")
+    override suspend fun lookup(target: RoadViewTarget): RoadViewLookupResult =
+        RoadViewLookupResult.NotConfigured(message)
 }

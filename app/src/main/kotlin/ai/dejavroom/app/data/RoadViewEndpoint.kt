@@ -6,7 +6,8 @@ import java.util.Locale
 
 /**
  * Where the Roadview page (web/roadview) is hosted: GitHub Pages in normal use, local serve.py in development.
- * Built from BuildConfig.ROADVIEW_BASE_URL; [parse] returns null when it is unset or invalid, and the UI then
+ * Built from the `kakao.baseUrl` road view setting (config/roadview.yml or local.properties `roadviewBaseUrl`);
+ * [parse] returns null when it is unset or invalid, and [RoadViewProviderFactory] then
  * shows a setup message instead of loading anything. See docs/roadview-setup.md.
  */
 class RoadViewEndpoint private constructor(
@@ -32,8 +33,6 @@ class RoadViewEndpoint private constructor(
     }
 
     companion object {
-        const val SETUP_MESSAGE = "로드뷰 주소가 설정되지 않았습니다 · docs/roadview-setup.md 참고"
-
         fun parse(baseUrl: String): RoadViewEndpoint? {
             val trimmed = baseUrl.trim()
             if (trimmed.isEmpty()) return null

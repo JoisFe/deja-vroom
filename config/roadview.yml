@@ -1,0 +1,16 @@
+# 로드뷰 제공자 설정. 앱 빌드에 그대로 포함된다(app assets의 roadview.yml).
+# 설정 방법과 우선순위: docs/roadview-setup.md, README "로드뷰 제공자 선택"
+#
+# provider: kakao | mapillary | demo
+#   kakao     Kakao 로드뷰. web/roadview 페이지(GitHub Pages)를 WebView로 연다
+#   mapillary Mapillary 거리 사진(CC BY-SA). 앱이 Graph API를 직접 호출한다
+#   demo      네트워크 없이 자체 그림만 보여 준다
+provider: kakao
+
+kakao:
+  # 로드뷰 페이지 주소. 예: https://<owner>.github.io/deja-vroom/roadview/
+  # 비워 두면 앱이 설정 안내 문구를 보여 준다. local.properties의 roadviewBaseUrl이 있으면 그 값이 우선한다.
+  baseUrl: ""
+
+mapillary:
+  # 토큰은 이 파일에 쓰지 않는다. local.properties의 mapillaryClientToken을 사용한다.
