@@ -63,7 +63,13 @@ class RouteGeometryMatcher(
             return RouteGeometryMatch.Rejected("multiple route projections are ambiguous")
         }
 
-        val headingDifference = angularDifference(candidate.headingDegrees, nearest.headingDegrees)
+        // At a route vertex the segment leading in and the one leading out are equally near, and a turn
+        // makes their headings differ by the turn angle. The candidate may match either of them; checking
+        // only whichever happened to sort first used to reject real turns sharper than the tolerance.
+        val headingDifference = projections
+            .takeWhile { it.distanceMeters - nearest.distanceMeters <= VERTEX_DISTANCE_TOLERANCE_METERS }
+            .filter { abs(it.routeOffsetMeters - nearest.routeOffsetMeters) <= VERTEX_OFFSET_TOLERANCE_METERS }
+            .minOf { angularDifference(candidate.headingDegrees, it.headingDegrees) }
         if (nearest.distanceMeters > maxLateralDistanceMeters) return RouteGeometryMatch.Rejected("candidate is too far from route")
         if (abs(candidate.routeOffsetMeters - nearest.routeOffsetMeters) > maxOffsetDifferenceMeters) {
             return RouteGeometryMatch.Rejected("route offset does not match geometry")
@@ -130,7 +136,11 @@ class RouteGeometryMatcher(
         return minOf(delta, 360.0 - delta)
     }
 
-    private companion object { const val EARTH_RADIUS_METERS = 6_371_000.0 }
+    private companion object {
+        const val EARTH_RADIUS_METERS = 6_371_000.0
+        const val VERTEX_DISTANCE_TOLERANCE_METERS = 2.0
+        const val VERTEX_OFFSET_TOLERANCE_METERS = 30.0
+    }
 }
 
 sealed interface RouteGeometryMatch {

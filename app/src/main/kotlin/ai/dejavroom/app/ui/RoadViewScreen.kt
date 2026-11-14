@@ -333,10 +333,16 @@ private fun buildRoutePreviewConfig(route: RouteSnapshot, candidates: List<Brief
     val candidatesJson = JSONArray().apply {
         eligible.forEach { segment ->
             val coordinate = requireNotNull(segment.coordinate)
+            val approach = segment.approach
             put(JSONObject()
+                // The junction itself: where the page puts its marker.
                 .put("latitude", coordinate.latitude)
                 .put("longitude", coordinate.longitude)
-                .put("headingDegrees", segment.headingDegrees)
+                // Where the panorama starts and which way it faces: before the junction, along the route.
+                .put("viewLatitude", approach?.coordinate?.latitude ?: coordinate.latitude)
+                .put("viewLongitude", approach?.coordinate?.longitude ?: coordinate.longitude)
+                .put("leadMeters", approach?.leadMeters ?: 0)
+                .put("headingDegrees", approach?.headingDegrees ?: segment.headingDegrees)
                 .put("name", segment.name)
                 .put("score", segment.selectionScore ?: 0.0)
                 .put("displayIndex", selectedIndex)
@@ -352,7 +358,7 @@ private fun buildRoutePreviewConfig(route: RouteSnapshot, candidates: List<Brief
         .put("type", "initialize")
         .put("latitude", requireNotNull(first.coordinate).latitude)
         .put("longitude", requireNotNull(first.coordinate).longitude)
-        .put("heading", first.headingDegrees)
+        .put("heading", first.approach?.headingDegrees ?: first.headingDegrees)
         .put("routeId", route.routeId)
         .put("routeSource", "OSRM/OSM")
         .put("candidates", candidatesJson)

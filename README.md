@@ -85,6 +85,7 @@ cd deja-vroom
 | 빌드 | Gradle Wrapper (`./gradlew`), Gradle 실행 JDK 17 또는 21 |
 | Pleos SDK | Vehicle, NaviHelper 3.0.5, TextToSpeech. Pleos Playground 프로젝트 승인 필요 |
 | 로드뷰 | 제공자는 `config/roadview.yml`. Kakao는 페이지 주소, Mapillary는 `local.properties`의 `mapillaryClientToken` (비어 있으면 앱이 설정 안내를 보여 준다). [로드뷰 설정](docs/roadview-setup.md) |
+| 알고리즘 조정 값 | `config/briefing.yml` (카드 수, 가중치, 몇 초 앞에서 보여 줄지). 고치고 다시 빌드하면 적용된다. [볼 곳 선정 알고리즘](docs/algorithm.md#조정-값) |
 | 비밀 값 | 저장소에 두지 않는다. Kakao JavaScript 키는 저장소 Secret `KAKAO_JS_KEY`, 그 밖의 값은 `secrets.properties`(git 제외) |
 
 ## APK
@@ -161,6 +162,7 @@ provider: mapillary   # kakao | mapillary | demo
 |---|---|
 | [서비스 컨셉](docs/concept.md) | 문제, 해법, 볼 곳 선정 규칙, 하지 않는 것 |
 | [시연 시나리오](docs/scenario.md) | 일곱 장면과 Virtual Console 시연 순서(7분) |
+| [볼 곳 선정 알고리즘](docs/algorithm.md) | 무엇을 고르고 빼는지, 얼마나 앞에서 보여 주는지, 조정 값 |
 | [구성도](docs/architecture.md) | 앱 계층, Pleos SDK·API 매핑, 알려진 한계 |
 | [코드 컨벤션](docs/conventions.md) | Kotlin·Compose 규칙, 브랜치·커밋·PR |
 | [개발 흐름](docs/workflow.md) | Spec Kit 스펙 → Claude Code 하네스 구현 → 에뮬레이터 검증 |

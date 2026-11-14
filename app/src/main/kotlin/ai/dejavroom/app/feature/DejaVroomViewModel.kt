@@ -419,8 +419,9 @@ class DejaVroomViewModel(
         RoadViewLookupResult.Unavailable(RoadViewUnavailableReason.PROVIDER_ERROR)
     }
 
+    /** Road views start at the approach viewpoint, before the junction, facing the way the driver travels. */
     private fun BriefingSegment.roadViewTarget(): RoadViewTarget? =
-        coordinate?.let { RoadViewTarget(it, headingDegrees) }
+        previewCoordinate?.let { RoadViewTarget(it, previewHeadingDegrees) }
 
     companion object {
         private const val MIN_QUERY_LENGTH = 2

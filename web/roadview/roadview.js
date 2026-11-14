@@ -140,7 +140,13 @@
       return;
     }
     const candidate = candidates[index];
-    const position = new window.kakao.maps.LatLng(candidate.latitude, candidate.longitude);
+    // The panorama starts at the approach viewpoint (before the junction) when the app sends one;
+    // candidate.latitude/longitude stay the junction itself, where the marker goes.
+    const hasViewpoint = Number.isFinite(candidate.viewLatitude) && Number.isFinite(candidate.viewLongitude);
+    const position = new window.kakao.maps.LatLng(
+      hasViewpoint ? candidate.viewLatitude : candidate.latitude,
+      hasViewpoint ? candidate.viewLongitude : candidate.longitude
+    );
     findNearestPano(client, position, (panoId) => {
       if (!panoId) return findCandidatePanorama(client, config, candidates, index + 1, timer, showPano);
       config.latitude = candidate.latitude;
@@ -169,13 +175,16 @@
       yAnchor: 0.5,
       clickable: false,
     });
-    overlay.setRange(120);
+    // Keep the junction marker visible from the approach viewpoint, which can be a few hundred meters back.
+    const leadMeters = Math.max(0, Math.round(Number(candidate.leadMeters) || 0));
+    overlay.setRange(Math.max(120, leadMeters + 100));
     overlay.setMap(roadview);
     routeOverlays.push(overlay);
     const evidence = (candidate.evidence || []).slice(0, 2).join(" · ");
     const label = document.createElement("div");
     label.className = "firstlook-candidate-label";
-    label.textContent = `${candidate.name} · 복잡도 ${Math.round(candidate.score * 100)}점${evidence ? ` · ${evidence}` : ""}`;
+    const leadText = leadMeters > 0 ? ` · ${leadMeters}m 전 시점(! 표시가 분기점)` : "";
+    label.textContent = `${candidate.name}${leadText}${evidence ? ` · ${evidence}` : ""}`;
     document.body.appendChild(label);
     document.getElementById("attribution").textContent = "Kakao Maps · © OpenStreetMap contributors · ODbL 1.0 · OSRM";
     send(`route-candidate-selected:${config.selectedCandidateIndex}`);

@@ -2,6 +2,8 @@ package ai.dejavroom.app.ui
 
 import ai.dejavroom.app.BuildConfig
 import ai.dejavroom.app.data.RoadViewConfig
+import ai.dejavroom.app.data.BriefingSettings
+import ai.dejavroom.app.data.OsmRouteRepository
 import ai.dejavroom.app.data.RoadViewProviderFactory
 import ai.dejavroom.app.R
 import ai.dejavroom.app.data.SharedPreferencesRecentSearchStore
@@ -268,11 +270,20 @@ private fun roadViewConfig(app: android.app.Application): RoadViewConfig {
     )
 }
 
-/** Recent searches and the road view config need the application, so the ViewModel is built with it. */
+/** config/briefing.yml (asset) → tuning values of the preview algorithm. A broken file falls back to the defaults. */
+private fun briefingSettings(app: android.app.Application): BriefingSettings = runCatching {
+    BriefingSettings.fromYaml(app.assets.open(BriefingSettings.ASSET_NAME).bufferedReader().use { it.readText() })
+}.getOrElse { failure ->
+    android.util.Log.w("DejaVroomBriefing", "config/briefing.yml을 읽지 못해 기본값을 쓴다: ${failure.message}")
+    BriefingSettings()
+}
+
+/** Recent searches and the configs under config/ need the application, so the ViewModel is built with it. */
 private val DejaVroomViewModelFactory = viewModelFactory {
     initializer {
         val app = checkNotNull(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY])
         DejaVroomViewModel(
+            repository = OsmRouteRepository(settings = briefingSettings(app)),
             roadViewProvider = RoadViewProviderFactory.create(roadViewConfig(app)),
             recentSearchStore = SharedPreferencesRecentSearchStore(app),
         )
