@@ -39,6 +39,9 @@ data class DejaVroomUiState(
     val originInput: String = "수원시 영통구",
     val destinationInput: String = "강남역",
     val route: RouteSnapshot? = null,
+    /** How many points the driver asked to see. */
+    val displayCount: Int = DEFAULT_DISPLAY_COUNT,
+    /** Position in [shownSegments], not in the full route. */
     val segmentIndex: Int = 0,
     val screen: DejaVroomScreen = DejaVroomScreen.DESTINATION,
     val voiceEnabled: Boolean = true,
@@ -53,7 +56,19 @@ data class DejaVroomUiState(
     val activeField: SearchField? = null,
     val suggestions: SuggestionState = SuggestionState(),
     val recentSearches: List<Place> = emptyList(),
-)
+) {
+    /**
+     * The points on screen: the [displayCount] most important ones, nearest to the origin first. Cards,
+     * their numbers and the previous/next buttons all walk this one list, so "2 / 3" means the same everywhere.
+     */
+    val shownSegments: List<BriefingSegment>
+        get() = route?.mostImportantSegments(displayCount).orEmpty()
+
+    companion object {
+        const val DEFAULT_DISPLAY_COUNT = 3
+        val DISPLAY_COUNT_CHOICES = listOf(3, 5)
+    }
+}
 
 enum class SuggestionStatus { IDLE, LOADING, RESULTS, EMPTY, ERROR }
 
@@ -81,7 +96,7 @@ internal fun DejaVroomUiState.swappingFields(): DejaVroomUiState = copy(
 
 internal fun DejaVroomUiState.selectingBriefingSegment(index: Int): DejaVroomUiState {
     if (isDrivingRestricted) return this
-    val segments = route?.segments ?: return this
+    val segments = shownSegments
     if (segments.isEmpty()) return this
     return copy(
         screen = DejaVroomScreen.BRIEFING,
@@ -94,7 +109,7 @@ internal fun DejaVroomUiState.previousBriefingSegment(): DejaVroomUiState =
 
 internal fun DejaVroomUiState.advancingBriefing(): DejaVroomUiState {
     if (isDrivingRestricted) return this
-    val segments = route?.segments ?: return this
+    val segments = shownSegments
     if (segments.isEmpty()) return this
     return if (segmentIndex >= segments.lastIndex) copy(screen = DejaVroomScreen.COMPLETE)
     else copy(segmentIndex = segmentIndex + 1)
@@ -293,10 +308,15 @@ class DejaVroomViewModel(
 
     fun openSegmentRoadView(index: Int) {
         if (state.value.isDrivingRestricted) return
-        val route = state.value.route ?: return
-        if (index !in route.segments.indices) return
+        if (index !in state.value.shownSegments.indices) return
         speechController.stop()
         transition { it.copy(screen = DejaVroomScreen.ROADVIEW_TEST, segmentIndex = index) }
+    }
+
+    /** Shows the [count] most important points. The list changes, so the position starts over. */
+    fun showSegmentCount(count: Int) {
+        if (count !in DejaVroomUiState.DISPLAY_COUNT_CHOICES) return
+        mutableState.update { it.copy(displayCount = count, segmentIndex = 0) }
     }
 
     fun openSelectedRoadView() = openSegmentRoadView(state.value.segmentIndex)
@@ -384,7 +404,7 @@ class DejaVroomViewModel(
         }
     }
 
-    private fun currentSegment() = state.value.route?.segments?.getOrNull(state.value.segmentIndex)
+    private fun currentSegment() = state.value.shownSegments.getOrNull(state.value.segmentIndex)
 
     private fun changeRoadViewIndex(delta: Int) {
         if (state.value.isDrivingRestricted) return

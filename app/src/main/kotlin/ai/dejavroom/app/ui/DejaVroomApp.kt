@@ -110,10 +110,10 @@ internal fun DejaVroomApp(darkTheme: Boolean, vm: DejaVroomViewModel = viewModel
                         DejaVroomScreen.NAVIGATION -> NavigationScreen(state, vm, compact)
                         DejaVroomScreen.ROADVIEW_TEST -> RoadViewScreen(
                             lookup = state.roadViewLookups[
-                                state.route?.segments?.getOrNull(state.segmentIndex)?.id ?: DejaVroomViewModel.DEVELOPER_FIXTURE_KEY
+                                state.shownSegments.getOrNull(state.segmentIndex)?.id ?: DejaVroomViewModel.DEVELOPER_FIXTURE_KEY
                             ],
                             route = state.route,
-                            candidates = state.route?.segments.orEmpty(),
+                            candidates = state.shownSegments,
                             selectedIndex = state.segmentIndex,
                             onBack = vm::closeRoadViewTest,
                             onPrevious = { vm.openSegmentRoadView(state.segmentIndex - 1) },

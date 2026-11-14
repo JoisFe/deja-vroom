@@ -84,24 +84,22 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, compact: Boolean) {
     val route = state.route ?: return
-    val segments = route.segments
-    val displayCount = remember(route.routeId) { mutableIntStateOf(3) }
-    val visibleSegments = route.mostImportantSegments(displayCount.intValue)
+    val segments = state.shownSegments
     if (compact) {
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("미리 볼 곳 ${segments.size}곳 · 가는 순서", Modifier.weight(1f), color = DejaVroomTheme.colors.white, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                CandidateCountSelector(displayCount.intValue) { displayCount.intValue = it }
+                CandidateCountSelector(state.displayCount, vm::showSegmentCount)
             }
             Spacer(Modifier.height(8.dp))
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                visibleSegments.forEach { (index, segment) ->
+                segments.forEachIndexed { index, segment ->
                     SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = true, modifier = Modifier.fillMaxWidth().height(260.dp), onClick = { vm.openSegmentRoadView(index) })
                 }
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth().height(54.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton("처음부터 보기", Modifier.weight(1f), onClick = { vm.openSegmentRoadView(visibleSegments.firstOrNull()?.index ?: 0) })
+                SecondaryButton("처음부터 보기", Modifier.weight(1f), onClick = { vm.openSegmentRoadView(0) })
                 PrimaryButton("주행 시작", "›", Modifier.weight(1f), vm::startNavigation)
             }
         }
@@ -116,17 +114,17 @@ internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, comp
                 Spacer(Modifier.height(5.dp))
                 Text("${segments.size}곳을 골랐습니다. 사진은 분기점에 닿기 전 지점에서 찍힌 모습입니다.", color = DejaVroomTheme.colors.muted, fontSize = 14.sp)
             }
-            CandidateCountSelector(displayCount.intValue) { displayCount.intValue = it }
+            CandidateCountSelector(state.displayCount, vm::showSegmentCount)
         }
         Spacer(Modifier.height(21.dp))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-            visibleSegments.forEach { (index, segment) ->
+            segments.forEachIndexed { index, segment ->
                 SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = false, modifier = Modifier.weight(1f), onClick = { vm.openSegmentRoadView(index) })
             }
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth().height(66.dp), verticalAlignment = Alignment.CenterVertically) {
-            SecondaryButton("처음부터 보기", Modifier.width(240.dp), onClick = { vm.openSegmentRoadView(visibleSegments.firstOrNull()?.index ?: 0) })
+            SecondaryButton("처음부터 보기", Modifier.width(240.dp), onClick = { vm.openSegmentRoadView(0) })
             Spacer(Modifier.weight(1f))
             Text("●   ●   ●", color = DejaVroomTheme.colors.blue, fontSize = 13.sp)
             Spacer(Modifier.weight(1f))
@@ -138,7 +136,7 @@ internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, comp
 @Composable
 internal fun CandidateCountSelector(selectedCount: Int, onSelect: (Int) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        listOf(3, 5).forEach { count ->
+        DejaVroomUiState.DISPLAY_COUNT_CHOICES.forEach { count ->
             TextButton(onClick = { onSelect(count) }) {
                 Text("${count}개", color = if (selectedCount == count) DejaVroomTheme.colors.blueLight else DejaVroomTheme.colors.muted, fontWeight = if (selectedCount == count) FontWeight.Bold else FontWeight.Normal)
             }

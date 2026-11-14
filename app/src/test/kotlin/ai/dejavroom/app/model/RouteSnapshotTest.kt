@@ -14,20 +14,21 @@ class RouteSnapshotTest {
     )
 
     @Test
-    fun `the most important segments stay in driving order and keep their index`() {
-        // Driving order with ranks 4, 3, 1, 5, 2: the top three are the 2nd, 3rd and 5th points on the way.
+    fun `the most important segments are listed nearest to the origin first`() {
+        // Driving order with ranks 4, 3, 1, 5, 2: the top three are the 2nd, 3rd and 5th points on the way,
+        // and they are shown in that driving order, not by rank.
         val shown = route(4, 3, 1, 5, 2).mostImportantSegments(3)
-        assertEquals(listOf(1, 2, 4), shown.map { it.index })
-        assertEquals(listOf("s1", "s2", "s4"), shown.map { it.value.id })
+        assertEquals(listOf("s1", "s2", "s4"), shown.map { it.id })
+        assertEquals(listOf("s0", "s1", "s2", "s3", "s4"), route(4, 3, 1, 5, 2).mostImportantSegments(5).map { it.id })
     }
 
     @Test
     fun `asking for more than there are shows everything`() {
-        assertEquals(listOf(0, 1), route(2, 1).mostImportantSegments(5).map { it.index })
+        assertEquals(listOf("s0", "s1"), route(2, 1).mostImportantSegments(5).map { it.id })
     }
 
     @Test
     fun `unranked demo segments are shown from the start`() {
-        assertEquals(listOf(0, 1, 2), route(0, 0, 0, 0).mostImportantSegments(3).map { it.index })
+        assertEquals(listOf("s0", "s1", "s2"), route(0, 0, 0, 0).mostImportantSegments(3).map { it.id })
     }
 }

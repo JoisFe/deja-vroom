@@ -89,7 +89,7 @@ internal fun CompleteScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, com
         Text("이제 주행을 시작할 수 있어요.", color = DejaVroomTheme.colors.muted, fontSize = 16.sp)
         Spacer(Modifier.height(24.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            SummaryMetric("확인한 구간", "${route.segments.size}곳", if (compact) Modifier.weight(1f) else Modifier.width(160.dp))
+            SummaryMetric("확인한 구간", "${state.shownSegments.size}곳", if (compact) Modifier.weight(1f) else Modifier.width(160.dp))
             SummaryMetric("예상 소요 시간", "약 ${route.durationMinutes}분", if (compact) Modifier.weight(1f) else Modifier.width(160.dp))
             SummaryMetric("전체 거리", "${route.distanceKm}km", if (compact) Modifier.weight(1f) else Modifier.width(160.dp))
         }
@@ -118,7 +118,7 @@ internal fun NavigationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, c
             Spacer(Modifier.height(12.dp))
             SecondaryButton("목록으로 돌아가기", Modifier.fillMaxWidth(), onClick = vm::backToSummary)
             Spacer(Modifier.height(12.dp))
-            RouteRecap(route?.segments.orEmpty(), Modifier.fillMaxWidth())
+            RouteRecap(state.shownSegments, Modifier.fillMaxWidth())
         }
         return
     }
@@ -136,7 +136,7 @@ internal fun NavigationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, c
             Spacer(Modifier.height(22.dp))
             SecondaryButton("목록으로 돌아가기", Modifier.width(250.dp), onClick = vm::backToSummary)
         }
-        RouteRecap(route?.segments.orEmpty(), Modifier.weight(1.05f))
+        RouteRecap(state.shownSegments, Modifier.weight(1.05f))
     }
 }
 
