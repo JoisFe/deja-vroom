@@ -1,0 +1,67 @@
+name: Roadview Pages
+
+# Publishes web/roadview to GitHub Pages with the Kakao JavaScript key injected.
+# Setup (secret, Pages source, Kakao domain): docs/roadview-setup.md
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/roadview/**"
+      - ".github/workflows/roadview-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: roadview-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check KAKAO_JS_KEY secret
+        env:
+          KAKAO_JS_KEY: ${{ secrets.KAKAO_JS_KEY }}
+        run: |
+          if [ -z "$KAKAO_JS_KEY" ]; then
+            echo "::error title=KAKAO_JS_KEY 없음::저장소 Settings > Secrets and variables > Actions에 KAKAO_JS_KEY를 등록하세요. docs/roadview-setup.md 참고"
+            exit 1
+          fi
+          if ! printf '%s' "$KAKAO_JS_KEY" | grep -Eq '^[A-Za-z0-9]+$'; then
+            echo "::error title=KAKAO_JS_KEY 형식 오류::Kakao JavaScript 키는 영문과 숫자만 포함해야 합니다. 앞뒤 공백이나 따옴표를 확인하세요."
+            exit 1
+          fi
+
+      - name: Build site
+        env:
+          KAKAO_JS_KEY: ${{ secrets.KAKAO_JS_KEY }}
+        run: |
+          mkdir -p _site/roadview
+          cp web/roadview/* _site/roadview/
+          sed -i "s/__KAKAO_JS_KEY__/${KAKAO_JS_KEY}/" _site/roadview/index.html
+          if grep -rq "__KAKAO_JS_KEY__" _site; then
+            echo "::error::키 자리 표시자가 남아 있습니다."
+            exit 1
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}roadview/
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

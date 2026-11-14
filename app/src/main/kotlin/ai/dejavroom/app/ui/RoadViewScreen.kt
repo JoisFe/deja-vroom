@@ -1,4 +1,4 @@
-package ai.dejavroom.app
+package ai.dejavroom.app.ui
 
 import android.graphics.Bitmap
 import android.net.Uri
@@ -41,9 +41,12 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import ai.dejavroom.app.BuildConfig
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
 import ai.dejavroom.app.data.JunctionRecordMatch
 import ai.dejavroom.app.data.JunctionRecordMatcher
+import ai.dejavroom.app.data.ROADVIEW_BRIDGE_NAME
+import ai.dejavroom.app.data.RoadViewEndpoint
 import ai.dejavroom.app.data.RoadViewPageEvent
 import ai.dejavroom.app.model.GeoCoordinate
 import ai.dejavroom.app.model.JunctionDataSource
@@ -55,13 +58,12 @@ import ai.dejavroom.app.model.RouteSource
 import org.json.JSONArray
 import org.json.JSONObject
 
-private const val ROADVIEW_ORIGIN = "http://localhost:8080"
-private const val ROADVIEW_PAGE = "$ROADVIEW_ORIGIN/roadview/"
-// Kakao's documented Roadview sample panorama; a fixed development fixture, not route matching.
+// Reviewed OSM junction fixture (debug assets only) for the developer entry point without a route.
+private const val PREPARING_MESSAGE = "Kakao Roadview를 준비하고 있습니다."
 private const val JUNCTION_FIXTURE = "junctions/hannam-daero-demo-record.json"
 
 @Composable
-internal fun RoadViewTestScreen(
+internal fun RoadViewScreen(
     route: RouteSnapshot?,
     candidates: List<BriefingSegment>,
     selectedIndex: Int,
@@ -69,10 +71,11 @@ internal fun RoadViewTestScreen(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
 ) {
-    val state = remember { mutableStateOf("Kakao Roadview 개발 테스트를 준비하고 있습니다.") }
+    val endpoint = remember { RoadViewEndpoint.parse(BuildConfig.ROADVIEW_BASE_URL) }
+    val state = remember { mutableStateOf(PREPARING_MESSAGE) }
     val failureMessage = remember { mutableStateOf<String?>(null) }
     LaunchedEffect(selectedIndex) {
-        failureMessage.value = null
+        failureMessage.value = if (endpoint == null) RoadViewEndpoint.SETUP_MESSAGE else null
         state.value = "후보 ${selectedIndex + 1}/${candidates.size} · Roadview를 불러오고 있습니다."
     }
     Column(Modifier.fillMaxSize().padding(8.dp)) {
@@ -92,7 +95,7 @@ internal fun RoadViewTestScreen(
         Box(
             Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF17202D)),
         ) {
-            if (failureMessage.value == null) {
+            if (failureMessage.value == null && endpoint != null) {
             key(route?.routeId, selectedIndex) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -132,11 +135,11 @@ internal fun RoadViewTestScreen(
                         var timeout: Runnable? = null
                         WebViewCompat.addWebMessageListener(
                             this,
-                            ai.dejavroom.app.data.ROADVIEW_BRIDGE_NAME,
-                            setOf(ROADVIEW_ORIGIN),
+                            ROADVIEW_BRIDGE_NAME,
+                            setOf(endpoint.origin),
                         ) { view, message, sourceOrigin, isMainFrame, _ ->
                             android.util.Log.d("DejaVroomRoadview", "bridge source=$sourceOrigin main=$isMainFrame event=${message.data}")
-                            if (!isMainFrame || sourceOrigin.toString() != ROADVIEW_ORIGIN) return@addWebMessageListener
+                            if (!isMainFrame || sourceOrigin.toString() != endpoint.origin) return@addWebMessageListener
                             val event = RoadViewPageEvent.parse(message.data)
                             when (event) {
                                 RoadViewPageEvent.Ready -> {
@@ -146,7 +149,7 @@ internal fun RoadViewTestScreen(
                                         WebViewCompat.postWebMessage(
                                             view,
                                             WebMessageCompat(if (route != null) buildRoutePreviewConfig(route, candidates, selectedIndex) else buildJunctionPreviewConfig(view.context)),
-                                            Uri.parse(ROADVIEW_ORIGIN),
+                                            Uri.parse(endpoint.origin),
                                         )
                                     } catch (failure: Exception) {
                                         failureMessage.value = "분석된 경로 데이터를 Roadview에 전달하지 못했습니다: ${failure.message ?: "확인 필요"}"
@@ -156,7 +159,7 @@ internal fun RoadViewTestScreen(
                                         failureMessage.value = if (state.value.startsWith("Kakao SDK 파일을 받았습니다")) {
                                             "Kakao SDK 파일은 왔지만 Maps 초기화 응답이 없습니다. 네트워크 또는 SDK 호환성을 확인하세요."
                                         } else {
-                                            "로드뷰 표시 시간이 초과되었습니다. 로컬 서버·네트워크를 확인하세요."
+                                            "로드뷰 표시 시간이 초과되었습니다. 네트워크를 확인하세요."
                                         }
                                         view.loadUrl("about:blank")
                                     }
@@ -180,7 +183,7 @@ internal fun RoadViewTestScreen(
                                 }
                                 RoadViewPageEvent.CandidateNoCoverage -> {
                                     timeout?.let(timeoutHandler::removeCallbacks)
-                                    failureMessage.value = "선택한 후보의 50m 범위에서 Roadview를 찾지 못했습니다. 후보 목록으로 돌아가 다른 구간을 고를 수 있습니다."
+                                    failureMessage.value = "선택한 후보 근처에 Kakao 로드뷰가 없습니다. 후보 목록으로 돌아가 다른 구간을 고를 수 있습니다."
                                 }
                                 is RoadViewPageEvent.NativeArrowCandidatesHidden -> state.value = "화살표 후보 DOM ${event.count}개 숨김 · Kakao 기본 요소인지 미검증"
                                 RoadViewPageEvent.NativeArrowLayerUnverified -> Unit
@@ -191,9 +194,9 @@ internal fun RoadViewTestScreen(
                                 is RoadViewPageEvent.Failed -> {
                                     timeout?.let(timeoutHandler::removeCallbacks)
                                     failureMessage.value = when (event.reason) {
-                                        RoadViewPageEvent.FailureReason.CONFIG -> "로컬 키 설정을 확인하세요."
-                                        RoadViewPageEvent.FailureReason.SDK_LOAD -> "Kakao SDK 로드 실패 · 키, localhost 허용 도메인, 네트워크를 확인하세요."
-                                        RoadViewPageEvent.FailureReason.NO_PANO -> "테스트 좌표 반경 50m에 파노라마가 없습니다."
+                                        RoadViewPageEvent.FailureReason.CONFIG -> "Kakao JavaScript 키가 페이지에 없습니다. docs/roadview-setup.md를 확인하세요."
+                                        RoadViewPageEvent.FailureReason.SDK_LOAD -> "Kakao SDK를 불러오지 못했습니다. 키, Web 플랫폼 도메인 등록, 네트워크를 확인하세요."
+                                        RoadViewPageEvent.FailureReason.NO_PANO -> "선택 지점 근처에 Kakao 로드뷰가 없습니다."
                                         RoadViewPageEvent.FailureReason.TIMEOUT -> "파노라마 조회 시간이 초과되었습니다."
                                         RoadViewPageEvent.FailureReason.RENDER -> "파노라마 화면을 표시하지 못했습니다."
                                     }
@@ -206,19 +209,18 @@ internal fun RoadViewTestScreen(
                         webViewClient = object : WebViewClient() {
                             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                                 if (url == "about:blank") return
-                                if (!url.startsWith("$ROADVIEW_ORIGIN/roadview")) {
+                                if (!endpoint.isRoadViewPage(url)) {
                                     failureMessage.value = "허용되지 않은 페이지 이동을 차단했습니다."
                                     view.stopLoading()
                                 }
                             }
 
                             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                                val uri = request.url
-                                return !(uri.scheme == "http" && uri.host == "localhost" && uri.port == 8080 && uri.path in setOf("/roadview", "/roadview/"))
+                                return !endpoint.isRoadViewPage(request.url.toString())
                             }
 
                             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
-                                if (request.isForMainFrame) failureMessage.value = "로컬 Roadview 페이지에 연결할 수 없습니다. serve.sh 실행과 adb reverse를 확인하세요."
+                                if (request.isForMainFrame) failureMessage.value = "로드뷰 페이지에 연결할 수 없습니다. 네트워크와 로드뷰 주소 설정을 확인하세요."
                             }
 
                             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
@@ -227,12 +229,12 @@ internal fun RoadViewTestScreen(
                             }
                         }
                         val pageLoadTimeout = Runnable {
-                            if (state.value == "Kakao Roadview 개발 테스트를 준비하고 있습니다.") {
-                                failureMessage.value = "Kakao SDK가 응답하지 않습니다. 로컬 서버와 네트워크를 확인하세요."
+                            if (state.value == PREPARING_MESSAGE) {
+                                failureMessage.value = "Kakao SDK가 응답하지 않습니다. 네트워크와 로드뷰 주소 설정을 확인하세요."
                             }
                         }
                         Handler(Looper.getMainLooper()).postDelayed(pageLoadTimeout, 15_000)
-                        loadUrl(ROADVIEW_PAGE)
+                        loadUrl(endpoint.pageUrl)
                     }
                 },
                 onRelease = { webView ->
@@ -263,7 +265,7 @@ internal fun RoadViewTestScreen(
                         fontSize = 15.sp,
                     )
                     Text(
-                        "Kakao JavaScript 키와 허용 도메인, 로컬 테스트 서버를 확인하세요. DejaVroom 홈으로 돌아가 Demo 화면을 계속 사용할 수 있습니다.",
+                        "설정 방법은 docs/roadview-setup.md에 있습니다. 후보 목록으로 돌아가 다른 화면은 계속 사용할 수 있습니다.",
                         Modifier.padding(top = 8.dp),
                         color = Color(0xFF9EACC0),
                         fontSize = 13.sp,

@@ -1,8 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+// Roadview page URL (GitHub Pages or local serve.py). Empty unless set; the app then shows a setup message.
+// Set `roadviewBaseUrl=...` in local.properties or pass -ProadviewBaseUrl=... (docs/roadview-setup.md).
+val roadviewBaseUrl: String = (findProperty("roadviewBaseUrl") as String?)
+    ?: rootProject.file("local.properties").takeIf { it.exists() }
+        ?.let { file -> Properties().apply { file.inputStream().use(::load) }.getProperty("roadviewBaseUrl") }
+    ?: ""
 
 android {
     namespace = "ai.dejavroom.app"
@@ -15,6 +24,7 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "ROADVIEW_BASE_URL", "\"${roadviewBaseUrl.trim().replace("\\", "").replace("\"", "")}\"")
     }
 
     buildFeatures {
@@ -31,7 +41,7 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
-    debugImplementation(libs.androidx.webkit)
+    implementation(libs.androidx.webkit)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
