@@ -88,18 +88,18 @@ private val DarkColors = DejaVroomColors(
 /** Pure palette selection, also usable by platform window styling and unit tests. */
 internal fun dejaVroomColors(darkTheme: Boolean): DejaVroomColors = if (darkTheme) DarkColors else LightColors
 
-private val LocalFirstLookColors = staticCompositionLocalOf { LightColors }
+private val LocalDejaVroomColors = staticCompositionLocalOf { LightColors }
 
 internal object DejaVroomTheme {
     val colors: DejaVroomColors
-        @Composable get() = LocalFirstLookColors.current
+        @Composable get() = LocalDejaVroomColors.current
 }
 
 /** Follows Android's current system night mode unless a preview supplies an explicit mode. */
 @Composable
 internal fun DejaVroomTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     val colors = dejaVroomColors(darkTheme)
-    CompositionLocalProvider(LocalFirstLookColors provides colors) {
+    CompositionLocalProvider(LocalDejaVroomColors provides colors) {
         MaterialTheme(colorScheme = colors.materialColorScheme(darkTheme), content = content)
     }
 }

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>FirstLook Kakao Roadview 개발 테스트</title>
+  <title>Déjà Vroom Kakao Roadview 개발 테스트</title>
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #121925; color: #fff; }
     * { box-sizing: border-box; }
@@ -77,8 +77,8 @@
       const routeOverlays = [];
 
       const send = (message) => {
-        if (window.FirstLookBridge && typeof window.FirstLookBridge.postMessage === "function") {
-          window.FirstLookBridge.postMessage(message);
+        if (window.DejaVroomBridge && typeof window.DejaVroomBridge.postMessage === "function") {
+          window.DejaVroomBridge.postMessage(message);
         }
       };
       const fail = (reason, text) => {
@@ -89,7 +89,7 @@
 
       window.addEventListener("securitypolicyviolation", (event) => send(`csp-blocked:${event.violatedDirective}:${event.blockedURI}`));
 
-      if (!window.FirstLookBridge) {
+      if (!window.DejaVroomBridge) {
         const params = new URLSearchParams(window.location.search);
         const latitude = Number(params.get("lat"));
         const longitude = Number(params.get("lng"));

@@ -132,7 +132,7 @@ internal fun RoadViewTestScreen(
                         var timeout: Runnable? = null
                         WebViewCompat.addWebMessageListener(
                             this,
-                            "DejaVroomBridge",
+                            ai.dejavroom.app.data.ROADVIEW_BRIDGE_NAME,
                             setOf(ROADVIEW_ORIGIN),
                         ) { view, message, sourceOrigin, isMainFrame, _ ->
                             android.util.Log.d("DejaVroomRoadview", "bridge source=$sourceOrigin main=$isMainFrame event=${message.data}")
