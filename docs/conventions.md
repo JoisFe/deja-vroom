@@ -6,8 +6,8 @@
 
 | 대상 | 언어 |
 |---|---|
-| 코드, 식별자, 커밋 메시지, PR 제목 | 영어 |
-| 문서, 스펙(`specs/**`), PR 본문, Discussions | 한국어 |
+| 코드, 식별자 | 영어 |
+| 커밋 메시지, PR 제목·본문, 문서, 스펙(`specs/**`), Discussions | 한국어 |
 | 앱 화면 문구 | 한국어 (`strings.xml`, 하드코딩 금지) |
 
 ## Kotlin · Compose
@@ -50,7 +50,7 @@ gitGraph
 | 항목 | 규칙 |
 |---|---|
 | 브랜치 | `feature/<이슈번호>-<slug>`, `fix/…`, `chore/…`. `main` 직접 커밋 금지(훅으로 차단) |
-| 커밋 | 영어 명령형 한 줄 요약 (`Add idle-moment detector`), 본문에 이유 |
+| 커밋 | 한국어 한 줄 요약 (`한가한 순간 판정 추가`), 본문에 이유 |
 | PR | [템플릿](../.github/pull_request_template.md) 작성. 스펙의 성공 기준(SC-*)과 검증 결과 기재 |
 | 머지 조건 | `./gradlew :app:testDebugUnitTest` 통과 + 리뷰 1명 + 해당 시 에뮬레이터 확인 |
 | 강제 푸시 | 금지 |

@@ -1,6 +1,6 @@
 # Déjà Vroom — Pleos Connect vehicle app (Kotlin)
 
-Reply to the user in Korean. Code, identifiers, commit messages in English.
+Reply to the user in Korean. Code and identifiers in English; commit messages, PR titles and bodies in Korean.
 
 ## Stack
 - `app/` — Pleos Connect vehicle app (Android Automotive, **Kotlin + Jetpack Compose**, minSdk 28, Pleos SDKs). Architecture: skill `android-app-architecture`.
