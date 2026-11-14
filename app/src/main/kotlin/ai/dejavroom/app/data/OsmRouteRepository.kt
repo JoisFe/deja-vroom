@@ -5,6 +5,8 @@ import ai.dejavroom.app.domain.ManeuverObservation
 import ai.dejavroom.app.domain.ManeuverScorer
 import ai.dejavroom.app.domain.RouteMapFeature
 import ai.dejavroom.app.model.GeoCoordinate
+import ai.dejavroom.app.model.Place
+import ai.dejavroom.app.model.PlaceInput
 import ai.dejavroom.app.model.RouteGeometryStatus
 import ai.dejavroom.app.model.RouteSnapshot
 import ai.dejavroom.app.model.RouteSource
@@ -20,19 +22,22 @@ import java.util.Locale
 
 private const val OPENSTREETMAP_ATTRIBUTION = "© OpenStreetMap contributors · ODbL 1.0"
 
-/** A user-submitted, one-shot destination lookup; this does not implement autocomplete. */
+/** Route preview. Free text is geocoded once with Nominatim; picked suggestions skip geocoding. */
 class OsmRouteRepository(
     private val geocoder: DestinationGeocoder = NominatimDestinationGeocoder,
     private val router: DrivingRouteClient = OsrmDrivingRouteClient,
     private val analyzer: RouteAnalyzer = RouteAnalyzer(maxSegments = 5),
 ) : RouteRepository {
-    override suspend fun preview(origin: String, destination: String): RouteSnapshot = withContext(Dispatchers.IO) {
-        val originQuery = origin.trim().take(120)
-        val destinationQuery = destination.trim().take(120)
+    override suspend fun preview(origin: String, destination: String): RouteSnapshot =
+        preview(PlaceInput(origin), PlaceInput(destination))
+
+    override suspend fun preview(origin: PlaceInput, destination: PlaceInput): RouteSnapshot = withContext(Dispatchers.IO) {
+        val originQuery = origin.text.trim().take(120)
+        val destinationQuery = destination.text.trim().take(120)
         require(originQuery.isNotBlank()) { "출발지를 입력하세요." }
         require(destinationQuery.isNotBlank()) { "목적지를 입력하세요." }
-        val originPlace = geocoder.resolve(originQuery)
-        val destinationPlace = geocoder.resolve(destinationQuery)
+        val originPlace = origin.resolvedPlace?.toGeocoded() ?: geocoder.resolve(originQuery)
+        val destinationPlace = destination.resolvedPlace?.toGeocoded() ?: geocoder.resolve(destinationQuery)
         val result = router.route(originPlace.coordinate, destinationPlace.coordinate)
         val routeId = "osrm-${Integer.toHexString("${originPlace.coordinate}:${destinationPlace.coordinate}".hashCode())}"
         val route = RouteSnapshot(
@@ -56,6 +61,8 @@ class OsmRouteRepository(
 }
 
 data class GeocodedDestination(val coordinate: GeoCoordinate, val displayName: String)
+
+private fun Place.toGeocoded() = GeocodedDestination(requireNotNull(coordinate), name)
 
 fun interface DestinationGeocoder {
     fun resolve(query: String): GeocodedDestination

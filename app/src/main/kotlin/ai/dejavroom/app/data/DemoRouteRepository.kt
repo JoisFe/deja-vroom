@@ -3,6 +3,7 @@ package ai.dejavroom.app.data
 import ai.dejavroom.app.domain.RouteAnalyzer
 import ai.dejavroom.app.domain.RouteMapFeature
 import ai.dejavroom.app.model.BriefingSegment
+import ai.dejavroom.app.model.PlaceInput
 import ai.dejavroom.app.model.RouteGeometryStatus
 import ai.dejavroom.app.model.RouteSnapshot
 import ai.dejavroom.app.model.RouteSource
@@ -10,6 +11,10 @@ import ai.dejavroom.app.model.SegmentType
 
 interface RouteRepository {
     suspend fun preview(origin: String, destination: String): RouteSnapshot
+
+    /** Uses a place picked from suggestions when available, so the route does not re-geocode it. */
+    suspend fun preview(origin: PlaceInput, destination: PlaceInput): RouteSnapshot =
+        preview(origin.text, destination.text)
 }
 
 interface RouteMapFeatureSource {

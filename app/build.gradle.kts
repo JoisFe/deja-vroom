@@ -42,7 +42,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)
-    // Android's org.json is a stub in local unit tests; use the real one to test OSRM parsing.
+    testImplementation(libs.kotlinx.coroutines.test)
+    // Real org.json on the JVM; the Android stub throws in local unit tests.
     testImplementation(libs.org.json)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso)
