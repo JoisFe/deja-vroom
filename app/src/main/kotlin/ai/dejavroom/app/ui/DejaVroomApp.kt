@@ -1,6 +1,8 @@
 package ai.dejavroom.app.ui
 
 import ai.dejavroom.app.BuildConfig
+import ai.dejavroom.app.data.RoadViewConfig
+import ai.dejavroom.app.data.RoadViewProviderFactory
 import ai.dejavroom.app.R
 import ai.dejavroom.app.data.SharedPreferencesRecentSearchStore
 import androidx.compose.foundation.layout.heightIn
@@ -105,6 +107,9 @@ internal fun DejaVroomApp(darkTheme: Boolean, vm: DejaVroomViewModel = viewModel
                         DejaVroomScreen.COMPLETE -> CompleteScreen(state, vm, compact)
                         DejaVroomScreen.NAVIGATION -> NavigationScreen(state, vm, compact)
                         DejaVroomScreen.ROADVIEW_TEST -> RoadViewScreen(
+                            lookup = state.roadViewLookups[
+                                state.route?.segments?.getOrNull(state.segmentIndex)?.id ?: DejaVroomViewModel.DEVELOPER_FIXTURE_KEY
+                            ],
                             route = state.route,
                             candidates = state.route?.segments.orEmpty(),
                             selectedIndex = state.segmentIndex,
@@ -252,10 +257,24 @@ private fun DejaVroomViewModel.destinationActions() = DestinationActions(
     onSearch = ::searchRoute,
 )
 
-/** Recent searches need a Context, so the ViewModel is built with the application. */
+/** config/roadview.yml (asset) + local.properties overrides (BuildConfig) → the road view implementation to use. */
+private fun roadViewConfig(app: android.app.Application): RoadViewConfig {
+    val yaml = runCatching { app.assets.open(RoadViewConfig.ASSET_NAME).bufferedReader().use { it.readText() } }.getOrNull()
+    return RoadViewConfig.resolve(
+        yaml = yaml,
+        providerOverride = BuildConfig.ROADVIEW_PROVIDER_OVERRIDE,
+        kakaoBaseUrlOverride = BuildConfig.ROADVIEW_BASE_URL_OVERRIDE,
+        mapillaryClientToken = BuildConfig.MAPILLARY_CLIENT_TOKEN,
+    )
+}
+
+/** Recent searches and the road view config need the application, so the ViewModel is built with it. */
 private val DejaVroomViewModelFactory = viewModelFactory {
     initializer {
         val app = checkNotNull(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY])
-        DejaVroomViewModel(recentSearchStore = SharedPreferencesRecentSearchStore(app))
+        DejaVroomViewModel(
+            roadViewProvider = RoadViewProviderFactory.create(roadViewConfig(app)),
+            recentSearchStore = SharedPreferencesRecentSearchStore(app),
+        )
     }
 }

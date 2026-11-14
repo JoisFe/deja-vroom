@@ -11,6 +11,10 @@ import ai.dejavroom.app.data.BriefingSpeechOutput
 import ai.dejavroom.app.data.BriefingSpeechController
 import ai.dejavroom.app.data.RoadViewLookupResult
 import ai.dejavroom.app.data.RoadViewProvider
+import ai.dejavroom.app.data.RoadViewTarget
+import ai.dejavroom.app.data.RoadViewUnavailableReason
+import ai.dejavroom.app.model.BriefingSegment
+import ai.dejavroom.app.model.GeoCoordinate
 import ai.dejavroom.app.data.RouteRepository
 import ai.dejavroom.app.model.RouteSnapshot
 import ai.dejavroom.app.model.Place
@@ -267,6 +271,7 @@ class DejaVroomViewModel(
                         suggestions = SuggestionState(),
                     )
                 }
+                route.segments.forEach { segment -> launch { loadRoadViews(segment.id) } }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -317,6 +322,7 @@ class DejaVroomViewModel(
         if (state.value.isDrivingRestricted) return
         speechController.stop()
         transition { it.enteringRoadViewTest() }
+        if (state.value.route == null) viewModelScope.launch { loadDeveloperFixtureView() }
     }
 
     fun closeRoadViewTest() {
@@ -389,13 +395,7 @@ class DejaVroomViewModel(
     private suspend fun loadRoadViews(segmentId: String) {
         val requestedRoute = state.value.route ?: return
         val segment = requestedRoute.segments.firstOrNull { it.id == segmentId } ?: return
-        val result = try {
-            roadViewProvider.findNearestViews(segment, radiusMeters = 300)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            RoadViewLookupResult.Unavailable(ai.dejavroom.app.data.RoadViewUnavailableReason.PROVIDER_ERROR)
-        }
+        val result = segment.roadViewTarget()?.let { lookupSafely(it) } ?: RoadViewLookupResult.NoCoverage
         mutableState.update { current ->
             if (current.route?.routeId != requestedRoute.routeId) return@update current
             current.copy(
@@ -405,7 +405,30 @@ class DejaVroomViewModel(
         }
     }
 
-    private companion object { const val MIN_QUERY_LENGTH = 2 }
+    /** Developer entry without a route: the reviewed Hannam-daero junction used by the Roadview fixture. */
+    private suspend fun loadDeveloperFixtureView() {
+        val result = lookupSafely(RoadViewTarget(DEVELOPER_FIXTURE_COORDINATE, headingDegrees = null))
+        mutableState.update { it.copy(roadViewLookups = it.roadViewLookups + (DEVELOPER_FIXTURE_KEY to result)) }
+    }
+
+    private suspend fun lookupSafely(target: RoadViewTarget): RoadViewLookupResult = try {
+        roadViewProvider.lookup(target)
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        RoadViewLookupResult.Unavailable(RoadViewUnavailableReason.PROVIDER_ERROR)
+    }
+
+    private fun BriefingSegment.roadViewTarget(): RoadViewTarget? =
+        coordinate?.let { RoadViewTarget(it, headingDegrees) }
+
+    companion object {
+        private const val MIN_QUERY_LENGTH = 2
+
+        /** Key in [DejaVroomUiState.roadViewLookups] for the developer Roadview entry without a route. */
+        const val DEVELOPER_FIXTURE_KEY = "developer-fixture"
+        private val DEVELOPER_FIXTURE_COORDINATE = GeoCoordinate(37.537183, 127.005454)
+    }
 
     override fun onCleared() {
         speechController.stop()

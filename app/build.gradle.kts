@@ -6,12 +6,28 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Roadview page URL (GitHub Pages or local serve.py). Empty unless set; the app then shows a setup message.
-// Set `roadviewBaseUrl=...` in local.properties or pass -ProadviewBaseUrl=... (docs/roadview-setup.md).
-val roadviewBaseUrl: String = (findProperty("roadviewBaseUrl") as String?)
-    ?: rootProject.file("local.properties").takeIf { it.exists() }
-        ?.let { file -> Properties().apply { file.inputStream().use(::load) }.getProperty("roadviewBaseUrl") }
-    ?: ""
+// Road view provider settings (docs/roadview-setup.md).
+// config/roadview.yml is the shared base, packaged as the `roadview.yml` asset and read by the app at startup.
+// local.properties (or -P...) overrides it per machine; secrets such as the Mapillary token live only there.
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+}
+fun localSetting(name: String): String =
+    ((findProperty(name) as String?) ?: localProperties.getProperty(name) ?: "").trim()
+fun buildConfigString(value: String) = "\"" + value.replace("\\", "").replace("\"", "") + "\""
+
+val roadviewProviders = setOf("kakao", "mapillary", "demo")
+val roadviewConfigFile = rootProject.file("config/roadview.yml")
+val roadviewProviderOverride = localSetting("roadviewProvider")
+val roadviewProvider: String = roadviewProviderOverride.ifEmpty {
+    roadviewConfigFile.takeIf { it.exists() }?.readLines()
+        ?.firstNotNullOfOrNull { Regex("""^provider:\s*["']?([A-Za-z]+)["']?\s*(#.*)?$""").find(it)?.groupValues?.get(1) }
+        .orEmpty()
+}.lowercase()
+require(roadviewProvider in roadviewProviders) {
+    "config/roadview.yml의 provider는 ${roadviewProviders.joinToString(" | ")} 중 하나여야 한다 (현재: '$roadviewProvider'). " +
+        "local.properties의 roadviewProvider로 덮어쓸 수도 있다. docs/roadview-setup.md 참고"
+}
 
 android {
     namespace = "ai.dejavroom.app"
@@ -24,7 +40,9 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "ROADVIEW_BASE_URL", "\"${roadviewBaseUrl.trim().replace("\\", "").replace("\"", "")}\"")
+        buildConfigField("String", "ROADVIEW_PROVIDER_OVERRIDE", buildConfigString(roadviewProviderOverride))
+        buildConfigField("String", "ROADVIEW_BASE_URL_OVERRIDE", buildConfigString(localSetting("roadviewBaseUrl")))
+        buildConfigField("String", "MAPILLARY_CLIENT_TOKEN", buildConfigString(localSetting("mapillaryClientToken")))
     }
 
     buildFeatures {
@@ -37,6 +55,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    sourceSets["main"].assets.srcDir(rootProject.file("config"))
 }
 
 dependencies {

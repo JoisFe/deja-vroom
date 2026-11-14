@@ -17,7 +17,7 @@ flowchart LR
         RP --> PL["Pleos* 구현"]
         RP --> FK["Fake* 구현 (Demo · 테스트)"]
     end
-    EXT["외부 경로 · 로드뷰 API<br/>(약관 확인 후)"]
+    EXT["외부 경로 API · 로드뷰 제공자<br/>(Kakao · Mapillary, config/roadview.yml)"]
     PHONE["폰 알림 (2차 단계)"]
 
     PL <--> VS & AA & NH
@@ -35,6 +35,10 @@ flowchart LR
 | 도메인 로직 | 볼 곳 점수, 한가함 판정, 이력·익숙함 | 순수 Kotlin. 단위 테스트로 검증한다 |
 | `Repository` | 차량 신호와 내비 정보를 `Flow`로 감싼다 | Pleos SDK는 `data/**/Pleos*` 안에서만 호출한다 |
 | `Fake*` | 차량 신호 없이 시연·테스트 | Repository마다 하나씩 둔다 |
+
+### 로드뷰 제공자
+
+도로 사진은 `data/RoadViewProvider.kt`의 인터페이스 하나로 감싼다. 구현체(`KakaoRoadViewProvider`, `MapillaryRoadViewProvider`, `DemoRoadViewProvider`)는 `RoadViewProviderFactory`가 `config/roadview.yml`과 `local.properties`를 보고 고른다. 결과는 `RoadViewContent`(InteractivePage · StillImage · Illustration)로 오고, 화면은 이 타입으로만 분기한다. 자세한 내용은 [README](../README.md#로드뷰-제공자-선택)에 있다.
 
 ## 상태 흐름
 
@@ -64,7 +68,7 @@ stateDiagram-v2
 | 기어, 차속 | AAOS `GEAR_SELECTION`, 차속 프로퍼티 | 서드파티 권한 **실측 필요** |
 | 한 문장 안내 | Pleos TextToSpeech | 사용 가능 여부 확인 필요 |
 | 경로 전체 회전 목록 | 외부 경로 API | 키·약관 확인 필요 |
-| 사진 | 외부 로드뷰 API | 차량 화면 이용 약관 확인 필요 |
+| 사진 | `RoadViewProvider` 구현체: Kakao 로드뷰(GitHub Pages 페이지) 또는 Mapillary Graph API. `config/roadview.yml`로 선택 | 차량 화면 이용 약관 확인 필요 |
 
 ## 알려진 한계
 
