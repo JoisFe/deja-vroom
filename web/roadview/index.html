@@ -34,6 +34,9 @@
     body.thumbnail #status, body.thumbnail #legend, body.thumbnail #autodrive, body.thumbnail .firstlook-candidate-label, body.thumbnail #segment-context { display: none !important; }
     body.thumbnail { position: relative; }
     body.thumbnail #roadview { pointer-events: none; }
+    /* Kakao draws its zoom/compass control at the right edge and offers no switch for it. A still card has no
+       use for it, so the panorama is laid out wider than the card and the control falls outside the clipped page. */
+    body.thumbnail #roadview { width: calc(100% + 120px); }
     body.thumbnail.failed #roadview { display: none; }
     body.thumbnail #status.thumbnail-error { display: grid !important; position: relative !important; top: auto; left: auto; right: auto; bottom: auto; transform: none; width: calc(100% - 24px); min-height: 64px; height: auto; max-width: none; place-items: center; margin: 110px auto 0; padding: 12px; text-align: center; line-height: 19px; border-radius: 10px; background: #26364a; }
     @media (max-height: 200px) { body.thumbnail #status.thumbnail-error { min-height: 56px; margin-top: 36px; padding: 8px; font-size: 11px; line-height: 15px; } }
