@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import ai.dejavroom.app.RoadViewTestScreen
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
 import ai.dejavroom.app.core.designsystem.dejaVroomColors
 import ai.dejavroom.app.data.RoadViewLookupResult
@@ -105,7 +104,7 @@ internal fun DejaVroomApp(darkTheme: Boolean, vm: DejaVroomViewModel = viewModel
                         DejaVroomScreen.BRIEFING -> BriefingScreen(state, vm, compact)
                         DejaVroomScreen.COMPLETE -> CompleteScreen(state, vm, compact)
                         DejaVroomScreen.NAVIGATION -> NavigationScreen(state, vm, compact)
-                        DejaVroomScreen.ROADVIEW_TEST -> RoadViewTestScreen(
+                        DejaVroomScreen.ROADVIEW_TEST -> RoadViewScreen(
                             route = state.route,
                             candidates = state.route?.segments.orEmpty(),
                             selectedIndex = state.segmentIndex,

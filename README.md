@@ -73,7 +73,7 @@ cd deja-vroom
 ./gradlew :app:installDebug         # 실행 중인 에뮬레이터에 설치
 ```
 
-현재 앱은 출발지와 목적지를 직접 입력해 Nominatim/OSRM 경로를 미리 보고, 선택한 후보의 Kakao Roadview를 여는 프로토타입이다. 출발지 초기값은 수원시 영통구이며 직접 바꿀 수 있다. 실차 위치와 Pleos 내비 경로를 쓰지 않는다. Roadview 사용 전에는 `local.properties`의 Kakao JavaScript 키 설정과 Roadview 로컬 서버 실행이 필요하다. 자세한 실행 방법은 `scripts/roadview/serve.sh`를 참고한다. 최종 Déjà Vroom 시연 목표는 [시연 시나리오](docs/scenario.md)에 있다.
+현재 앱은 출발지와 목적지를 직접 입력해 Nominatim/OSRM 경로를 미리 보고, 선택한 후보의 Kakao Roadview를 여는 프로토타입이다. 출발지 초기값은 수원시 영통구이며 직접 바꿀 수 있다. 실차 위치와 Pleos 내비 경로를 쓰지 않는다. 후보 로드뷰는 GitHub Pages에 올린 Kakao 로드뷰 페이지를 연다. 빌드 전에 `local.properties`에 `roadviewBaseUrl`을 채운다. 설정 방법은 [로드뷰 설정](docs/roadview-setup.md)에 있다. 최종 Déjà Vroom 시연 목표는 [시연 시나리오](docs/scenario.md)에 있다.
 
 ## 테스트 환경과 필요한 설정
 
@@ -84,7 +84,8 @@ cd deja-vroom
 | 앱 | Kotlin, Jetpack Compose, minSdk 28 |
 | 빌드 | Gradle Wrapper (`./gradlew`), Gradle 실행 JDK 17 또는 21 |
 | Pleos SDK | Vehicle, NaviHelper 3.0.5, TextToSpeech. Pleos Playground 프로젝트 승인 필요 |
-| 비밀 값 | Demo 모드는 필요 없다. 실제 연동 시 `secrets.properties`(git 제외)에 둔다 |
+| 로드뷰 | `local.properties`의 `roadviewBaseUrl` (비어 있으면 앱이 설정 안내를 보여 준다). [로드뷰 설정](docs/roadview-setup.md) |
+| 비밀 값 | 저장소에 두지 않는다. Kakao JavaScript 키는 저장소 Secret `KAKAO_JS_KEY`, 그 밖의 값은 `secrets.properties`(git 제외) |
 
 ## APK
 
@@ -130,6 +131,7 @@ flowchart TB
 | [구성도](docs/architecture.md) | 앱 계층, Pleos SDK·API 매핑, 알려진 한계 |
 | [코드 컨벤션](docs/conventions.md) | Kotlin·Compose 규칙, 브랜치·커밋·PR |
 | [개발 흐름](docs/workflow.md) | Spec Kit 스펙 → Claude Code 하네스 구현 → 에뮬레이터 검증 |
+| [로드뷰 설정](docs/roadview-setup.md) | Kakao 키·도메인, GitHub Pages 배포, `local.properties`, 문제 해결 |
 | [제출물 체크리스트](docs/submission.md) | 공모전 제출물, 블라인드 점검, 라이선스 |
 | [Claude Code 하네스](.claude/README.md) | 이 저장소의 에이전트·스킬·규칙 |
 

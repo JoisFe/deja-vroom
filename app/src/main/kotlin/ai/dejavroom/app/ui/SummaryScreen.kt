@@ -1,5 +1,10 @@
 package ai.dejavroom.app.ui
 
+import ai.dejavroom.app.data.RoadViewEndpoint
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import ai.dejavroom.app.BuildConfig
 import ai.dejavroom.app.R
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
@@ -170,21 +175,23 @@ internal fun SegmentCard(number: Int, total: Int, segment: BriefingSegment, comp
 
 @Composable
 internal fun RoadviewThumbnail(segment: BriefingSegment, compact: Boolean, modifier: Modifier = Modifier) {
-    if (!BuildConfig.DEBUG) {
-        Box(modifier.background(DejaVroomTheme.colors.panelRaised), contentAlignment = Alignment.Center) {
-            Text("Roadview 사진 미리보기는 개발 빌드에서만 제공됩니다.", color = DejaVroomTheme.colors.muted, fontSize = 11.sp)
-        }
-        return
-    }
+    val endpoint = remember { RoadViewEndpoint.parse(BuildConfig.ROADVIEW_BASE_URL) }
     val coordinate = segment.coordinate
-    if (coordinate == null) {
-        Box(modifier.background(DejaVroomTheme.colors.panelRaised), contentAlignment = Alignment.Center) {
-            Text("실제 도로 좌표 없음", color = DejaVroomTheme.colors.muted, fontSize = 11.sp)
-        }
+    val unavailable = when {
+        endpoint == null -> RoadViewEndpoint.SETUP_MESSAGE
+        coordinate == null -> "실제 도로 좌표 없음"
+        else -> null
+    }
+    if (unavailable != null || endpoint == null || coordinate == null) {
+        ThumbnailMessage(unavailable.orEmpty(), modifier)
         return
     }
-    val layout = if (compact) "compact" else "expanded"
-    val url = "http://localhost:8080/roadview/?thumb=mapillary&lat=${coordinate.latitude}&lng=${coordinate.longitude}&heading=${segment.headingDegrees ?: 0.0}&layout=$layout"
+    val url = endpoint.thumbnailUrl(coordinate, segment.headingDegrees)
+    var loadFailed by remember(url) { mutableStateOf(false) }
+    if (loadFailed) {
+        ThumbnailMessage("로드뷰 페이지에 연결할 수 없습니다", modifier)
+        return
+    }
     AndroidView(
         modifier = modifier,
         factory = { context ->
@@ -195,7 +202,14 @@ internal fun RoadviewThumbnail(segment: BriefingSegment, compact: Boolean, modif
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = false
                 settings.allowContentAccess = false
-                webViewClient = WebViewClient()
+                webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                        !endpoint.isRoadViewPage(request.url.toString())
+
+                    override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                        if (request.isForMainFrame) loadFailed = true
+                    }
+                }
                 loadUrl(url)
             }
         },
@@ -206,6 +220,13 @@ internal fun RoadviewThumbnail(segment: BriefingSegment, compact: Boolean, modif
             view.destroy()
         },
     )
+}
+
+@Composable
+private fun ThumbnailMessage(message: String, modifier: Modifier) {
+    Box(modifier.background(DejaVroomTheme.colors.panelRaised).padding(12.dp), contentAlignment = Alignment.Center) {
+        Text(message, color = DejaVroomTheme.colors.muted, fontSize = 11.sp, textAlign = TextAlign.Center)
+    }
 }
 
 /** Top two human-readable reasons; source and provenance tags are left out. */

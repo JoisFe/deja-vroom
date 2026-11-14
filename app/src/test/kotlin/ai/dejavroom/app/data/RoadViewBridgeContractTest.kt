@@ -7,16 +7,21 @@ import java.io.File
 
 /** The Roadview page and the app must agree on the bridge name, or the page ignores the app's candidates. */
 class RoadViewBridgeContractTest {
-    private val page: String = listOf("../web/roadview/index.html", "web/roadview/index.html")
+    private fun webFile(name: String): String = listOf("../web/roadview/$name", "web/roadview/$name")
         .map(::File).first { it.exists() }.readText()
 
+    private val page = webFile("index.html")
+    private val script = webFile("roadview.js")
+
     @Test
-    fun `roadview page uses the app bridge name`() {
-        assertTrue("index.html must use window.$ROADVIEW_BRIDGE_NAME", page.contains("window.$ROADVIEW_BRIDGE_NAME"))
+    fun `roadview script uses the app bridge name`() {
+        assertTrue("roadview.js must use window.$ROADVIEW_BRIDGE_NAME", script.contains("window.$ROADVIEW_BRIDGE_NAME"))
+        assertFalse(script.contains("FirstLookBridge"))
     }
 
     @Test
-    fun `roadview page has no stale bridge name`() {
-        assertFalse(page.contains("FirstLookBridge"))
+    fun `page loads the script and keeps the key as a deploy-time placeholder`() {
+        assertTrue(page.contains("<script src=\"roadview.js\"></script>"))
+        assertTrue(page.contains("content=\"__KAKAO_JS_KEY__\""))
     }
 }
