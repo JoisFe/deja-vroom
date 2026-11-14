@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "datasetType": "development",
+  "id": "hannam-daero-demo-junction",
+  "routeId": "hannam-daero-southbound-demo-v1",
+  "junction": [
+    37.5372981,
+    127.004718
+  ],
+  "at": [
+    37.5385476,
+    127.0040993
+  ],
+  "pan": 159,
+  "tilt": 0,
+  "zoom": 0,
+  "caution": [
+    37.5373273,
+    127.0046107
+  ],
+  "message": "한남대로 진행 방향을 확인하세요.",
+  "cost": null,
+  "verifiedLaneMessage": null,
+  "laneGuidanceVerified": false,
+  "keepPath": [
+    [
+      37.5371385,
+      127.0048225
+    ],
+    [
+      37.5369788,
+      127.004927
+    ],
+    [
+      37.5368119,
+      127.0050111
+    ]
+  ],
+  "trapPath": [
+    [
+      37.5373594,
+      127.004505
+    ],
+    [
+      37.5374404,
+      127.0043025
+    ],
+    [
+      37.5375214,
+      127.0040999
+    ]
+  ],
+  "useRoadview": true,
+  "review": {
+    "manuallyVerified": true,
+    "roadviewCoverageVerified": true,
+    "reviewedAt": "2026-11-14",
+    "notes": "개발용 fixture. OSM one-way 접근/진행 way와 실제 Kakao Roadview coverage를 에뮬레이터에서 대조 검토함; 공식 차로 안내 아님."
+  },
+  "source": {
+    "provider": "OpenStreetMap",
+    "attribution": "© OpenStreetMap contributors",
+    "license": "ODbL-1.0",
+    "retrievedAt": "2026-11-14T00:35:00+09:00",
+    "ways": {
+      "approach": {
+        "id": "1346179854",
+        "tags": {
+          "highway": "primary",
+          "lane_markings": "yes",
+          "maxheight": "4.3",
+          "name": "한남대로",
+          "name:en": "Hannam-daero",
+          "name:ja": "漢南大路",
+          "name:ko": "한남대로",
+          "name:ko-Latn": "Hannam-daero",
+          "oneway": "yes",
+          "ref": "41;AH1",
+          "surface": "asphalt"
+        }
+      },
+      "keep": {
+        "id": "218655248",
+        "tags": {
+          "highway": "primary",
+          "lane_markings": "yes",
+          "maxspeed": "60",
+          "maxspeed:type": "sign",
+          "name": "한남대로",
+          "name:en": "Hannam-daero",
+          "name:ja": "江南大路",
+          "name:ko": "한남대로",
+          "name:ko-Latn": "Hannam-daero",
+          "oneway": "yes",
+          "ref": "41",
+          "sidewalk:both": "separate",
+          "surface": "asphalt"
+        }
+      },
+      "trap": {
+        "id": "267929583",
+        "tags": {
+          "highway": "residential",
+          "name": "한남대로27길",
+          "name:en": "Hannam-daero 27-gil",
+          "name:ko": "한남대로27길"
+        }
+      }
+    }
+  }
+}
