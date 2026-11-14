@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "ai.firstlook.app"
+    namespace = "ai.dejavroom.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "ai.firstlook.app"
+        applicationId = "ai.dejavroom.app"
         minSdk = 28
         targetSdk = 34
         versionCode = 1
