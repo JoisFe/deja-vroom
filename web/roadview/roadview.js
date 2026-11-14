@@ -30,7 +30,10 @@
     send(`fail:${reason}`);
   };
 
-  window.addEventListener("securitypolicyviolation", (event) => send(`csp-blocked:${event.violatedDirective}:${event.blockedURI}`));
+  window.addEventListener("securitypolicyviolation", (event) => {
+    send(`csp-blocked:${event.violatedDirective}:${event.blockedURI}`);
+    console.error(`roadview csp-blocked ${event.violatedDirective} ${event.blockedURI}`);
+  });
 
   if (!window.DejaVroomBridge) {
     const params = new URLSearchParams(window.location.search);
@@ -69,7 +72,10 @@
       fail("sdk-load", "Kakao Maps SDK를 사용할 수 없습니다.");
       return;
     }
+    // kakao.maps.load fetches more scripts from t1.daumcdn.net; if any is blocked it never calls back.
+    const mapsLoadTimer = window.setTimeout(() => fail("sdk-load", "Kakao 지도 모듈을 불러오지 못했습니다. 네트워크·보안 정책(CSP)을 확인하세요."), 10000);
     window.kakao.maps.load(() => {
+      window.clearTimeout(mapsLoadTimer);
       sdkReady = true;
       send("sdk-ready");
       if (pendingConfig) initializeRoadview(pendingConfig);
