@@ -86,22 +86,22 @@ internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, comp
     val route = state.route ?: return
     val segments = route.segments
     val displayCount = remember(route.routeId) { mutableIntStateOf(3) }
-    val visibleSegments = segments.take(displayCount.intValue)
+    val visibleSegments = route.mostImportantSegments(displayCount.intValue)
     if (compact) {
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("복잡 구간 후보 ${segments.size}곳 · 점수순", Modifier.weight(1f), color = DejaVroomTheme.colors.white, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("미리 볼 곳 ${segments.size}곳 · 가는 순서", Modifier.weight(1f), color = DejaVroomTheme.colors.white, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 CandidateCountSelector(displayCount.intValue) { displayCount.intValue = it }
             }
             Spacer(Modifier.height(8.dp))
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                visibleSegments.forEachIndexed { index, segment ->
+                visibleSegments.forEach { (index, segment) ->
                     SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = true, modifier = Modifier.fillMaxWidth().height(260.dp), onClick = { vm.openSegmentRoadView(index) })
                 }
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth().height(54.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton("첫 후보 거리뷰", Modifier.weight(1f), onClick = { vm.openSegmentRoadView(0) })
+                SecondaryButton("첫 후보 거리뷰", Modifier.weight(1f), onClick = { vm.openSegmentRoadView(visibleSegments.firstOrNull()?.index ?: 0) })
                 PrimaryButton("주행 시작", "›", Modifier.weight(1f), vm::startNavigation)
             }
         }
@@ -114,19 +114,19 @@ internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, comp
             Column(Modifier.weight(1f)) {
                 Text("복잡한 구간을 먼저 훑고,\n원하는 곳을 열어보세요.", color = DejaVroomTheme.colors.white, fontSize = 25.sp, lineHeight = 31.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(5.dp))
-                Text("경로 분석 점수순으로 최대 ${segments.size}곳을 찾았습니다. 구간을 선택하면 해당 Roadview가 열립니다.", color = DejaVroomTheme.colors.muted, fontSize = 14.sp)
+                Text("가는 순서대로 ${segments.size}곳을 골랐습니다. 화면은 분기점에 닿기 전 지점에서 시작합니다.", color = DejaVroomTheme.colors.muted, fontSize = 14.sp)
             }
             CandidateCountSelector(displayCount.intValue) { displayCount.intValue = it }
         }
         Spacer(Modifier.height(21.dp))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-            visibleSegments.forEachIndexed { index, segment ->
+            visibleSegments.forEach { (index, segment) ->
                 SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = false, modifier = Modifier.weight(1f), onClick = { vm.openSegmentRoadView(index) })
             }
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth().height(66.dp), verticalAlignment = Alignment.CenterVertically) {
-            SecondaryButton("첫 후보 Roadview 열기", Modifier.width(240.dp), onClick = { vm.openSegmentRoadView(0) })
+            SecondaryButton("첫 후보 Roadview 열기", Modifier.width(240.dp), onClick = { vm.openSegmentRoadView(visibleSegments.firstOrNull()?.index ?: 0) })
             Spacer(Modifier.weight(1f))
             Text("●   ●   ●", color = DejaVroomTheme.colors.blue, fontSize = 13.sp)
             Spacer(Modifier.weight(1f))
@@ -166,10 +166,17 @@ internal fun SegmentCard(number: Int, total: Int, segment: BriefingSegment, look
                 Text(segment.name, color = DejaVroomTheme.colors.white, fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 // Show why this point was picked, not just a number.
                 val reasons = selectionReasons(segment)
-                Text(if (reasons.isEmpty()) "${selectionSourceLabel(segment.selectionSource)} · 거리뷰 보기 ›" else "$reasons · 거리뷰 ›", color = DejaVroomTheme.colors.muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                val open = approachLabel(segment)
+                Text(if (reasons.isEmpty()) "${selectionSourceLabel(segment.selectionSource)} · $open" else "$reasons · $open", color = DejaVroomTheme.colors.muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }
+}
+
+/** Tells the driver the view starts before the junction, not on it. */
+internal fun approachLabel(segment: BriefingSegment): String {
+    val lead = segment.approach?.leadMeters ?: 0
+    return if (lead >= 20) "${lead / 10 * 10}m 전부터 보기 ›" else "거리뷰 ›"
 }
 
 /** Top two human-readable reasons; source and provenance tags are left out. */

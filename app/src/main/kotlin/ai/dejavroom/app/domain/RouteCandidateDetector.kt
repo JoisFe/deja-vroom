@@ -1,5 +1,6 @@
 package ai.dejavroom.app.domain
 
+import ai.dejavroom.app.model.ApproachConditions
 import ai.dejavroom.app.model.GeoCoordinate
 import ai.dejavroom.app.model.RouteGeometryStatus
 import ai.dejavroom.app.model.RouteSegmentCandidate
@@ -33,6 +34,10 @@ data class RouteMapFeature(
     val lanePressureSignal: Double = 0.0,
     /** Korean reasons, strongest first, shown to the driver as "why this point". */
     val reasons: List<String> = emptyList(),
+    /** How the point is reached; decides how early its preview starts. */
+    val approach: ApproachConditions = ApproachConditions.UNKNOWN,
+    /** Driven straight through: a weak candidate that never counts toward a chain of maneuvers. */
+    val passThrough: Boolean = false,
 ) {
     enum class Type { COMPLEX_INTERSECTION, HIGHWAY_JUNCTION, DESTINATION_ACCESS, HISTORICAL_ACCIDENT_HOTSPOT }
 
@@ -49,9 +54,10 @@ data class RouteMapFeature(
 }
 
 /**
- * Creates candidates from route shape and optional authoritative map/public-data features.
- * Geometry alone can identify sharp or clustered turns; it cannot prove intersections, lane
- * layout, highway exits, crash risk, or current road danger.
+ * Creates candidates from map/public-data features and, only when a route comes with none, from its shape.
+ * Geometry alone can identify sharp or clustered turns; it cannot prove intersections, lane layout,
+ * highway exits, crash risk, or current road danger, and it mistakes parking-lot wiggles and road bends
+ * for decisions. A source that reports maneuvers therefore replaces shape detection instead of adding to it.
  */
 class RouteCandidateDetector(
     private val turnThresholdDegrees: Double = 35.0,
@@ -66,7 +72,11 @@ class RouteCandidateDetector(
         require(approachLeadMeters >= 0.0)
     }
 
-    fun detect(route: RouteSnapshot, features: List<RouteMapFeature> = emptyList()): List<RouteSegmentCandidate> {
+    fun detect(
+        route: RouteSnapshot,
+        features: List<RouteMapFeature> = emptyList(),
+        includeShapeTurns: Boolean = features.isEmpty(),
+    ): List<RouteSegmentCandidate> {
         if (route.source == RouteSource.CURATED_DEMO || route.geometryStatus != RouteGeometryStatus.VERIFIED || route.geometry.size < 2) {
             return emptyList()
         }
@@ -87,7 +97,8 @@ class RouteCandidateDetector(
             }
 
         val candidates = mutableListOf<RouteSegmentCandidate>()
-        turns.groupConsecutive(clusterGapMeters).forEachIndexed { clusterIndex, cluster ->
+        val shapeTurns = if (includeShapeTurns) turns.groupConsecutive(clusterGapMeters) else emptyList()
+        shapeTurns.forEachIndexed { clusterIndex, cluster ->
             val strongest = cluster.maxBy { it.angleDegrees }
             val angleStrength = ((strongest.angleDegrees - turnThresholdDegrees) / (110.0 - turnThresholdDegrees)).coerceIn(0.0, 1.0)
             val density = ((cluster.size - 1) / 2.0).coerceIn(0.0, 1.0)
@@ -122,8 +133,10 @@ class RouteCandidateDetector(
 
         features.forEach { feature ->
             val projection = projectOntoRoute(feature.coordinate, route.geometry, offsets) ?: return@forEach
-            val routePoint = coordinateAtOffset(route.geometry, offsets, projection.offsetMeters)
-            val forwardPoint = coordinateAtOffset(route.geometry, offsets, (projection.offsetMeters + 20.0).coerceAtMost(routeLength))
+            // Direction of travel just past the point; at the very end of the route, just before it.
+            val headingFrom = if (projection.offsetMeters + 20.0 <= routeLength) projection.offsetMeters else (routeLength - 20.0).coerceAtLeast(0.0)
+            val routePoint = coordinateAtOffset(route.geometry, offsets, headingFrom)
+            val forwardPoint = coordinateAtOffset(route.geometry, offsets, (headingFrom + 20.0).coerceAtMost(routeLength))
             val segmentType = when (feature.type) {
                 RouteMapFeature.Type.COMPLEX_INTERSECTION -> SegmentType.INTERSECTION
                 RouteMapFeature.Type.HIGHWAY_JUNCTION -> SegmentType.HIGHWAY_JUNCTION
@@ -149,6 +162,8 @@ class RouteCandidateDetector(
                 historicIncidentSignal = feature.historicalIncidentSignal.coerceIn(0.0, 1.0),
                 dataConfidence = feature.confidence.coerceIn(0.0, 1.0),
                 routeLanes = feature.routeLanes,
+                approach = feature.approach,
+                passThrough = feature.passThrough,
                 evidence = feature.reasons
                     .plus(if (feature.type == RouteMapFeature.Type.HISTORICAL_ACCIDENT_HOTSPOT) emptyList() else listOf("도로 그래프: ${feature.source}"))
                     .plus(
@@ -162,7 +177,9 @@ class RouteCandidateDetector(
 
     /** Raises density for map maneuvers that sit within [clusterGapMeters] of other map maneuvers. */
     private fun withManeuverDensity(candidates: List<RouteSegmentCandidate>): List<RouteSegmentCandidate> {
-        val mapManeuvers = candidates.filter { it.type != SegmentType.COMPLEX_TURN && it.type != SegmentType.HISTORICAL_RISK }
+        val mapManeuvers = candidates.filter {
+            it.type != SegmentType.COMPLEX_TURN && it.type != SegmentType.HISTORICAL_RISK && !it.passThrough && !it.isArrivalPoint
+        }
         return candidates.map { candidate ->
             if (candidate !in mapManeuvers) return@map candidate
             val neighbors = mapManeuvers.count { it !== candidate && abs(it.routeOffsetMeters - candidate.routeOffsetMeters) <= clusterGapMeters }

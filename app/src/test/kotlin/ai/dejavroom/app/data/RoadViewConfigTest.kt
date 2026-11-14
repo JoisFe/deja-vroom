@@ -7,7 +7,7 @@ import java.io.File
 class RoadViewConfigTest {
     @Test
     fun `parses nested keys, quotes and comments`() {
-        val values = RoadViewYaml.parse(
+        val values = FlatYaml.parse(
             """
             # comment
             provider: mapillary   # trailing comment

@@ -22,7 +22,8 @@
 | SDK 호출 전 지원 여부(capability) 확인, 미지원 시 UI 비활성화 | – |
 | 주행 중 화면은 `CarUxRestrictions`를 따른다 | 주행 중 키보드·영상 금지 |
 | 코루틴은 `viewModelScope` / 주입한 `CoroutineDispatcher` | `GlobalScope` 금지 |
-| 도메인 로직(점수, 한가함 판정)은 순수 함수 + 단위 테스트 | `PlaceScorerTest` |
+| 도메인 판단은 도메인 타입의 행동으로 둔다 (Rich domain model) | `observation.assess()`, `candidate.scoreWith(weights)` |
+| 시연하며 바꿀 값은 규칙 객체로 묶어 주입하고 `config/*.yml`에서 읽는다. 정의에 가까운 값만 상수로 둔다 | `SelectionRules`, `ApproachPolicy` ← `config/briefing.yml` |
 
 ## 패키지
 
@@ -30,10 +31,24 @@
 ai.dejavroom.app/
   ui/         Compose 화면, 테마(Pleos 디자인 토큰)
   feature/    화면별 ViewModel + UiState
-  domain/     볼 곳 점수, 한가함 판정 (순수 Kotlin)
-  data/       Repository 인터페이스, Pleos* 구현, Fake* 구현
-  model/      공용 데이터 모델
+  domain/     경로 해석과 선정 정책 (순수 Kotlin, Android 의존 없음)
+  data/       Repository 인터페이스, 외부 서비스·Pleos* 구현, Fake* 구현, 설정 읽기
+  model/      도메인 타입. 값만 담지 않고 자기 판단을 메서드로 가진다
 ```
+
+## Rich domain model
+
+판단은 그 판단에 필요한 데이터를 가진 타입이 한다. 데이터 클래스에서 값을 꺼내 바깥의 `object`가 계산하는 방식은 쓰지 않는다.
+
+| 무엇을 | 어디에 | 예 |
+|---|---|---|
+| 한 타입의 데이터만으로 되는 판단 | 그 타입의 프로퍼티·메서드 | `ManeuverObservation.requiresAction`, `GeoCoordinate.distanceMetersTo()`, `RouteSnapshot.mostImportantSegments()` |
+| 여러 타입을 엮는 흐름 | `domain/`의 클래스 | `RouteAnalyzer`(선정), `TurnByTurnRoute`(경로 맥락) |
+| 조정 가능한 기준 | 검증을 스스로 하는 규칙 객체 | `SelectionRules`, `ManeuverRules`, `ApproachPolicy` |
+| 외부 형식 변환, 설정 읽기 | `data/` | `OsrmDrivingRouteClient`, `BriefingSettings` |
+
+- 규칙 객체와 값 객체는 `init`에서 범위를 검사한다. 잘못된 값으로는 만들어지지 않는다.
+- `RouteCandidateDetector`, `RouteGeometryMatcher`, 화면이 ViewModel을 통째로 받는 부분은 이전 구조가 남아 있다. 손댈 때 같은 방식으로 옮긴다.
 
 ## 브랜치 · 커밋 · PR
 

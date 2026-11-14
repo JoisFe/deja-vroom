@@ -1,0 +1,34 @@
+# 초행길 미리보기 알고리즘 조정 값. 앱 빌드에 그대로 포함된다(app assets의 briefing.yml).
+# 값을 바꾸고 다시 빌드하면 적용된다. 각 값의 뜻과 배경: docs/algorithm.md
+# 키를 지우면 코드의 기본값을 쓴다. 숫자가 아니거나 모르는 키가 있으면 앱은 전체를 기본값으로 되돌린다.
+
+selection:
+  maxCards: 5                    # 한 경로에서 보여 줄 카드 수(목적지 카드 포함), 1~5
+  minimumScore: 0.2              # 이 점수 미만은 쉬운 지점(단순 우회전, 합류)으로 보고 채우지 않는다. 1위는 예외
+  duplicateDistanceMeters: 350   # 이 거리 안에서 이어지는 조작은 카드 한 장으로 묶는다
+  departureGuardMeters: 300      # 출발지 주변은 이미 아는 곳으로 보고 건너뛴다
+  arrivalZoneMeters: 300         # 도착 직전 이 거리 안의 조작은 목적지 카드로 묶는다
+  nearTieScore: 0.05             # 점수 차가 이보다 작으면 먼저 만나는 지점을 고른다
+
+# 점수 = 각 신호(0~1) × 가중치의 합
+weights:
+  complexity: 0.25               # 조작 자체의 어려움(유턴·급회전·좌회전 > 우회전)
+  ambiguity: 0.20                # 비슷한 방향으로 갈라지는 갈래
+  errorCost: 0.25                # 놓쳤을 때 되돌리기 어려운 정도(고속도로 진출·갈림길)
+  lanePressure: 0.10             # 진행 가능한 차로가 적음
+  maneuverDensity: 0.05          # 조작이 연달아 이어짐
+  destinationProximity: 0.10     # 목적지에 가까움
+  historicIncident: 0.05         # 과거 사고 이력(공공데이터 연동 시)
+
+# 분기점에서 얼마나 앞에서부터 보여 줄지
+approach:
+  leadSeconds: 12                # 진입 도로 속도로 이 시간만큼 앞에서 시작한다
+  minLeadMeters: 70              # 느린 길에서도 최소 이만큼 앞에서
+  maxLeadMeters: 350             # 아무리 빨라도 이보다 멀리서 시작하지 않는다
+  highwayMinLeadMeters: 300      # 고속도로급 도로는 표지·감속차로가 일찍 시작하므로 최소 이만큼
+  defaultLeadMeters: 150         # 진입 도로 속도를 모를 때
+  arrivalLeadMeters: 80          # 도착 지점은 가까이에서 보여 준다
+
+maneuver:
+  lookAlikeAngleDegrees: 30      # 진출 방향과 이 각도 안에 있는 다른 갈래는 "비슷한 방향"으로 본다
+  highwaySpeedKmh: 70            # 경로 엔진 기준 속도가 이 이상이면 고속도로급으로 본다
