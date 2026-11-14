@@ -13,6 +13,17 @@ import ai.dejavroom.app.data.RoadViewLookupResult
 import ai.dejavroom.app.data.RoadViewProvider
 import ai.dejavroom.app.data.RouteRepository
 import ai.dejavroom.app.model.RouteSnapshot
+import ai.dejavroom.app.model.Place
+import ai.dejavroom.app.model.PlaceInput
+import ai.dejavroom.app.model.SearchField
+import ai.dejavroom.app.data.InMemoryRecentSearchStore
+import ai.dejavroom.app.data.PhotonPlaceSearchRepository
+import ai.dejavroom.app.data.PlaceSearchRepository
+import ai.dejavroom.app.data.RecentSearchStore
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +44,35 @@ data class DejaVroomUiState(
     val roadViewIndices: Map<String, Int> = emptyMap(),
     val isDrivingRestricted: Boolean = false,
     val isSearchingRoute: Boolean = false,
+    val originPlace: Place? = null,
+    val destinationPlace: Place? = null,
+    val activeField: SearchField? = null,
+    val suggestions: SuggestionState = SuggestionState(),
+    val recentSearches: List<Place> = emptyList(),
+)
+
+enum class SuggestionStatus { IDLE, LOADING, RESULTS, EMPTY, ERROR }
+
+/** Suggestions for one field. Previous [items] stay visible while loading so the list does not jump. */
+data class SuggestionState(
+    val field: SearchField? = null,
+    val query: String = "",
+    val status: SuggestionStatus = SuggestionStatus.IDLE,
+    val items: List<Place> = emptyList(),
+)
+
+internal fun DejaVroomUiState.inputOf(field: SearchField) =
+    if (field == SearchField.ORIGIN) originInput else destinationInput
+
+/** Back to the search screen with both inputs kept, so the user can tweak one field and search again. */
+internal fun DejaVroomUiState.editingRoute(): DejaVroomUiState =
+    if (isDrivingRestricted) this
+    else copy(screen = DejaVroomScreen.DESTINATION, activeField = null, suggestions = SuggestionState(), errorMessage = null)
+
+internal fun DejaVroomUiState.swappingFields(): DejaVroomUiState = copy(
+    originInput = destinationInput, destinationInput = originInput,
+    originPlace = destinationPlace, destinationPlace = originPlace,
+    suggestions = SuggestionState(), errorMessage = null,
 )
 
 internal fun DejaVroomUiState.selectingBriefingSegment(index: Int): DejaVroomUiState {
@@ -69,17 +109,30 @@ internal fun DejaVroomUiState.enteringRoadViewTest(): DejaVroomUiState =
 
 enum class DejaVroomScreen { DESTINATION, SUMMARY, BRIEFING, COMPLETE, NAVIGATION, ROADVIEW_TEST }
 
+@OptIn(FlowPreview::class)
 class DejaVroomViewModel(
     private val repository: RouteRepository = OsmRouteRepository(),
     private val roadViewProvider: RoadViewProvider = DemoRoadViewProvider(),
     private val speechOutput: BriefingSpeechOutput = NoopBriefingSpeechOutput(),
     private val restrictionSource: DrivingRestrictionSource = FakeDrivingRestrictionSource(),
+    private val placeSearch: PlaceSearchRepository = PhotonPlaceSearchRepository(),
+    private val recentSearchStore: RecentSearchStore = InMemoryRecentSearchStore(),
+    private val suggestionDebounceMillis: Long = 300,
 ) : ViewModel() {
     private val speechController = BriefingSpeechController(speechOutput)
-    private val mutableState = MutableStateFlow(DejaVroomUiState(voiceOutputAvailable = speechOutput.outputAvailable))
+    private val mutableState = MutableStateFlow(
+        DejaVroomUiState(voiceOutputAvailable = speechOutput.outputAvailable, recentSearches = recentSearchStore.all()),
+    )
     val state = mutableState.asStateFlow()
+    private val suggestionQueries = MutableStateFlow<Pair<SearchField, String>?>(null)
 
     init {
+        viewModelScope.launch {
+            suggestionQueries
+                .debounce(suggestionDebounceMillis)
+                .distinctUntilChanged()
+                .collectLatest { request -> loadSuggestions(request) }
+        }
         viewModelScope.launch {
             restrictionSource.isRestricted.collect { restricted ->
                 mutableState.update { it.copy(isDrivingRestricted = restricted) }
@@ -88,21 +141,119 @@ class DejaVroomViewModel(
         }
     }
 
-    fun updateDestination(value: String) {
+    fun updateDestination(value: String) = updateField(SearchField.DESTINATION, value)
+    fun updateOrigin(value: String) = updateField(SearchField.ORIGIN, value)
+
+    fun updateField(field: SearchField, value: String) {
         if (state.value.isDrivingRestricted) return
-        mutableState.update { it.copy(destinationInput = value.take(80), errorMessage = null) }
+        val text = value.take(80)
+        mutableState.update {
+            // Typing invalidates a previously picked place for that field.
+            when (field) {
+                SearchField.ORIGIN -> it.copy(originInput = text, originPlace = null)
+                SearchField.DESTINATION -> it.copy(destinationInput = text, destinationPlace = null)
+            }.copy(activeField = field, errorMessage = null)
+        }
+        requestSuggestions(field, text)
     }
-    fun updateOrigin(value: String) {
+
+    fun focusField(field: SearchField) {
         if (state.value.isDrivingRestricted) return
-        mutableState.update { it.copy(originInput = value.take(80), errorMessage = null) }
+        mutableState.update { it.copy(activeField = field) }
+        requestSuggestions(field, state.value.inputOf(field))
+    }
+
+    fun dismissSuggestions() {
+        suggestionQueries.value = null
+        mutableState.update { it.copy(activeField = null, suggestions = SuggestionState()) }
+    }
+
+    fun selectPlace(place: Place) {
+        val field = state.value.activeField ?: SearchField.DESTINATION
+        selectPlace(field, place)
+    }
+
+    fun selectPlace(field: SearchField, place: Place) {
+        if (state.value.isDrivingRestricted) return
+        suggestionQueries.value = null
+        mutableState.update {
+            when (field) {
+                SearchField.ORIGIN -> it.copy(originInput = place.name, originPlace = place)
+                SearchField.DESTINATION -> it.copy(destinationInput = place.name, destinationPlace = place)
+            }.copy(activeField = null, suggestions = SuggestionState(), errorMessage = null)
+        }
+    }
+
+    fun clearField(field: SearchField) = updateField(field, "")
+
+    fun swapFields() {
+        if (state.value.isDrivingRestricted) return
+        suggestionQueries.value = null
+        mutableState.update { it.swappingFields() }
+    }
+
+    fun removeRecent(place: Place) {
+        val recents = recentSearchStore.remove(place)
+        mutableState.update { it.copy(recentSearches = recents) }
+    }
+
+    fun clearRecents() {
+        val recents = recentSearchStore.clear()
+        mutableState.update { it.copy(recentSearches = recents) }
+    }
+
+    fun editRoute() {
+        speechController.stop()
+        suggestionQueries.value = null
+        transition { it.editingRoute() }
+    }
+
+    private fun requestSuggestions(field: SearchField, text: String) {
+        val query = text.trim()
+        if (query.length < MIN_QUERY_LENGTH) {
+            suggestionQueries.value = null
+            mutableState.update { it.copy(suggestions = SuggestionState(field = field, query = query)) }
+            return
+        }
+        mutableState.update { current ->
+            val keep = current.suggestions.takeIf { it.field == field }?.items.orEmpty()
+            current.copy(suggestions = SuggestionState(field, query, SuggestionStatus.LOADING, keep))
+        }
+        suggestionQueries.value = field to query
+    }
+
+    private suspend fun loadSuggestions(request: Pair<SearchField, String>?) {
+        val (field, query) = request ?: return
+        val bias = if (field == SearchField.DESTINATION) state.value.originPlace?.coordinate else null
+        val next = try {
+            val places = placeSearch.suggest(query, bias)
+            SuggestionState(field, query, if (places.isEmpty()) SuggestionStatus.EMPTY else SuggestionStatus.RESULTS, places)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            SuggestionState(field, query, SuggestionStatus.ERROR)
+        }
+        mutableState.update { current ->
+            // Drop results for a field or text the user has already moved away from.
+            if (current.activeField != field || current.inputOf(field).trim() != query) current
+            else current.copy(suggestions = next)
+        }
     }
     fun searchRoute() {
         if (state.value.isDrivingRestricted || state.value.isSearchingRoute) return
         viewModelScope.launch {
             mutableState.update { it.copy(isSearchingRoute = true, errorMessage = null) }
             try {
-                val route = repository.preview(state.value.originInput, state.value.destinationInput)
+                val current = state.value
+                val route = repository.preview(
+                    PlaceInput(current.originInput, current.originPlace),
+                    PlaceInput(current.destinationInput, current.destinationPlace),
+                )
                 speechController.stop()
+                val searched = current.destinationPlace?.takeIf { it.name == current.destinationInput.trim() }
+                    ?: Place(current.destinationInput.trim(), route.destination.takeIf { it != current.destinationInput.trim() }.orEmpty())
+                val recents = recentSearchStore.add(searched)
+                suggestionQueries.value = null
                 mutableState.update {
                     it.copy(
                         route = route,
@@ -111,6 +262,9 @@ class DejaVroomViewModel(
                         roadViewLookups = emptyMap(),
                         roadViewIndices = emptyMap(),
                         isSearchingRoute = false,
+                        recentSearches = recents,
+                        activeField = null,
+                        suggestions = SuggestionState(),
                     )
                 }
             } catch (cancelled: CancellationException) {
@@ -250,6 +404,8 @@ class DejaVroomViewModel(
             )
         }
     }
+
+    private companion object { const val MIN_QUERY_LENGTH = 2 }
 
     override fun onCleared() {
         speechController.stop()

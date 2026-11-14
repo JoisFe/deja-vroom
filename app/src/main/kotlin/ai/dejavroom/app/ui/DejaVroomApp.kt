@@ -2,6 +2,11 @@ package ai.dejavroom.app.ui
 
 import ai.dejavroom.app.BuildConfig
 import ai.dejavroom.app.R
+import ai.dejavroom.app.data.SharedPreferencesRecentSearchStore
+import androidx.compose.foundation.layout.heightIn
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import ai.dejavroom.app.RoadViewTestScreen
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
 import ai.dejavroom.app.core.designsystem.dejaVroomColors
@@ -79,7 +84,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-internal fun DejaVroomApp(darkTheme: Boolean, vm: DejaVroomViewModel = viewModel()) {
+internal fun DejaVroomApp(darkTheme: Boolean, vm: DejaVroomViewModel = viewModel(factory = DejaVroomViewModelFactory)) {
     val state by vm.state.collectAsStateWithLifecycle()
     DejaVroomTheme(darkTheme) {
         Surface(Modifier.fillMaxSize(), color = DejaVroomTheme.colors.background) {
@@ -95,7 +100,7 @@ internal fun DejaVroomApp(darkTheme: Boolean, vm: DejaVroomViewModel = viewModel
                     DejaVroomHeader(state, compact, vm)
                     Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
                     when (state.screen) {
-                        DejaVroomScreen.DESTINATION -> DestinationScreen(state, vm, compact)
+                        DejaVroomScreen.DESTINATION -> DestinationScreen(state, remember(vm) { vm.destinationActions() }, compact)
                         DejaVroomScreen.SUMMARY -> SummaryScreen(state, vm, compact)
                         DejaVroomScreen.BRIEFING -> BriefingScreen(state, vm, compact)
                         DejaVroomScreen.COMPLETE -> CompleteScreen(state, vm, compact)
@@ -160,7 +165,10 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
             }
             if (route != null) {
                 Spacer(Modifier.height(5.dp))
-                Text("${route.origin}  ›  ${route.destination}     약 ${route.durationMinutes}분 · ${route.distanceKm}km · ${routeSourceLabel(route.source)}", color = DejaVroomTheme.colors.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("${route.origin}  ›  ${route.destination}     약 ${route.durationMinutes}분 · ${route.distanceKm}km · ${routeSourceLabel(route.source)}", Modifier.weight(1f), color = DejaVroomTheme.colors.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (state.screen != DejaVroomScreen.DESTINATION) EditRouteButton(vm::editRoute)
+                }
             } else if (BuildConfig.DEBUG) {
                 TextButton(onClick = vm::openRoadViewTest, modifier = Modifier.align(Alignment.End)) {
                     Text("Kakao Roadview 개발 테스트", color = DejaVroomTheme.colors.blue, fontSize = 11.sp)
@@ -194,6 +202,10 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
             Text("⌑", color = DejaVroomTheme.colors.blue, fontSize = 18.sp)
             Spacer(Modifier.width(7.dp))
             Text("약 ${route.durationMinutes}분 · ${route.distanceKm}km · ${routeSourceLabel(route.source)}", color = DejaVroomTheme.colors.white, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            if (state.screen != DejaVroomScreen.DESTINATION) {
+                Spacer(Modifier.width(12.dp))
+                EditRouteButton(vm::editRoute)
+            }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("출발 전 주행 미리보기", color = DejaVroomTheme.colors.muted, fontSize = 14.sp)
@@ -218,5 +230,33 @@ internal fun DrivingRestrictionScreen(vm: DejaVroomViewModel) {
         Text("이 화면은 앱 내 Mock 시연이며 실제 차량 상태가 아닙니다.", color = DejaVroomTheme.colors.warning, fontSize = 13.sp)
         Spacer(Modifier.height(20.dp))
         SecondaryButton("Demo 제한 해제", Modifier.width(220.dp), onClick = vm::toggleDemoDrivingRestriction)
+    }
+}
+
+/** Returns to the search screen with both inputs kept. */
+@Composable
+private fun EditRouteButton(onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp)) {
+        Text("⌕ 경로 다시 검색", color = DejaVroomTheme.colors.blue, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+private fun DejaVroomViewModel.destinationActions() = DestinationActions(
+    onValueChange = ::updateField,
+    onFocus = ::focusField,
+    onClear = ::clearField,
+    onSwap = ::swapFields,
+    onSelectPlace = { field, place -> selectPlace(field, place) },
+    onRemoveRecent = ::removeRecent,
+    onClearRecents = ::clearRecents,
+    onDismissSuggestions = ::dismissSuggestions,
+    onSearch = ::searchRoute,
+)
+
+/** Recent searches need a Context, so the ViewModel is built with the application. */
+private val DejaVroomViewModelFactory = viewModelFactory {
+    initializer {
+        val app = checkNotNull(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY])
+        DejaVroomViewModel(recentSearchStore = SharedPreferencesRecentSearchStore(app))
     }
 }

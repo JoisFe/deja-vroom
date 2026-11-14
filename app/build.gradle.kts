@@ -42,6 +42,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    // Real org.json on the JVM; the Android stub throws in local unit tests.
+    testImplementation(libs.org.json)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso)
     androidTestImplementation(platform(libs.androidx.compose.bom))
