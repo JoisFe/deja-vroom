@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>FirstLook Kakao Roadview 개발 테스트</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #121925; color: #fff; }
+    * { box-sizing: border-box; }
+    html, body, #roadview { width: 100%; height: 100%; margin: 0; }
+    body { overflow: hidden; }
+    #roadview { min-height: 180px; background: #1d2939; }
+    #status { position: fixed; z-index: 2; top: 12px; left: 12px; max-width: calc(100% - 24px); padding: 9px 12px; border-radius: 10px; background: #101827e8; color: #f3f6fc; font-size: 13px; }
+    #attribution { position: fixed; z-index: 2; right: 8px; bottom: 8px; padding: 4px 7px; border-radius: 5px; background: #101827bf; color: white; font-size: 10px; }
+    #legend { position: fixed; z-index: 2; left: 8px; bottom: 8px; display: flex; gap: 12px; padding: 7px 10px; border-radius: 7px; background: #101827df; color: white; font-size: 12px; }
+    #legend[hidden] { display: none; }
+    #segment-context { position: fixed; z-index: 5; top: 12px; right: 12px; width: min(340px, calc(100% - 24px)); padding: 13px 16px; border: 1px solid #79b7ff; border-radius: 14px; background: #07172beF; box-shadow: 0 4px 18px #0008; }
+    #segment-context[hidden] { display: none; }
+    #context-eyebrow { color: #8dbdff; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    #lane-title { margin-top: 5px; font-size: 16px; font-weight: 750; }
+    #lane-subtitle { margin-top: 5px; color: #c4d2e4; font-size: 12px; line-height: 1.45; }
+    #lane-list { display: flex; gap: 5px; margin-top: 10px; }
+    .lane-slot { display: grid; flex: 1; min-height: 50px; place-items: center; border: 1px solid #6c7888; border-radius: 7px; color: #aab7c8; font-size: 20px; }
+    .lane-slot.valid { border: 2px solid #50e0a1; background: #087b4b; color: white; box-shadow: 0 0 12px #50e0a188; }
+    .lane-data-missing { margin-top: 9px; color: #ffd27a; font-size: 12px; font-weight: 700; }
+    #thumbnail-image { display: none; width: 100%; height: 100%; object-fit: cover; }
+    #photo-attribution { display: none; position: absolute; z-index: 3; right: 6px; bottom: 6px; max-width: calc(100% - 12px); padding: 4px 7px; border-radius: 6px; background: #07111ddd; color: white; font-size: 11px; text-decoration: none; }
+    body.thumbnail #photo-attribution.visible { display: block; }
+    body.thumbnail #status, body.thumbnail #attribution, body.thumbnail #legend, body.thumbnail .firstlook-candidate-label, body.thumbnail #segment-context { display: none !important; }
+    body.thumbnail { position: relative; }
+    body.thumbnail #roadview { display: none !important; }
+    body.thumbnail #thumbnail-image { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    body.thumbnail #photo-attribution.visible { position: absolute; right: 6px; bottom: 6px; }
+    body.thumbnail #status.thumbnail-error { display: grid !important; position: relative !important; top: auto; left: auto; right: auto; bottom: auto; transform: none; width: calc(100% - 24px); min-height: 64px; height: auto; max-width: none; place-items: center; margin: 110px auto 0; padding: 12px; text-align: center; line-height: 19px; border-radius: 10px; background: #26364a; }
+    @media (max-height: 200px) { body.thumbnail #status.thumbnail-error { min-height: 56px; margin-top: 36px; padding: 8px; font-size: 11px; line-height: 15px; } }
+    .legend-keep { color: #70e4a0; }
+    .legend-trap { color: #ff8f8f; }
+    .legend-caution { color: #ffc078; }
+    .firstlook-route-chevron { color: #1684ff; font: 700 28px/1 system-ui, sans-serif; text-shadow: 0 0 3px #fff, 0 1px 7px #001d55; pointer-events: none; user-select: none; }
+    .firstlook-junction-mark { display: grid; width: 22px; height: 22px; place-items: center; border: 1.5px solid #fff; border-radius: 50%; color: #fff; font: 800 15px/1 system-ui, sans-serif; text-shadow: 0 1px 3px #111; box-shadow: 0 1px 5px #111; pointer-events: none; user-select: none; }
+    .firstlook-junction-mark.keep { background: #148746; }
+    .firstlook-junction-mark.trap { background: #bf2b2b; }
+    .firstlook-junction-mark.caution { width: 24px; height: 24px; border-radius: 7px; background: #ad3418; font-size: 15px; }
+    .firstlook-candidate-label { position: fixed; z-index: 2; left: 12px; bottom: 12px; max-width: calc(100% - 24px); padding: 9px 12px; border-radius: 10px; background: #101827e8; color: #f3f6fc; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div id="roadview" aria-label="Kakao Roadview 개발 테스트"></div>
+  <img id="thumbnail-image" alt="후보 지점의 진행 방향 도로 사진">
+  <a id="photo-attribution" target="_blank" rel="noopener noreferrer" translate="no"></a>
+  <div id="status" role="status">Kakao Roadview 개발 테스트를 준비하고 있습니다.</div>
+  <section id="segment-context" aria-live="polite" hidden>
+    <div id="context-eyebrow">복잡 구간 정보</div>
+    <div id="lane-title"></div>
+    <div id="lane-subtitle"></div>
+    <div id="lane-list"></div><div id="lane-data-missing" class="lane-data-missing" hidden></div>
+  </section>
+  <div id="legend" hidden><span class="legend-keep">● 권장 경로</span><span class="legend-trap">● 다른 갈래</span><span class="legend-caution">! 분기 주의</span></div>
+  <div id="attribution">Kakao Maps</div>
+  <script nonce="__CSP_NONCE__">
+    (() => {
+      const appKey = "__KAKAO_JS_KEY__";
+      const status = document.getElementById("status");
+      const container = document.getElementById("roadview");
+      let sdkReady = false;
+      let initialized = false;
+      let pendingConfig = null;
+      let roadview;
+      let nativeArrowObserver;
+      let nativeArrowScaleObserver;
+      let lastScaledArrowCount = 0;
+      let overlayAttempted = false;
+      let junctionOverlayAttempted = false;
+      let junctionOverlayRendered = false;
+      let candidateOverlayRendered = false;
+      const routeOverlays = [];
+
+      const send = (message) => {
+        if (window.FirstLookBridge && typeof window.FirstLookBridge.postMessage === "function") {
+          window.FirstLookBridge.postMessage(message);
+        }
+      };
+      const fail = (reason, text) => {
+        status.textContent = text;
+        if (pendingConfig && pendingConfig.thumbnail) status.classList.add("thumbnail-error");
+        send(`fail:${reason}`);
+      };
+
+      window.addEventListener("securitypolicyviolation", (event) => send(`csp-blocked:${event.violatedDirective}:${event.blockedURI}`));
+
+      if (!window.FirstLookBridge) {
+        const params = new URLSearchParams(window.location.search);
+        const latitude = Number(params.get("lat"));
+        const longitude = Number(params.get("lng"));
+        const samplePanoId = Number(params.get("panoId"));
+        const thumbnail = params.get("thumb") === "mapillary";
+        if (thumbnail) document.body.classList.add("thumbnail");
+        pendingConfig = {
+          latitude: Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 ? latitude : 37.537183,
+          longitude: Number.isFinite(longitude) && longitude >= -180 && longitude <= 180 ? longitude : 127.005454,
+          heading: Number(params.get("heading")) || 0,
+          panoId: Number.isSafeInteger(samplePanoId) && samplePanoId > 0 ? samplePanoId : null,
+          thumbnail,
+        };
+        if (thumbnail) {
+          loadMapillaryThumbnail(pendingConfig);
+          return;
+        }
+        status.textContent = "Kakao Roadview 로컬 브라우저 테스트를 준비하고 있습니다.";
+      }
+
+      if (!appKey || appKey.includes("__KAKAO_")) {
+        fail("config", "local.properties에 Kakao JavaScript 키가 설정되지 않았습니다.");
+        return;
+      }
+
+      const sdk = document.createElement("script");
+      sdk.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(appKey)}&autoload=false`;
+      sdk.async = true;
+      const sdkLoadTimer = window.setTimeout(() => fail("sdk-load", "Kakao SDK 응답 시간이 초과되었습니다. 키·도메인·네트워크를 확인하세요."), 10000);
+      sdk.onerror = () => {
+        window.clearTimeout(sdkLoadTimer);
+        fail("sdk-load", "Kakao SDK를 불러오지 못했습니다. 키·도메인·네트워크를 확인하세요.");
+      };
+      sdk.onload = () => {
+        window.clearTimeout(sdkLoadTimer);
+        send("sdk-loaded");
+        if (!window.kakao || !window.kakao.maps) {
+          fail("sdk-load", "Kakao Maps SDK를 사용할 수 없습니다.");
+          return;
+        }
+        window.kakao.maps.load(() => {
+          sdkReady = true;
+          send("sdk-ready");
+          if (pendingConfig) initializeRoadview(pendingConfig);
+        });
+      };
+      document.head.appendChild(sdk);
+
+      function initializeRoadview(config) {
+        if (initialized || !sdkReady) return;
+        initialized = true;
+        status.textContent = "테스트 좌표의 파노라마를 찾고 있습니다.";
+        const position = new window.kakao.maps.LatLng(config.latitude, config.longitude);
+        const client = new window.kakao.maps.RoadviewClient();
+        const timer = window.setTimeout(() => fail("timeout", "파노라마 조회 시간이 초과되었습니다."), 8000);
+        const showPano = (panoId, selectedPosition = position) => {
+          if (!panoId) {
+            window.clearTimeout(timer);
+            fail("no-pano", "테스트 좌표 반경 50m에서 파노라마를 찾지 못했습니다.");
+            return;
+          }
+          try {
+            roadview = new window.kakao.maps.Roadview(container);
+            window.kakao.maps.event.addListener(roadview, "init", () => {
+              window.clearTimeout(timer);
+              roadview.relayout();
+              roadview.setViewpoint({ pan: Number(config.heading) || 0, tilt: 0, zoom: 0 });
+              inspectNativeArrowLayer();
+              renderSelectedCandidate(config);
+              status.textContent = config.selectedCandidate
+                ? `${config.selectedCandidate.name} · 복잡 교차로 후보 표시 중`
+                : "Kakao Roadview 개발 테스트 · 기본 화살표 제어 확인 중";
+              if (config.thumbnail) status.style.display = "none";
+              send("shown");
+            });
+            roadview.setPanoId(panoId, selectedPosition);
+          } catch (failure) {
+            window.clearTimeout(timer);
+            console.error(`roadview-render-failed ${failure && failure.stack || failure}`);
+            fail("render", pendingConfig && pendingConfig.thumbnail
+              ? `Roadview 미리보기를 열지 못했습니다${failure && failure.message ? `: ${failure.message}` : ""}`
+              : "파노라마 화면을 표시하지 못했습니다.");
+          }
+        };
+        if (config.panoId) showPano(config.panoId);
+        else if (Array.isArray(config.candidates) && config.candidates.length > 0) {
+          findCandidatePanorama(client, config, config.candidates.slice(0, 5), 0, timer, showPano);
+        } else client.getNearestPanoId(position, 50, (panoId) => showPano(panoId, position));
+      }
+
+      function findCandidatePanorama(client, config, candidates, index, timer, showPano) {
+        if (index >= candidates.length) {
+          window.clearTimeout(timer);
+          status.textContent = "분석된 후보 주변에서 Kakao Roadview를 찾지 못했습니다.";
+          send("candidate-no-coverage");
+          return;
+        }
+        const candidate = candidates[index];
+        const position = new window.kakao.maps.LatLng(candidate.latitude, candidate.longitude);
+        client.getNearestPanoId(position, 50, (panoId) => {
+          if (!panoId) return findCandidatePanorama(client, config, candidates, index + 1, timer, showPano);
+          config.latitude = candidate.latitude;
+          config.longitude = candidate.longitude;
+          config.heading = candidate.headingDegrees;
+          config.selectedCandidate = candidate;
+          config.selectedCandidateIndex = Number.isInteger(candidate.displayIndex) ? candidate.displayIndex : index;
+          config.panoId = panoId;
+          showPano(panoId, position);
+        });
+      }
+
+      function renderSelectedCandidate(config) {
+        const candidate = config && config.selectedCandidate;
+        if (candidateOverlayRendered || !candidate || !Number.isFinite(candidate.latitude) || !Number.isFinite(candidate.longitude)) return;
+        candidateOverlayRendered = true;
+        renderLaneGuidance(candidate);
+        const marker = document.createElement("span");
+        marker.className = "firstlook-junction-mark caution";
+        marker.textContent = "!";
+        marker.setAttribute("aria-hidden", "true");
+        const overlay = new window.kakao.maps.CustomOverlay({
+          position: new window.kakao.maps.LatLng(candidate.latitude, candidate.longitude),
+          content: marker,
+          xAnchor: 0.5,
+          yAnchor: 0.5,
+          clickable: false,
+        });
+        overlay.setRange(120);
+        overlay.setMap(roadview);
+        routeOverlays.push(overlay);
+        const evidence = (candidate.evidence || []).slice(0, 2).join(" · ");
+        const label = document.createElement("div");
+        label.className = "firstlook-candidate-label";
+        label.textContent = `${candidate.name} · 복잡도 ${Math.round(candidate.score * 100)}점${evidence ? ` · ${evidence}` : ""}`;
+        document.body.appendChild(label);
+        document.getElementById("attribution").textContent = "Kakao Maps · © OpenStreetMap contributors · ODbL 1.0 · OSRM";
+        send(`route-candidate-selected:${config.selectedCandidateIndex}`);
+      }
+
+      function renderLaneGuidance(candidate) {
+        const panel = document.getElementById("segment-context");
+        const lanes = Array.isArray(candidate.routeLanes) ? candidate.routeLanes : [];
+        const validLanes = lanes.filter((lane) => lane.validForRoute === true);
+        document.getElementById("lane-title").textContent = candidate.name || "선택한 경로 구간";
+        const evidence = Array.isArray(candidate.evidence) ? candidate.evidence.slice(0, 2).join(" · ") : "";
+        const score = Math.round((Number(candidate.score) || 0) * 100);
+        document.getElementById("lane-subtitle").textContent = [
+          `경로 분석 점수 ${score}점`,
+          evidence,
+          validLanes.length ? "초록색 차로가 경로에 유효합니다." : "노면 화살표가 경로 진행 방향을 나타냅니다."
+        ].filter(Boolean).join(" · ");
+        const laneList = document.getElementById("lane-list");
+        laneList.replaceChildren();
+        laneList.hidden = lanes.length === 0;
+        for (const [index, lane] of lanes.entries()) {
+          const slot = document.createElement("span");
+          slot.className = `lane-slot${lane.validForRoute ? " valid" : ""}`;
+          slot.textContent = (lane.indications || []).map(indicationArrow).join("") || "·";
+          slot.title = `왼쪽에서 ${index + 1}번째 차로${lane.validForRoute ? " · 경로 유효" : ""}`;
+          laneList.appendChild(slot);
+        }
+        const missing = document.getElementById("lane-data-missing");
+        missing.hidden = lanes.length > 0;
+        missing.textContent = lanes.length > 0 ? "" : "차로별 안내 정보 없음";
+        panel.hidden = false;
+      }
+
+      function indicationArrow(indication) {
+        return ({ "uturn": "↶", "sharp right": "↱", "right": "↗", "slight right": "↗", "straight": "↑", "slight left": "↖", "left": "↖", "sharp left": "↰" })[indication] || "·";
+      }
+
+      async function loadMapillaryThumbnail(config) {
+        status.textContent = "후보 주변 도로 사진을 찾고 있습니다.";
+        try {
+          const query = new URLSearchParams({ lat: String(config.latitude), lng: String(config.longitude), heading: String(config.heading) });
+          const response = await fetch(`/api/mapillary-thumbnail?${query}`, { cache: "no-store" });
+          const result = await response.json();
+          if (result.status !== "ok") {
+            const messages = {
+              unconfigured: "도로 사진을 표시하려면 Mapillary 토큰이 필요합니다.",
+              "no-coverage": "이 구간에는 등록된 도로 사진이 없습니다.",
+              "provider-error": "도로 사진 제공처에 연결할 수 없습니다.",
+            };
+            fail(`thumbnail-${result.status}`, messages[result.status] || "도로 사진을 불러오지 못했습니다.");
+            return;
+          }
+          const image = document.getElementById("thumbnail-image");
+          image.onload = () => { status.style.display = "none"; };
+          image.onerror = () => fail("thumbnail-image", "도로 사진을 불러오지 못했습니다.");
+          image.src = result.imageUrl;
+          const attribution = document.getElementById("photo-attribution");
+          attribution.textContent = `Mapillary · ${result.creator} · ${result.distanceMeters}m`;
+          attribution.href = `https://www.mapillary.com/app/?pKey=${encodeURIComponent(result.imageId)}`;
+          attribution.classList.add("visible");
+        } catch (_) {
+          fail("thumbnail-network", "도로 사진 제공처에 연결할 수 없습니다.");
+        }
+      }
+
+      // Kakao has no public arrow visibility/size option. Its current WebView renderer pairs
+      // private _ar_N_* arrow nodes with _at_N_* compass labels; keep only the route-heading sector.
+      function inspectNativeArrowLayer() {
+        const applyDirectionPolicy = () => {
+          const arrows = [...container.querySelectorAll('[id^="_ar_"]')];
+          if (pendingConfig && pendingConfig.thumbnail) {
+            container.querySelectorAll('[id^="_ar_"], [id^="_at_"]').forEach((element) => element.style.setProperty("display", "none", "important"));
+            return;
+          }
+          const expectedDirection = compassDirection(Number(pendingConfig && pendingConfig.heading) || 0);
+          const diagnostics = [];
+          for (const arrow of arrows) {
+            const index = arrow.id.match(/^_ar_(\d+)_/)?.[1];
+            const label = index ? container.querySelector(`[id^="_at_${index}_"]`) : null;
+            const labelText = (label && label.innerText || "").trim();
+            const keep = labelText === expectedDirection;
+            arrow.style.setProperty("display", keep ? "" : "none", "important");
+            if (label) label.style.setProperty("display", keep ? "" : "none", "important");
+            diagnostics.push(`${arrow.id}:${labelText || "?"}:${keep ? "keep" : "hide"}`);
+          }
+          if (diagnostics.length) send(`arrow-policy:${expectedDirection}:${diagnostics.join(",")}`);
+        };
+        applyDirectionPolicy();
+        nativeArrowObserver?.disconnect();
+        nativeArrowObserver = new MutationObserver(applyDirectionPolicy);
+        nativeArrowObserver.observe(container, { childList: true, subtree: true });
+        scaleNativeArrowLayer();
+        nativeArrowScaleObserver?.disconnect();
+        nativeArrowScaleObserver = new MutationObserver(scaleNativeArrowLayer);
+        nativeArrowScaleObserver.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: ["style"] });
+      }
+
+      // Kakao has no public size option for its ground arrows. In the debug WebView, its current
+      // renderer exposes them as private `_ar_*` DOM nodes with perspective matrix transforms.
+      // Append a local scale after Kakao's matrix so the arrow gets smaller without changing the
+      // panorama or replacing Kakao's movement hit target. This selector is SDK-version fragile.
+      function scaleNativeArrowLayer() {
+        const arrows = [...container.querySelectorAll('[id^="_ar_"]')];
+        for (const arrow of arrows) {
+          if (!(pendingConfig && pendingConfig.thumbnail)) {
+            if (CSS.supports("scale", "0.65")) {
+              if (arrow.style.scale !== "0.65") arrow.style.scale = "0.65";
+            } else if (arrow.style.zoom !== "0.65") {
+              arrow.style.zoom = "0.65";
+            }
+          }
+          if (arrow.style.transformOrigin !== "50% 50%") arrow.style.transformOrigin = "50% 50%";
+        }
+        if (arrows.length > 0) {
+          if (!(pendingConfig && pendingConfig.thumbnail)) status.textContent = "도로 위 화살표가 경로 진행 방향을 나타냅니다.";
+          if (arrows.length !== lastScaledArrowCount) {
+            lastScaledArrowCount = arrows.length;
+            send(`native-arrow-scaled:${arrows.length}`);
+          }
+        }
+      }
+
+      function compassDirection(degrees) {
+        const directions = ["북", "북동", "동", "남동", "남", "남서", "서", "북서"];
+        return directions[Math.round((((degrees % 360) + 360) % 360) / 45) % 8];
+      }
+
+      function renderJunctionMarks(config) {
+        if (junctionOverlayAttempted) return;
+        junctionOverlayAttempted = true;
+        const record = config && config.junctionRecord;
+        const eligible = config && config.developerFixture === true && config.routeVerified === true &&
+          config.photoMatchVerified === true && config.overlayAllowed === true && record &&
+          record.manuallyVerified === true && record.roadViewCoverageVerified === true &&
+          Array.isArray(record.keepPath) && record.keepPath.length === 3 &&
+          Array.isArray(record.trapPath) && record.trapPath.length === 3;
+        if (!eligible) {
+          send("overlay-suppressed:junction-demo-gate");
+          return;
+        }
+        const allPoints = [record.caution, ...record.keepPath, ...record.trapPath];
+        if (allPoints.some((point) => !point || !Number.isFinite(point.latitude) || !Number.isFinite(point.longitude) ||
+            point.latitude < -90 || point.latitude > 90 || point.longitude < -180 || point.longitude > 180)) {
+          send("overlay-suppressed:invalid-junction-coordinate");
+          return;
+        }
+        const heading = Number(config.heading);
+        if (!Number.isFinite(heading)) {
+          send("overlay-suppressed:missing-heading");
+          return;
+        }
+        const addMark = (point, kind, glyph, bearing) => {
+          const content = document.createElement("span");
+          content.className = `firstlook-junction-mark ${kind}`;
+          content.textContent = glyph;
+          content.setAttribute("aria-hidden", "true");
+          if (bearing !== null) content.style.transform = `rotate(${bearing - heading - 90}deg)`;
+          const overlay = new window.kakao.maps.CustomOverlay({
+            position: new window.kakao.maps.LatLng(point.latitude, point.longitude),
+            content,
+            xAnchor: 0.5,
+            yAnchor: 0.5,
+            clickable: false,
+          });
+          overlay.setAltitude(0);
+          overlay.setRange(300);
+          overlay.setMap(roadview);
+          routeOverlays.push(overlay);
+        };
+        const pathBearing = (path, index) => {
+          const start = path[index];
+          const end = path[Math.min(index + 1, path.length - 1)];
+          if (index >= path.length - 1) {
+            const previous = path[index - 1];
+            if (!previous) return Number(record.panDegrees);
+            return directionBearing(previous, start);
+          }
+          return directionBearing(start, end);
+        };
+        const directionBearing = (start, end) => {
+          const lat1 = start.latitude * Math.PI / 180;
+          const lat2 = end.latitude * Math.PI / 180;
+          const dLon = (end.longitude - start.longitude) * Math.PI / 180;
+          const y = Math.sin(dLon) * Math.cos(lat2);
+          const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+          return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        };
+        addMark(record.caution, "caution", "!", null);
+        record.keepPath.forEach((point, index) => addMark(point, "keep", "➤", pathBearing(record.keepPath, index)));
+        record.trapPath.forEach((point, index) => addMark(point, "trap", "➤", pathBearing(record.trapPath, index)));
+        junctionOverlayRendered = true;
+        document.getElementById("legend").hidden = false;
+        document.getElementById("attribution").textContent = "Kakao Maps · OSM © OpenStreetMap contributors · ODbL 1.0 · 개발 데이터";
+        status.textContent = "OSM 교차로 경로 매칭 완료 · 표식 7개 · Kakao 기본 이동 화살표는 유지합니다.";
+        send("junction-overlay-ready:7");
+      }
+
+      function renderRouteChevrons(config) {
+        if (overlayAttempted) return;
+        const points = config && config.routePoints;
+        const eligible = config && config.nativeArrowLayerConfirmed === true && config.routeVerified === true && config.photoMatchVerified === true &&
+          config.overlayAllowed === true && Array.isArray(points) && points.length >= 2 && points.length <= 50;
+        if (!eligible) {
+          overlayAttempted = true;
+          const reason = !config || config.nativeArrowLayerConfirmed !== true
+            ? "native-arrow-layer-not-confirmed"
+            : "unverified-route-photo-match-or-provider-permission";
+          send(`overlay-suppressed:${reason}`);
+          return;
+        }
+        for (const point of points) {
+          if (!point || !Number.isFinite(point.latitude) || !Number.isFinite(point.longitude) ||
+              point.latitude < -90 || point.latitude > 90 || point.longitude < -180 || point.longitude > 180) {
+            overlayAttempted = true;
+            send("overlay-suppressed:invalid-route-coordinate");
+            return;
+          }
+        }
+        for (let index = 0; index < points.length; index += 1) {
+          const point = points[index];
+          const content = document.createElement("span");
+          content.className = "firstlook-route-chevron";
+          content.textContent = "➤";
+          content.setAttribute("aria-hidden", "true");
+          const bearing = Number(point.bearingDegrees);
+          const cameraHeading = Number(config.heading);
+          if (!Number.isFinite(bearing) || !Number.isFinite(cameraHeading)) {
+            overlayAttempted = true;
+            send("overlay-suppressed:missing-heading");
+            return;
+          }
+          content.style.transform = `rotate(${bearing - cameraHeading - 90}deg)`;
+          const overlay = new window.kakao.maps.CustomOverlay({
+            position: new window.kakao.maps.LatLng(point.latitude, point.longitude),
+            content,
+            xAnchor: 0.5,
+            yAnchor: 0.5,
+            clickable: false,
+          });
+          overlay.setMap(roadview);
+          routeOverlays.push(overlay);
+        }
+        overlayAttempted = true;
+        send(`route-overlay-ready:${routeOverlays.length}`);
+      }
+
+      window.addEventListener("message", (event) => {
+        if (pendingConfig || typeof event.data !== "string") return;
+        let config;
+        try { config = JSON.parse(event.data); } catch (_) { return; }
+        if (config.type !== "initialize" || !Number.isFinite(config.latitude) || !Number.isFinite(config.longitude)) return;
+        if (config.latitude < -90 || config.latitude > 90 || config.longitude < -180 || config.longitude > 180) return;
+        if (config.panoId !== undefined && (!Number.isSafeInteger(config.panoId) || config.panoId <= 0)) return;
+        pendingConfig = config;
+        send("config-received");
+        initializeRoadview(config);
+      });
+
+      window.addEventListener("resize", () => roadview && roadview.relayout());
+      window.addEventListener("pagehide", () => {
+        nativeArrowObserver?.disconnect();
+        nativeArrowScaleObserver?.disconnect();
+        routeOverlays.forEach((overlay) => overlay.setMap(null));
+        routeOverlays.length = 0;
+        junctionOverlayAttempted = false;
+      });
+      send("ready");
+    })();
+  </script>
+</body>
+</html>

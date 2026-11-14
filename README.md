@@ -13,7 +13,7 @@ Pleos Connect(Android Automotive) 차량 앱 · 현대자동차그룹 차량용 
 </div>
 
 > [!NOTE]
-> **현재 상태: 기획과 시연 시나리오 단계 (2026-11-14).** 앱 코드는 다듬은 뒤 PR로 공개하고, release APK는 [`apk/`](apk/)에 올린다. "예정"으로 적은 기능은 아직 동작하지 않는다.
+> **현재 상태: 기획과 에뮬레이터용 앱 프로토타입.** 아래 구현은 경로 미리보기 실험이며 Déjà Vroom의 Pleos 차량 기능이 완성된 상태는 아니다. Pleos 차량 신호와 NaviHelper는 아직 연결되지 않았다.
 
 ## 이름
 
@@ -52,7 +52,7 @@ flowchart LR
 ## 실행 방법
 
 > [!IMPORTANT]
-> 앱 소스는 아직 이 저장소에 없다(공개 예정). 소스가 올라오면 아래 명령으로 빌드한다.
+> 앱은 Pleos Connect Emulator 또는 Android 에뮬레이터에서 실행한다. 앱은 외부 네트워크를 사용한다.
 
 ```bash
 git clone https://github.com/JoisFe/deja-vroom.git
@@ -62,7 +62,7 @@ cd deja-vroom
 ./gradlew :app:installDebug         # 실행 중인 에뮬레이터에 설치
 ```
 
-시연은 **Demo 모드**로 실행한다. 경로, 볼 곳, 사진은 가짜 데이터이며 화면에 Demo로 표시한다. 차량 신호는 Pleos Virtual Console로 입력한다(순서: [시연 시나리오 §시연 순서](docs/scenario.md#virtual-console-시연-순서)).
+현재 앱은 출발지와 목적지를 직접 입력해 Nominatim/OSRM 경로를 미리 보고, 선택한 후보의 Kakao Roadview를 여는 프로토타입이다. 출발지 초기값은 수원시 영통구이며 직접 바꿀 수 있다. 실차 위치와 Pleos 내비 경로를 쓰지 않는다. Roadview 사용 전에는 `local.properties`의 Kakao JavaScript 키 설정과 Roadview 로컬 서버 실행이 필요하다. 자세한 실행 방법은 `scripts/roadview/serve.sh`를 참고한다. 최종 Déjà Vroom 시연 목표는 [시연 시나리오](docs/scenario.md)에 있다.
 
 ## 테스트 환경과 필요한 설정
 
