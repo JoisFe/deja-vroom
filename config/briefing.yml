@@ -28,6 +28,9 @@ approach:
   highwayMinLeadMeters: 300      # 고속도로급 도로는 표지·감속차로가 일찍 시작하므로 최소 이만큼
   defaultLeadMeters: 150         # 진입 도로 속도를 모를 때
   arrivalLeadMeters: 80          # 도착 지점은 가까이에서 보여 준다
+  driveStepMeters: 20            # 자동 재생: 이 간격으로 사진을 넘기며 분기점까지 간다
+  drivePastMeters: 60            # 자동 재생: 분기점을 지나 이만큼 더 가서 나가는 방향을 보여 준다
+  driveMaxSteps: 10              # 자동 재생: 접근 구간이 길어도 이 횟수 안에 끝낸다
 
 maneuver:
   lookAlikeAngleDegrees: 30      # 진출 방향과 이 각도 안에 있는 다른 갈래는 "비슷한 방향"으로 본다

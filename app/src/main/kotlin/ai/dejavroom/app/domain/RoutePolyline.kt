@@ -2,6 +2,8 @@ package ai.dejavroom.app.domain
 
 import ai.dejavroom.app.model.ApproachViewpoint
 import ai.dejavroom.app.model.GeoCoordinate
+import ai.dejavroom.app.model.RoutePose
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /** Route geometry with distances along it. Every offset is meters from the start of the route. */
@@ -51,7 +53,26 @@ class RoutePolyline(private val points: List<GeoCoordinate>) {
         )
     }
 
+    /**
+     * The drive from [leadMeters] before [offsetMeters] to [pastMeters] after it, as evenly spaced poses
+     * about [stepMeters] apart. A long approach is thinned to [maxSteps] hops so it still plays quickly.
+     */
+    fun driveThrough(offsetMeters: Double, leadMeters: Double, pastMeters: Double, stepMeters: Double, maxSteps: Int): List<RoutePose> {
+        require(stepMeters > 0.0 && maxSteps >= 1)
+        val target = offsetMeters.coerceIn(0.0, lengthMeters)
+        val from = (target - leadMeters).coerceIn(0.0, target)
+        val to = (target + pastMeters).coerceIn(target, lengthMeters)
+        val distance = to - from
+        if (distance < 1.0) return emptyList()
+        val hops = ceil(distance / stepMeters).toInt().coerceIn(1, maxSteps)
+        return (0..hops).map { hop ->
+            val at = from + distance * hop / hops
+            RoutePose(pointAt(at), headingAt(at, DRIVE_HEADING_SPAN_METERS), (target - at).roundToInt())
+        }
+    }
+
     private companion object {
+        const val DRIVE_HEADING_SPAN_METERS = 20.0
         const val MIN_HEADING_SPAN_METERS = 5.0
         const val MAX_HEADING_SPAN_METERS = 30.0
     }

@@ -85,8 +85,11 @@ internal fun RoadViewScreen(
     val failureMessage = remember { mutableStateOf<String?>(null) }
     // The detailed progress text in [state] is for logcat; the driver only needs to know it is still loading.
     val shown = remember { mutableStateOf(false) }
+    // While the page plays the approach, the banner counts down the distance to the point.
+    val remainingMeters = remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(selectedIndex, lookup) {
         shown.value = false
+        remainingMeters.value = null
         failureMessage.value = when {
             endpoint != null || photo != null -> null
             view?.content == RoadViewContent.Illustration -> "데모 제공자는 도로 사진을 보여 주지 않습니다 · config/roadview.yml에서 kakao 또는 mapillary를 선택하세요."
@@ -211,6 +214,8 @@ internal fun RoadViewScreen(
                                 is RoadViewPageEvent.RouteOverlayReady -> state.value = "자체 경로 화살표 ${event.count}개 표시 · 개발 검증 상태"
                                 is RoadViewPageEvent.JunctionOverlayReady -> state.value = "OSM 경로 매칭 완료 · 교차로 표식 ${event.count}개 표시"
                                 is RoadViewPageEvent.OverlaySuppressed -> state.value = "경로 화살표 표시 안 함 · ${event.reason}"
+                                is RoadViewPageEvent.DriveProgress -> remainingMeters.value = event.remainingMeters
+                                RoadViewPageEvent.DriveFinished -> Unit
                                 is RoadViewPageEvent.Failed -> {
                                     timeout?.let(timeoutHandler::removeCallbacks)
                                     failureMessage.value = when (event.reason) {
@@ -299,7 +304,11 @@ internal fun RoadViewScreen(
             }
             val selected = candidates.getOrNull(selectedIndex)
             if (failureMessage.value == null && route != null && selected != null) {
-                ManeuverBanner(selected, Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
+                ManeuverBanner(
+                    segment = selected,
+                    leadMeters = remainingMeters.value ?: selected.approach?.leadMeters,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+                )
             }
         }
         if (route != null) {
@@ -340,7 +349,7 @@ internal fun RoadViewScreen(
 
 /** What to do at the point ahead, readable at a glance over the road view. */
 @Composable
-private fun ManeuverBanner(segment: BriefingSegment, modifier: Modifier = Modifier) {
+private fun ManeuverBanner(segment: BriefingSegment, leadMeters: Int?, modifier: Modifier = Modifier) {
     val cue = segment.cue ?: return
     Row(
         modifier.clip(RoundedCornerShape(22.dp)).background(Color(0xEB0B1730)).padding(start = 10.dp, end = 20.dp, top = 8.dp, bottom = 8.dp),
@@ -351,7 +360,7 @@ private fun ManeuverBanner(segment: BriefingSegment, modifier: Modifier = Modifi
         }
         Spacer(Modifier.width(12.dp))
         Column {
-            Text(bannerTitle(cue, segment.approach?.leadMeters), color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(bannerTitle(cue, leadMeters), color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             if (cue.sign.isNotBlank()) Text("표지 ${cue.sign}", color = Color(0xFFCFE0FF), fontSize = 15.sp, maxLines = 1)
         }
     }
@@ -377,6 +386,16 @@ private fun buildRoutePreviewConfig(route: RouteSnapshot, candidates: List<Brief
                 .put("viewLatitude", approach?.coordinate?.latitude ?: coordinate.latitude)
                 .put("viewLongitude", approach?.coordinate?.longitude ?: coordinate.longitude)
                 .put("leadMeters", approach?.leadMeters ?: 0)
+                // Frames of the drive from the viewpoint through the junction; the page plays them in order.
+                .put("drive", JSONArray().apply {
+                    segment.approachDrive.forEach { pose ->
+                        put(JSONObject()
+                            .put("latitude", pose.coordinate.latitude)
+                            .put("longitude", pose.coordinate.longitude)
+                            .put("headingDegrees", pose.headingDegrees)
+                            .put("remainingMeters", pose.remainingMeters))
+                    }
+                })
                 .put("headingDegrees", approach?.headingDegrees ?: segment.headingDegrees)
                 .put("name", segment.name)
                 .put("score", segment.selectionScore ?: 0.0)

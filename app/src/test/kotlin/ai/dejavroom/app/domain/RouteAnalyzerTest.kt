@@ -107,6 +107,19 @@ class RouteAnalyzerTest {
     }
 
     @Test
+    fun `each point comes with the drive from its viewpoint through the junction`() {
+        val segment = RouteAnalyzer().analyze(route(), listOf(junction(20))).single()
+        val drive = segment.approachDrive
+        assertEquals(segment.approach!!.coordinate, drive.first().coordinate)
+        assertEquals(144, drive.first().remainingMeters)
+        assertEquals(-60, drive.last().remainingMeters)
+        assertTrue(drive.size in 2..11)
+        // An arrival is the end of the road: its drive stops there.
+        val arrivalDrive = RouteAnalyzer().analyze(route(), listOf(arrival())).single().approachDrive
+        assertEquals(0, arrivalDrive.last().remainingMeters)
+    }
+
+    @Test
     fun `a sharp turn at a corner of the route is kept and viewed along the road leading in`() {
         val segment = RouteAnalyzer().analyze(route(lShaped), listOf(junction(20, geometry = lShaped))).single()
         assertEquals("j20", segment.id)
