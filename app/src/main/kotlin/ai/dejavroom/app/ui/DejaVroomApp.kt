@@ -265,6 +265,7 @@ private fun roadViewConfig(app: android.app.Application): RoadViewConfig {
         providerOverride = BuildConfig.ROADVIEW_PROVIDER_OVERRIDE,
         kakaoBaseUrlOverride = BuildConfig.ROADVIEW_BASE_URL_OVERRIDE,
         mapillaryClientToken = BuildConfig.MAPILLARY_CLIENT_TOKEN,
+        pageRevision = BuildConfig.ROADVIEW_PAGE_REVISION,
     )
 }
 

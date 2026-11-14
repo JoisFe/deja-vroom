@@ -10,6 +10,8 @@ data class RoadViewConfig(
     val provider: String,
     val kakaoBaseUrl: String,
     val mapillaryClientToken: String,
+    /** Content hash of web/roadview from the build; see [RoadViewEndpoint.detailUrl]. */
+    val pageRevision: String = "",
 ) {
     companion object {
         const val ASSET_NAME = "roadview.yml"
@@ -23,12 +25,14 @@ data class RoadViewConfig(
             providerOverride: String = "",
             kakaoBaseUrlOverride: String = "",
             mapillaryClientToken: String = "",
+            pageRevision: String = "",
         ): RoadViewConfig {
             val values = yaml?.let(RoadViewYaml::parse).orEmpty()
             return RoadViewConfig(
                 provider = providerOverride.ifBlank { values["provider"].orEmpty() }.trim(),
                 kakaoBaseUrl = kakaoBaseUrlOverride.ifBlank { values["kakao.baseUrl"].orEmpty() }.trim(),
                 mapillaryClientToken = mapillaryClientToken.trim(),
+                pageRevision = pageRevision.trim(),
             )
         }
     }
@@ -41,7 +45,7 @@ object RoadViewProviderFactory {
 
     fun create(config: RoadViewConfig): RoadViewProvider =
         when (RoadViewProviderId.fromKey(config.provider)) {
-            RoadViewProviderId.KAKAO -> RoadViewEndpoint.parse(config.kakaoBaseUrl)
+            RoadViewProviderId.KAKAO -> RoadViewEndpoint.parse(config.kakaoBaseUrl, config.pageRevision)
                 ?.let(::KakaoRoadViewProvider)
                 ?: UnconfiguredRoadViewProvider(RoadViewProviderId.KAKAO, KAKAO_SETUP_MESSAGE)
             RoadViewProviderId.MAPILLARY -> config.mapillaryClientToken.takeIf(String::isNotBlank)

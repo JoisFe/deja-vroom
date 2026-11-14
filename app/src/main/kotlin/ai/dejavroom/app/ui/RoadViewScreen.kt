@@ -244,7 +244,7 @@ internal fun RoadViewScreen(
                             }
                         }
                         Handler(Looper.getMainLooper()).postDelayed(pageLoadTimeout, 15_000)
-                        loadUrl(endpoint.pageUrl)
+                        loadUrl(endpoint.detailUrl)
                     }
                 },
                 onRelease = { webView ->

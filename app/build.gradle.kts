@@ -1,3 +1,4 @@
+import java.security.MessageDigest
 import java.util.Properties
 
 plugins {
@@ -17,6 +18,12 @@ fun localSetting(name: String): String =
 fun buildConfigString(value: String) = "\"" + value.replace("\\", "").replace("\"", "") + "\""
 
 val roadviewProviders = setOf("kakao", "mapillary", "demo")
+
+/** Changes whenever web/roadview changes; appended to page URLs so WebView and Pages caches never serve an old page. */
+val roadviewPageRevision: String = rootProject.file("web/roadview").walkTopDown()
+    .filter { it.isFile }.sortedBy { it.path }
+    .fold(MessageDigest.getInstance("SHA-256")) { digest: MessageDigest, file -> digest.apply { update(file.readBytes()) } }
+    .digest().joinToString("") { "%02x".format(it) }.take(12)
 val roadviewConfigFile = rootProject.file("config/roadview.yml")
 val roadviewProviderOverride = localSetting("roadviewProvider")
 val roadviewProvider: String = roadviewProviderOverride.ifEmpty {
@@ -42,6 +49,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "ROADVIEW_PROVIDER_OVERRIDE", buildConfigString(roadviewProviderOverride))
         buildConfigField("String", "ROADVIEW_BASE_URL_OVERRIDE", buildConfigString(localSetting("roadviewBaseUrl")))
+        buildConfigField("String", "ROADVIEW_PAGE_REVISION", buildConfigString(roadviewPageRevision))
         buildConfigField("String", "MAPILLARY_CLIENT_TOKEN", buildConfigString(localSetting("mapillaryClientToken")))
     }
 
