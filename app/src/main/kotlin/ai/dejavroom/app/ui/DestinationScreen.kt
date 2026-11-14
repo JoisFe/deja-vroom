@@ -353,11 +353,11 @@ internal fun RouteAnalysisPreview(modifier: Modifier = Modifier) {
         modifier.clip(RoundedCornerShape(22.dp)).background(DejaVroomTheme.colors.panel).border(1.dp, DejaVroomTheme.colors.stroke, RoundedCornerShape(22.dp)).padding(Spacing.l),
         verticalArrangement = Arrangement.spacedBy(Spacing.s),
     ) {
-        Text("경로 속 복잡 교차로를 찾아\n로드뷰로 바로 연결합니다", color = DejaVroomTheme.colors.white, fontSize = 21.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
+        Text("헷갈리기 쉬운 곳만 골라\n가기 전에 미리 보여 줍니다", color = DejaVroomTheme.colors.white, fontSize = 21.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
         listOf(
-            "01" to "목적지 검색 후 실제 도로 경로 계산",
-            "02" to "교차로 갈래 수와 분기 형태 분석·점수화",
-            "03" to "점수가 높은 구간 중 로드뷰가 있는 곳 표시",
+            "01" to "출발지와 목적지로 실제 도로 경로를 찾습니다",
+            "02" to "놓치면 돌아가기 어려운 갈림길과 회전을 고릅니다",
+            "03" to "분기점에 닿기 전 모습을 가는 순서대로 보여 줍니다",
         ).forEach { (number, label) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(number, color = DejaVroomTheme.colors.blueLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)

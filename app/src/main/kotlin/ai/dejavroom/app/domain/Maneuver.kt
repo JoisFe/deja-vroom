@@ -2,7 +2,9 @@ package ai.dejavroom.app.domain
 
 import ai.dejavroom.app.model.ApproachConditions
 import ai.dejavroom.app.model.GeoCoordinate
+import ai.dejavroom.app.model.ManeuverCue
 import ai.dejavroom.app.model.RouteLane
+import ai.dejavroom.app.model.TurnDirection
 import kotlin.math.abs
 
 /** Where a maneuver sits in the trip. Only [EN_ROUTE] points compete for preview slots. */
@@ -95,6 +97,37 @@ data class ManeuverObservation(
             .joinToString("·")
             .take(MAX_SIGN_LENGTH)
 
+    /** Which way to go and what to call it; null when this point asks nothing of the driver. */
+    val cue: ManeuverCue?
+        get() {
+            if (!requiresAction) return null
+            val direction = TurnDirection.fromModifier(modifier) ?: TurnDirection.STRAIGHT
+            val side = when {
+                direction.isRight -> "오른쪽"
+                direction.isLeft -> "왼쪽"
+                else -> ""
+            }
+            val action = when {
+                direction == TurnDirection.UTURN -> "유턴"
+                kind == "off ramp" -> label(side, "진출로")
+                kind == "on ramp" -> label(side, "진입로")
+                kind == "fork" -> if (side.isEmpty()) "갈림길에서 직진" else "$side 갈림길"
+                kind == "merge" -> if (side.isEmpty()) "본선 합류" else "${side}으로 합류"
+                kind in ROUNDABOUT_KINDS -> "회전교차로"
+                else -> when (direction) {
+                    TurnDirection.SHARP_LEFT -> "급좌회전"
+                    TurnDirection.LEFT -> "좌회전"
+                    TurnDirection.SLIGHT_LEFT -> "왼쪽 방향"
+                    TurnDirection.STRAIGHT -> "직진"
+                    TurnDirection.SLIGHT_RIGHT -> "오른쪽 방향"
+                    TurnDirection.RIGHT -> "우회전"
+                    TurnDirection.SHARP_RIGHT -> "급우회전"
+                    TurnDirection.UTURN -> "유턴"
+                }
+            }
+            return ManeuverCue(direction, action, sign)
+        }
+
     /**
      * Scoring signals for this point, or null when it is not worth previewing. A pass-through intersection
      * only qualifies when it squeezes lanes or sits on a highway next to a look-alike branch: driving
@@ -170,6 +203,7 @@ data class ManeuverObservation(
             reasons = assessment.evidence,
             approach = context.approach,
             passThrough = !assessment.requiresAction,
+            cue = cue,
         )
     }
 
@@ -188,14 +222,21 @@ data class ManeuverObservation(
             routeLanes = lanes,
             reasons = listOf(if (from.isBlank()) "큰길에서 빠지는 곳" else "${from}에서 빠지는 곳") + assessment?.evidence.orEmpty(),
             approach = context.approach,
+            cue = cue,
         )
     }
 
     private fun arrivalFeature(id: String, context: ManeuverContext): RouteMapFeature {
-        val side = when (turn) {
-            "right", "slight right", "sharp right" -> "목적지는 진행 방향 오른쪽"
-            "left", "slight left", "sharp left" -> "목적지는 진행 방향 왼쪽"
+        val direction = TurnDirection.fromModifier(modifier)
+        val side = when {
+            direction?.isRight == true -> "목적지는 진행 방향 오른쪽"
+            direction?.isLeft == true -> "목적지는 진행 방향 왼쪽"
             else -> null
+        }
+        val arrivalCue = when {
+            direction?.isRight == true -> ManeuverCue(TurnDirection.RIGHT, "목적지는 오른쪽")
+            direction?.isLeft == true -> ManeuverCue(TurnDirection.LEFT, "목적지는 왼쪽")
+            else -> ManeuverCue(TurnDirection.STRAIGHT, "도착 지점")
         }
         return RouteMapFeature(
             id = id,
@@ -207,6 +248,7 @@ data class ManeuverObservation(
             confidence = CONFIDENCE,
             reasons = listOfNotNull(side),
             approach = context.approach.copy(onHighway = false, arrival = true),
+            cue = arrivalCue,
         )
     }
 

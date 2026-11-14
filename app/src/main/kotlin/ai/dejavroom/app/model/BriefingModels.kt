@@ -55,6 +55,40 @@ data class RouteLane(val indications: List<String>, val validForRoute: Boolean)
  */
 data class ApproachViewpoint(val coordinate: GeoCoordinate, val headingDegrees: Double, val leadMeters: Int)
 
+/** Which way the route goes at a point. [degrees] is clockwise from straight ahead. */
+enum class TurnDirection(val degrees: Int) {
+    STRAIGHT(0), SLIGHT_RIGHT(45), RIGHT(90), SHARP_RIGHT(135), UTURN(180), SHARP_LEFT(-135), LEFT(-90), SLIGHT_LEFT(-45);
+
+    val isRight: Boolean get() = degrees in 1..179
+    val isLeft: Boolean get() = degrees < 0
+
+    companion object {
+        /** From a routing source's turn modifier ("slight right", "uturn", ...); null when it has none. */
+        fun fromModifier(modifier: String?): TurnDirection? = when (modifier?.trim()?.lowercase()) {
+            "straight" -> STRAIGHT
+            "slight right" -> SLIGHT_RIGHT
+            "right" -> RIGHT
+            "sharp right" -> SHARP_RIGHT
+            "uturn" -> UTURN
+            "sharp left" -> SHARP_LEFT
+            "left" -> LEFT
+            "slight left" -> SLIGHT_LEFT
+            else -> null
+        }
+    }
+}
+
+/**
+ * What to do at a point: the direction as an arrow, the action in a driver's words, and the sign to follow
+ * when map data records one. The direction is the computed route's own maneuver, never a lane number.
+ */
+data class ManeuverCue(val direction: TurnDirection, val action: String, val sign: String = "") {
+    init { require(action.isNotBlank()) }
+
+    /** One line for a card: "오른쪽 진출로 · 표지 양재". */
+    val summary: String get() = if (sign.isBlank()) action else "$action · 표지 $sign"
+}
+
 /** How a point is reached. Together with the approach policy this decides how early its preview starts. */
 data class ApproachConditions(
     /** Typical speed on the road leading in. */
@@ -101,6 +135,8 @@ data class BriefingSegment(
     val approach: ApproachViewpoint? = null,
     /** 1 = most worth previewing. 0 = unranked. Segments themselves are listed in route order. */
     val selectionRank: Int = 0,
+    /** Which way to go here and what to look for; null when the source does not say. */
+    val cue: ManeuverCue? = null,
 ) {
     /** Where its road view starts: the approach viewpoint when there is one, else the point itself. */
     val previewCoordinate: GeoCoordinate? get() = approach?.coordinate ?: coordinate
@@ -173,6 +209,7 @@ data class RouteSegmentCandidate(
     val approach: ApproachConditions = ApproachConditions.UNKNOWN,
     /** Driven straight through (no maneuver); never counted as part of a maneuver chain. */
     val passThrough: Boolean = false,
+    val cue: ManeuverCue? = null,
 ) {
     val isDestination: Boolean get() = type == SegmentType.DESTINATION_ENTRY
     val isArrivalPoint: Boolean get() = approach.arrival

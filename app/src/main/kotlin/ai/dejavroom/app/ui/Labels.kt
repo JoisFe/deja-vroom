@@ -9,6 +9,7 @@ import ai.dejavroom.app.feature.DejaVroomScreen
 import ai.dejavroom.app.feature.DejaVroomUiState
 import ai.dejavroom.app.feature.DejaVroomViewModel
 import ai.dejavroom.app.model.BriefingSegment
+import ai.dejavroom.app.model.ManeuverCue
 import ai.dejavroom.app.model.RoadViewContentOrigin
 import ai.dejavroom.app.model.RouteMatchStatus
 import ai.dejavroom.app.model.RouteSource
@@ -122,3 +123,33 @@ internal fun routeSourceLabel(source: RouteSource): String = when (source) {
     RouteSource.EXTERNAL_ROUTE -> "OSRM/OSM 경로 · 개발 서비스"
     RouteSource.CURATED_DEMO -> "Demo 경로"
 }
+
+/** Top two human-readable reasons; source and provenance tags are left out. */
+internal fun selectionReasons(segment: BriefingSegment): String = segment.selectionEvidence
+    .filterNot { it.startsWith("도로 그래프") || it.startsWith("경로와 거리") || it == "경로 형상만으로 추정" }
+    .take(2)
+    .joinToString(" · ")
+
+/**
+ * The one line under a card title: what to do and what to look for ("오른쪽 진출로 · 표지 양재").
+ * Scores, coordinates and how the point was found are not for the driver and never appear here.
+ */
+internal fun cardSubtitle(segment: BriefingSegment): String {
+    val finalApproach = segment.selectionEvidence.firstOrNull { it.startsWith("도착 ") && it.endsWith("진입") }
+    val parts = listOfNotNull(segment.cue?.summary, finalApproach)
+    if (parts.isNotEmpty()) return parts.joinToString(" · ")
+    return selectionReasons(segment).ifBlank { selectionSourceLabel(segment.selectionSource) }
+}
+
+/** "140m" for a preview that starts that far before the point; null when it starts right at it. */
+internal fun leadLabel(leadMeters: Int?): String? = leadMeters?.takeIf { it >= MIN_LEAD_TO_MENTION }?.let { "${it / 10 * 10}m" }
+
+/** Headline of the banner over a road view: "300m 앞 · 오른쪽 진출로". */
+internal fun bannerTitle(cue: ManeuverCue, leadMeters: Int?): String =
+    leadLabel(leadMeters)?.let { "$it 앞 · ${cue.action}" } ?: cue.action
+
+/** One line per point on the final screen: "출발 후 30.0km · 오른쪽 진출로 · 표지 양재". */
+internal fun recapLine(segment: BriefingSegment): String =
+    "출발 후 ${String.format(java.util.Locale.KOREA, "%.1f", segment.distanceFromStartKm)}km · ${cardSubtitle(segment)}"
+
+private const val MIN_LEAD_TO_MENTION = 20

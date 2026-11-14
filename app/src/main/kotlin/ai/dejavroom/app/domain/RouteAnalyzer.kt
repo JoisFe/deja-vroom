@@ -145,6 +145,7 @@ class RouteAnalyzer(
             routeLanes = candidate.routeLanes,
             approach = approach,
             selectionRank = rank,
+            cue = candidate.cue,
         )
     }
 

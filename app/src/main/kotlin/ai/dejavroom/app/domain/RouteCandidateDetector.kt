@@ -2,6 +2,7 @@ package ai.dejavroom.app.domain
 
 import ai.dejavroom.app.model.ApproachConditions
 import ai.dejavroom.app.model.GeoCoordinate
+import ai.dejavroom.app.model.ManeuverCue
 import ai.dejavroom.app.model.RouteGeometryStatus
 import ai.dejavroom.app.model.RouteSegmentCandidate
 import ai.dejavroom.app.model.RouteLane
@@ -38,6 +39,8 @@ data class RouteMapFeature(
     val approach: ApproachConditions = ApproachConditions.UNKNOWN,
     /** Driven straight through: a weak candidate that never counts toward a chain of maneuvers. */
     val passThrough: Boolean = false,
+    /** Which way to go here; null when the source does not say. */
+    val cue: ManeuverCue? = null,
 ) {
     enum class Type { COMPLEX_INTERSECTION, HIGHWAY_JUNCTION, DESTINATION_ACCESS, HISTORICAL_ACCIDENT_HOTSPOT }
 
@@ -164,6 +167,7 @@ class RouteCandidateDetector(
                 routeLanes = feature.routeLanes,
                 approach = feature.approach,
                 passThrough = feature.passThrough,
+                cue = feature.cue,
                 evidence = feature.reasons
                     .plus(if (feature.type == RouteMapFeature.Type.HISTORICAL_ACCIDENT_HOTSPOT) emptyList() else listOf("도로 그래프: ${feature.source}"))
                     .plus(

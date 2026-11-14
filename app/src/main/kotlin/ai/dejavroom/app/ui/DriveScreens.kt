@@ -106,37 +106,60 @@ internal fun NavigationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, c
     val route = state.route
     if (compact) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.Center) {
-            Eyebrow("PLEOS NAVIGATION  ·  MOCK")
+            Eyebrow("주행 시작  ·  시연 화면")
             Spacer(Modifier.height(10.dp))
             Text("주행을 시작합니다", color = DejaVroomTheme.colors.white, fontSize = 26.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(7.dp))
-            Text("Pleos 내비게이션 연동 전환을 시연하는 화면입니다.", color = DejaVroomTheme.colors.muted, fontSize = 14.sp)
+            Text("미리 본 지점을 가는 순서대로 다시 정리했습니다.", color = DejaVroomTheme.colors.muted, fontSize = 14.sp)
             Spacer(Modifier.height(12.dp))
             if (route != null) Text("${route.origin}  →  ${route.destination}  ·  약 ${route.durationMinutes}분 · ${route.distanceKm}km", color = DejaVroomTheme.colors.white, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
-            Text("실제 목적지 설정·주행 전환 API는 연결되지 않았습니다.", color = DejaVroomTheme.colors.warning, fontSize = 12.sp)
+            Text("실제 내비 안내로 넘어가는 기능은 아직 연결되지 않았습니다.", color = DejaVroomTheme.colors.warning, fontSize = 12.sp)
             Spacer(Modifier.height(12.dp))
-            SecondaryButton("브리핑 요약으로 돌아가기", Modifier.fillMaxWidth(), onClick = vm::backToSummary)
+            SecondaryButton("목록으로 돌아가기", Modifier.fillMaxWidth(), onClick = vm::backToSummary)
             Spacer(Modifier.height(12.dp))
-            RoadScene(Modifier.fillMaxWidth().aspectRatio(1.8f), variant = 1, large = true)
+            RouteRecap(route?.segments.orEmpty(), Modifier.fillMaxWidth())
         }
         return
     }
     Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            Eyebrow("PLEOS NAVIGATION  ·  MOCK")
+            Eyebrow("주행 시작  ·  시연 화면")
             Spacer(Modifier.height(16.dp))
             Text("주행을 시작합니다", color = DejaVroomTheme.colors.white, fontSize = 31.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(10.dp))
-            Text("Pleos 내비게이션 연동 전환을 시연하는 화면입니다.", color = DejaVroomTheme.colors.muted, fontSize = 16.sp)
+            Text("미리 본 지점을 가는 순서대로 다시 정리했습니다.", color = DejaVroomTheme.colors.muted, fontSize = 16.sp)
             Spacer(Modifier.height(23.dp))
             if (route != null) Text("${route.origin}  →  ${route.destination}  ·  약 ${route.durationMinutes}분 · ${route.distanceKm}km", color = DejaVroomTheme.colors.white, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(18.dp))
-            Text("실제 목적지 설정·주행 전환 API는 연결되지 않았습니다.", color = DejaVroomTheme.colors.warning, fontSize = 13.sp)
+            Text("실제 내비 안내로 넘어가는 기능은 아직 연결되지 않았습니다.", color = DejaVroomTheme.colors.warning, fontSize = 13.sp)
             Spacer(Modifier.height(22.dp))
-            SecondaryButton("브리핑 요약으로 돌아가기", Modifier.width(250.dp), onClick = vm::backToSummary)
+            SecondaryButton("목록으로 돌아가기", Modifier.width(250.dp), onClick = vm::backToSummary)
         }
-        RoadScene(Modifier.weight(1.05f).aspectRatio(1.4f), variant = 1, large = true)
+        RouteRecap(route?.segments.orEmpty(), Modifier.weight(1.05f))
+    }
+}
+
+/** The previewed points in driving order: an arrow, the place, and what to look for. */
+@Composable
+internal fun RouteRecap(segments: List<BriefingSegment>, modifier: Modifier = Modifier) {
+    Column(
+        modifier.clip(RoundedCornerShape(20.dp)).background(DejaVroomTheme.colors.panel)
+            .border(1.dp, DejaVroomTheme.colors.stroke.copy(alpha = .7f), RoundedCornerShape(20.dp)).padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("가는 길에 미리 본 곳", color = DejaVroomTheme.colors.white, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        if (segments.isEmpty()) Text("미리 본 지점이 없습니다.", color = DejaVroomTheme.colors.muted, fontSize = 14.sp)
+        segments.forEach { segment ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                DirectionBadge(segment.cue?.direction, Modifier.size(36.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(segment.name, color = DejaVroomTheme.colors.white, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(recapLine(segment), color = DejaVroomTheme.colors.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
     }
 }
 
