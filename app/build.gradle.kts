@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "ai.firstlook.app"
+    namespace = "ai.dejavroom.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "ai.firstlook.app"
+        applicationId = "ai.dejavroom.app"
         minSdk = 28
         targetSdk = 34
         versionCode = 1
@@ -42,6 +42,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    // Real org.json on the JVM; the Android stub throws in local unit tests.
+    testImplementation(libs.org.json)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso)
     androidTestImplementation(platform(libs.androidx.compose.bom))
