@@ -16,13 +16,20 @@ class RoadViewEndpoint private constructor(
     /** `scheme://host[:port]` used to restrict WebView messaging to this page. */
     val origin: String,
     private val pagePath: String,
+    /** Content hash of web/roadview; changes the URL whenever the page changes so no cache serves an old copy. */
+    private val revision: String = "",
 ) {
+    /** Interactive page for the detail screen. */
+    val detailUrl: String
+        get() = if (revision.isBlank()) pageUrl else "$pageUrl?rev=$revision"
+
     /** Still Roadview for a summary card, looked up near [coordinate] facing [headingDegrees]. */
     fun thumbnailUrl(coordinate: GeoCoordinate, headingDegrees: Double?): String =
         pageUrl + "?thumb=1" +
             "&lat=" + format(coordinate.latitude) +
             "&lng=" + format(coordinate.longitude) +
-            "&heading=" + format(headingDegrees?.takeIf { it.isFinite() } ?: 0.0)
+            "&heading=" + format(headingDegrees?.takeIf { it.isFinite() } ?: 0.0) +
+            (if (revision.isBlank()) "" else "&rev=$revision")
 
     /** True only for this page itself (any query); every other navigation is blocked. */
     fun isRoadViewPage(url: String): Boolean {
@@ -33,7 +40,7 @@ class RoadViewEndpoint private constructor(
     }
 
     companion object {
-        fun parse(baseUrl: String): RoadViewEndpoint? {
+        fun parse(baseUrl: String, revision: String = ""): RoadViewEndpoint? {
             val trimmed = baseUrl.trim()
             if (trimmed.isEmpty()) return null
             val uri = runCatching { URI(trimmed) }.getOrNull() ?: return null
@@ -44,7 +51,8 @@ class RoadViewEndpoint private constructor(
             if (!secure && !localDev) return null
             val path = uri.rawPath.orEmpty().ifEmpty { "/" }.let { if (it.endsWith("/")) it else "$it/" }
             val origin = originOf(uri) ?: return null
-            return RoadViewEndpoint(pageUrl = origin + path, origin = origin, pagePath = path)
+            val safeRevision = revision.trim().filter { it.isLetterOrDigit() }
+            return RoadViewEndpoint(pageUrl = origin + path, origin = origin, pagePath = path, revision = safeRevision)
         }
 
         private fun originOf(uri: URI): String? {

@@ -48,4 +48,18 @@ class RoadViewEndpointTest {
         assertFalse(pages.isRoadViewPage("https://evil.example/deja-vroom/roadview/"))
         assertFalse(pages.isRoadViewPage("http://team.github.io/deja-vroom/roadview/"))
     }
+
+    @Test
+    fun `revision is appended to detail and thumbnail urls so caches never serve an old page`() {
+        val endpoint = requireNotNull(RoadViewEndpoint.parse("http://localhost:8080/roadview/", revision = "abc123"))
+        assertEquals("http://localhost:8080/roadview/?rev=abc123", endpoint.detailUrl)
+        assertTrue(endpoint.thumbnailUrl(ai.dejavroom.app.model.GeoCoordinate(37.5, 127.0), 90.0).endsWith("&rev=abc123"))
+        assertTrue(endpoint.isRoadViewPage(endpoint.detailUrl))
+    }
+
+    @Test
+    fun `without a revision the detail url is the bare page url`() {
+        val endpoint = requireNotNull(RoadViewEndpoint.parse("http://localhost:8080/roadview/"))
+        assertEquals("http://localhost:8080/roadview/", endpoint.detailUrl)
+    }
 }
