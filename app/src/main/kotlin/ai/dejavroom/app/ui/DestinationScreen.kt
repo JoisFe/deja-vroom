@@ -1,98 +1,95 @@
 package ai.dejavroom.app.ui
 
-import ai.dejavroom.app.BuildConfig
-import ai.dejavroom.app.R
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
-import ai.dejavroom.app.core.designsystem.dejaVroomColors
-import ai.dejavroom.app.data.RoadViewLookupResult
-import ai.dejavroom.app.feature.DejaVroomScreen
+import ai.dejavroom.app.data.PHOTON_ATTRIBUTION
 import ai.dejavroom.app.feature.DejaVroomUiState
-import ai.dejavroom.app.feature.DejaVroomViewModel
-import ai.dejavroom.app.model.BriefingSegment
-import ai.dejavroom.app.model.RoadViewContentOrigin
-import ai.dejavroom.app.model.RouteMatchStatus
-import ai.dejavroom.app.model.RouteSource
-import ai.dejavroom.app.model.SegmentSelectionSource
-import ai.dejavroom.app.model.SegmentType
-import android.os.Bundle
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
+import ai.dejavroom.app.feature.SuggestionStatus
+import ai.dejavroom.app.feature.inputOf
+import ai.dejavroom.app.model.Place
+import ai.dejavroom.app.model.SearchField
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.view.WindowCompat
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+
+/** Everything the destination screen can ask for. The screen never sees the ViewModel. */
+internal data class DestinationActions(
+    val onValueChange: (SearchField, String) -> Unit,
+    val onFocus: (SearchField) -> Unit,
+    val onClear: (SearchField) -> Unit,
+    val onSwap: () -> Unit,
+    val onSelectPlace: (SearchField, Place) -> Unit,
+    val onRemoveRecent: (Place) -> Unit,
+    val onClearRecents: () -> Unit,
+    val onDismissSuggestions: () -> Unit,
+    val onSearch: () -> Unit,
+)
+
+private object Spacing {
+    val s = 12.dp
+    val m = 16.dp
+    val l = 24.dp
+    val touch = 48.dp
+}
 
 @Composable
-internal fun DestinationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, compact: Boolean) {
+internal fun DestinationScreen(state: DejaVroomUiState, actions: DestinationActions, compact: Boolean) {
     if (compact) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
-            DestinationForm(state, vm, Modifier.fillMaxWidth(), dense = true)
-            Spacer(Modifier.height(16.dp))
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = Spacing.m, vertical = Spacing.s)) {
+            DestinationForm(state, actions, Modifier.fillMaxWidth(), dense = true)
+            Spacer(Modifier.height(Spacing.l))
             RouteAnalysisPreview(Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.s))
             RouteDataAttribution()
         }
     } else {
-        Row(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
-            DestinationForm(state, vm, Modifier.weight(1.05f).fillMaxHeight(), dense = false)
-            Column(Modifier.weight(.95f), verticalArrangement = Arrangement.Center) {
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = Spacing.m, vertical = Spacing.s),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.l),
+        ) {
+            Column(Modifier.weight(1.05f).fillMaxHeight().verticalScroll(rememberScrollState())) {
+                DestinationForm(state, actions, Modifier.fillMaxWidth(), dense = false)
+            }
+            Column(Modifier.weight(.95f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
                 RouteAnalysisPreview(Modifier.fillMaxWidth())
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(Spacing.s))
                 RouteDataAttribution()
             }
         }
@@ -100,93 +97,261 @@ internal fun DestinationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, 
 }
 
 @Composable
-internal fun DestinationForm(state: DejaVroomUiState, vm: DejaVroomViewModel, modifier: Modifier, dense: Boolean) {
-    Column(modifier, verticalArrangement = if (dense) Arrangement.Top else Arrangement.Center) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow("FIRSTLOOK  ·  ROUTE ANALYSIS")
+internal fun DestinationForm(state: DejaVroomUiState, actions: DestinationActions, modifier: Modifier, dense: Boolean) {
+    Column(modifier) {
+        Eyebrow("DÉJÀ VROOM  ·  ROUTE ANALYSIS")
+        Spacer(Modifier.height(Spacing.s))
+        Text(
+            "처음 가는 길도,\n처음 보는 길이 아니도록.",
+            color = DejaVroomTheme.colors.white,
+            fontSize = if (dense) 24.sp else 30.sp,
+            lineHeight = if (dense) 30.sp else 38.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.height(Spacing.s))
+        Text("출발 전에 헷갈리기 쉬운 구간을 먼저 살펴보세요.", color = DejaVroomTheme.colors.muted, fontSize = if (dense) 13.sp else 15.sp)
+        Spacer(Modifier.height(Spacing.l))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                SearchFieldBlock(state, actions, SearchField.ORIGIN, dense)
+                Spacer(Modifier.height(Spacing.s))
+                SearchFieldBlock(state, actions, SearchField.DESTINATION, dense)
             }
-            Spacer(Modifier.height(if (dense) 7.dp else 13.dp))
-            Text("처음 가는 길도,\n처음 보는 길이 아니도록.", color = DejaVroomTheme.colors.white, fontSize = if (dense) 24.sp else 31.sp, lineHeight = if (dense) 30.sp else 39.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            Text("출발 전에 헷갈리기 쉬운 구간을 먼저 살펴보세요.", color = DejaVroomTheme.colors.muted, fontSize = if (dense) 13.sp else 16.sp)
-            Spacer(Modifier.height(if (dense) 10.dp else 18.dp))
-            RouteFieldLabel("출발지")
-            RouteSearchField(
-                icon = "⌾",
-                value = state.originInput,
-                placeholder = "출발 장소를 검색하세요",
-                onValueChange = vm::updateOrigin,
-                dense = dense,
-            )
-            Spacer(Modifier.height(10.dp))
-            RouteFieldLabel("목적지")
-            RouteSearchField(
-                icon = "⌕",
-                value = state.destinationInput,
-                placeholder = "목적지를 검색하세요",
-                onValueChange = vm::updateDestination,
-                dense = dense,
-            )
-            if (state.errorMessage != null) Text(state.errorMessage, color = DejaVroomTheme.colors.error, modifier = Modifier.padding(top = 8.dp))
-            Spacer(Modifier.height(if (dense) 8.dp else 13.dp))
-            Text("최근 목적지", color = DejaVroomTheme.colors.muted, fontSize = 14.sp)
-            Spacer(Modifier.height(7.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                listOf("강남역", "코엑스", "서울역").forEach { place ->
-                    Column(Modifier.weight(1f).clip(RoundedCornerShape(11.dp)).background(DejaVroomTheme.colors.panel).clickable { vm.updateDestination(place) }.padding(horizontal = 10.dp, vertical = 9.dp)) {
-                        Text("●  $place", color = DejaVroomTheme.colors.white, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(if (place == "강남역") "서울 강남구" else "최근 검색", color = DejaVroomTheme.colors.dim, fontSize = 11.sp, maxLines = 1)
-                    }
-                }
+            Spacer(Modifier.width(Spacing.s))
+            // Swap sits beside the two fields, like most navigation apps.
+            Box(
+                Modifier.size(Spacing.touch).clip(CircleShape).background(DejaVroomTheme.colors.panelRaised)
+                    .border(1.dp, DejaVroomTheme.colors.stroke, CircleShape).clickable(onClick = actions.onSwap),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("⇅", color = DejaVroomTheme.colors.blueLight, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(if (dense) 8.dp else 12.dp))
-            PrimaryButton(
-                if (state.isSearchingRoute) "복잡 교차로 분석 중" else "복잡 구간 분석",
-                if (state.isSearchingRoute) "…" else "›",
-                Modifier.fillMaxWidth(),
-                vm::searchRoute,
-                enabled = !state.isSearchingRoute,
-            )
+        }
+
+        if (state.errorMessage != null) {
+            Spacer(Modifier.height(Spacing.s))
+            Text(state.errorMessage, color = DejaVroomTheme.colors.error, fontSize = 13.sp)
+        }
+
+        if (state.activeField == null) {
+            Spacer(Modifier.height(Spacing.l))
+            RecentChips(state.recentSearches, actions)
+        }
+
+        Spacer(Modifier.height(Spacing.l))
+        PrimaryButton(
+            if (state.isSearchingRoute) "복잡 교차로 분석 중" else "복잡 구간 분석",
+            if (state.isSearchingRoute) "…" else "›",
+            Modifier.fillMaxWidth(),
+            actions.onSearch,
+            enabled = !state.isSearchingRoute,
+        )
     }
 }
 
 @Composable
-internal fun RouteSearchField(
+private fun SearchFieldBlock(state: DejaVroomUiState, actions: DestinationActions, field: SearchField, dense: Boolean) {
+    val isOrigin = field == SearchField.ORIGIN
+    RouteFieldLabel(if (isOrigin) "출발지" else "목적지")
+    Spacer(Modifier.height(6.dp))
+    RouteSearchField(
+        icon = if (isOrigin) "⌾" else "⌕",
+        value = state.inputOf(field),
+        placeholder = if (isOrigin) "출발 장소를 검색하세요" else "목적지를 검색하세요",
+        active = state.activeField == field,
+        dense = dense,
+        imeAction = if (isOrigin) ImeAction.Next else ImeAction.Search,
+        onValueChange = { actions.onValueChange(field, it) },
+        onFocus = { actions.onFocus(field) },
+        onClear = { actions.onClear(field) },
+        onImeAction = { if (isOrigin) actions.onFocus(SearchField.DESTINATION) else actions.onSearch() },
+    )
+    if (state.activeField == field) {
+        Spacer(Modifier.height(6.dp))
+        SuggestionPanel(state, actions, field)
+    }
+}
+
+@Composable
+private fun RouteSearchField(
     icon: String,
     value: String,
     placeholder: String,
-    onValueChange: (String) -> Unit,
+    active: Boolean,
     dense: Boolean,
+    imeAction: ImeAction,
+    onValueChange: (String) -> Unit,
+    onFocus: () -> Unit,
+    onClear: () -> Unit,
+    onImeAction: () -> Unit,
 ) {
-    Box(
-        Modifier.fillMaxWidth()
-            .padding(top = 7.dp)
-            .background(DejaVroomTheme.colors.panel, RoundedCornerShape(15.dp))
-            .border(1.dp, DejaVroomTheme.colors.stroke, RoundedCornerShape(15.dp))
-            .padding(horizontal = 16.dp, vertical = if (dense) 12.dp else 15.dp),
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = if (dense) 52.dp else 56.dp)
+            .background(DejaVroomTheme.colors.panel, shape)
+            .border(if (active) 2.dp else 1.dp, if (active) DejaVroomTheme.colors.blue else DejaVroomTheme.colors.stroke, shape)
+            .padding(start = Spacing.m),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(icon, color = DejaVroomTheme.colors.blueLight, fontSize = 21.sp)
-            Spacer(Modifier.width(10.dp))
-            Box(Modifier.weight(1f)) {
-                if (value.isEmpty()) Text(placeholder, color = DejaVroomTheme.colors.dim, fontSize = 17.sp)
-                BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    singleLine = true,
-                    textStyle = TextStyle(color = DejaVroomTheme.colors.white, fontSize = 17.sp),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+        Text(icon, color = DejaVroomTheme.colors.blueLight, fontSize = 20.sp)
+        Spacer(Modifier.width(Spacing.s))
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (value.isEmpty()) Text(placeholder, color = DejaVroomTheme.colors.dim, fontSize = 17.sp)
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                textStyle = TextStyle(color = DejaVroomTheme.colors.white, fontSize = 17.sp),
+                cursorBrush = SolidColor(DejaVroomTheme.colors.blue),
+                keyboardOptions = KeyboardOptions(imeAction = imeAction),
+                keyboardActions = KeyboardActions(onAny = { onImeAction() }),
+                modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) onFocus() },
+            )
+        }
+        // The clear slot is always reserved so the field does not shift when text appears.
+        Box(Modifier.size(Spacing.touch), contentAlignment = Alignment.Center) {
+            if (value.isNotEmpty()) {
+                Box(
+                    Modifier.size(Spacing.touch).clip(CircleShape).clickable(onClick = onClear),
+                    contentAlignment = Alignment.Center,
+                ) { Text("×", color = DejaVroomTheme.colors.muted, fontSize = 22.sp) }
             }
         }
     }
 }
 
 @Composable
+private fun SuggestionPanel(state: DejaVroomUiState, actions: DestinationActions, field: SearchField) {
+    val query = state.inputOf(field).trim()
+    val suggestions = state.suggestions.takeIf { it.field == field }
+    val shape = RoundedCornerShape(14.dp)
+    Column(
+        Modifier.fillMaxWidth().clip(shape).background(DejaVroomTheme.colors.panel)
+            .border(1.dp, DejaVroomTheme.colors.stroke, shape).padding(vertical = 6.dp),
+    ) {
+        if (query.isEmpty()) {
+            RecentList(state.recentSearches, field, actions)
+            return@Column
+        }
+        // Fixed-height status row: loading/empty/error never move the rows below it.
+        Row(Modifier.fillMaxWidth().height(Spacing.touch).padding(start = Spacing.m), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                when {
+                    query.length < 2 -> "두 글자 이상 입력하면 추천 검색어가 나옵니다"
+                    suggestions?.status == SuggestionStatus.LOADING -> "추천 검색어 찾는 중…"
+                    suggestions?.status == SuggestionStatus.EMPTY -> "추천 결과가 없습니다. 입력한 그대로 검색할 수 있습니다"
+                    suggestions?.status == SuggestionStatus.ERROR -> "추천 검색어를 불러오지 못했습니다. 입력한 그대로 검색할 수 있습니다"
+                    else -> "추천 검색어"
+                },
+                color = if (suggestions?.status == SuggestionStatus.ERROR) DejaVroomTheme.colors.error else DejaVroomTheme.colors.muted,
+                fontSize = 12.sp,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = actions.onDismissSuggestions) { Text("닫기", color = DejaVroomTheme.colors.muted, fontSize = 12.sp) }
+        }
+        suggestions?.items.orEmpty().take(6).forEach { place ->
+            PlaceRow(
+                title = highlight(place.name, query),
+                subtitle = place.address,
+                leading = "⌖",
+                onClick = { actions.onSelectPlace(field, place) },
+            )
+        }
+        if (suggestions?.items.orEmpty().isNotEmpty()) {
+            Text(PHOTON_ATTRIBUTION, color = DejaVroomTheme.colors.dim, fontSize = 10.sp, modifier = Modifier.padding(horizontal = Spacing.m, vertical = 4.dp))
+        }
+    }
+}
+
+@Composable
+private fun RecentList(recents: List<Place>, field: SearchField, actions: DestinationActions) {
+    if (recents.isEmpty()) {
+        Text("최근 검색이 없습니다", color = DejaVroomTheme.colors.muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s))
+        return
+    }
+    Row(Modifier.fillMaxWidth().height(Spacing.touch).padding(start = Spacing.m), verticalAlignment = Alignment.CenterVertically) {
+        Text("최근 검색", color = DejaVroomTheme.colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+        TextButton(onClick = actions.onClearRecents) { Text("전체 삭제", color = DejaVroomTheme.colors.muted, fontSize = 12.sp) }
+    }
+    recents.forEach { place ->
+        PlaceRow(
+            title = AnnotatedString(place.name),
+            subtitle = place.address,
+            leading = "↺",
+            onClick = { actions.onSelectPlace(field, place) },
+            onRemove = { actions.onRemoveRecent(place) },
+        )
+    }
+}
+
+@Composable
+private fun PlaceRow(title: AnnotatedString, subtitle: String, leading: String, onClick: () -> Unit, onRemove: (() -> Unit)? = null) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = onClick).padding(start = Spacing.m),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(leading, color = DejaVroomTheme.colors.blueLight, fontSize = 16.sp)
+        Spacer(Modifier.width(Spacing.s))
+        Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+            Text(title, color = DejaVroomTheme.colors.white, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle.isNotBlank()) {
+                Text(subtitle, color = DejaVroomTheme.colors.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        if (onRemove != null) {
+            Box(Modifier.size(Spacing.touch).clickable(onClick = onRemove), contentAlignment = Alignment.Center) {
+                Text("×", color = DejaVroomTheme.colors.dim, fontSize = 18.sp)
+            }
+        } else {
+            Spacer(Modifier.width(Spacing.m))
+        }
+    }
+}
+
+@Composable
+private fun RecentChips(recents: List<Place>, actions: DestinationActions) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("최근 목적지", color = DejaVroomTheme.colors.muted, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        if (recents.isNotEmpty()) TextButton(onClick = actions.onClearRecents) { Text("전체 삭제", color = DejaVroomTheme.colors.muted, fontSize = 12.sp) }
+    }
+    Spacer(Modifier.height(6.dp))
+    if (recents.isEmpty()) {
+        Text("검색한 목적지가 여기에 쌓입니다.", color = DejaVroomTheme.colors.dim, fontSize = 13.sp)
+        return
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        recents.take(3).forEach { place ->
+            Column(
+                Modifier.weight(1f).heightIn(min = 56.dp).clip(RoundedCornerShape(12.dp)).background(DejaVroomTheme.colors.panel)
+                    .clickable { actions.onSelectPlace(SearchField.DESTINATION, place) }
+                    .padding(horizontal = Spacing.s, vertical = 8.dp),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(place.name, color = DejaVroomTheme.colors.white, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(place.address.ifBlank { "최근 검색" }, color = DejaVroomTheme.colors.dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
+private fun highlight(text: String, query: String): AnnotatedString {
+    val start = if (query.isBlank()) -1 else text.indexOf(query, ignoreCase = true)
+    if (start < 0) return AnnotatedString(text)
+    val color = DejaVroomTheme.colors.blueLight
+    return buildAnnotatedString {
+        append(text.substring(0, start))
+        withStyle(SpanStyle(color = color, fontWeight = FontWeight.Bold)) { append(text.substring(start, start + query.length)) }
+        append(text.substring(start + query.length))
+    }
+}
+
+@Composable
 internal fun RouteAnalysisPreview(modifier: Modifier = Modifier) {
     Column(
-        modifier.clip(RoundedCornerShape(22.dp)).background(DejaVroomTheme.colors.panel).border(1.dp, DejaVroomTheme.colors.stroke, RoundedCornerShape(22.dp)).padding(22.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier.clip(RoundedCornerShape(22.dp)).background(DejaVroomTheme.colors.panel).border(1.dp, DejaVroomTheme.colors.stroke, RoundedCornerShape(22.dp)).padding(Spacing.l),
+        verticalArrangement = Arrangement.spacedBy(Spacing.s),
     ) {
         Text("경로 속 복잡 교차로를 찾아\n로드뷰로 바로 연결합니다", color = DejaVroomTheme.colors.white, fontSize = 21.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
         listOf(
@@ -196,7 +361,7 @@ internal fun RouteAnalysisPreview(modifier: Modifier = Modifier) {
         ).forEach { (number, label) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(number, color = DejaVroomTheme.colors.blueLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(Spacing.s))
                 Text(label, color = DejaVroomTheme.colors.muted, fontSize = 14.sp)
             }
         }
@@ -205,11 +370,10 @@ internal fun RouteAnalysisPreview(modifier: Modifier = Modifier) {
 
 @Composable
 internal fun RouteDataAttribution() {
-    Text("경로·도로 그래프: OpenStreetMap / OSRM 개발 서비스 · 복잡도는 차로·현재 위험도 의미가 아닙니다.", color = DejaVroomTheme.colors.dim, fontSize = 11.sp, lineHeight = 14.sp)
+    Text("경로·도로 그래프: OpenStreetMap / OSRM 개발 서비스 · 추천 검색어: Photon · 복잡도는 차로·현재 위험도 의미가 아닙니다.", color = DejaVroomTheme.colors.dim, fontSize = 11.sp, lineHeight = 14.sp)
 }
 
 @Composable
 internal fun RouteFieldLabel(label: String) {
     Text(label, color = DejaVroomTheme.colors.muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
 }
-
