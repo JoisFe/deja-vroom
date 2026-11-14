@@ -37,6 +37,8 @@ class BriefingSettingsTest {
             approach:
               leadSeconds: 15
               highwayMinLeadMeters: 320
+              driveStepMeters: 30
+              driveMaxSteps: 8
             maneuver:
               lookAlikeAngleDegrees: 20
             """.trimIndent(),
@@ -45,6 +47,8 @@ class BriefingSettingsTest {
         assertEquals(0.4, settings.weights.errorCost, 0.0)
         assertEquals(15.seconds, settings.approach.leadTime)
         assertEquals(320.0, settings.approach.highwayMinLeadMeters, 0.0)
+        assertEquals(30.0, settings.approach.driveStepMeters, 0.0)
+        assertEquals(8, settings.approach.driveMaxSteps)
         assertEquals(ManeuverRules(lookAlikeAngleDegrees = 20), settings.maneuver)
     }
 

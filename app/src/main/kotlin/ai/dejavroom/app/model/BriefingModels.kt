@@ -55,6 +55,12 @@ data class RouteLane(val indications: List<String>, val validForRoute: Boolean)
  */
 data class ApproachViewpoint(val coordinate: GeoCoordinate, val headingDegrees: Double, val leadMeters: Int)
 
+/**
+ * One frame of the drive toward a point: where the car is, which way it faces, and how far the point still
+ * is. [remainingMeters] is negative once the car has passed it.
+ */
+data class RoutePose(val coordinate: GeoCoordinate, val headingDegrees: Double, val remainingMeters: Int)
+
 /** Which way the route goes at a point. [degrees] is clockwise from straight ahead. */
 enum class TurnDirection(val degrees: Int) {
     STRAIGHT(0), SLIGHT_RIGHT(45), RIGHT(90), SHARP_RIGHT(135), UTURN(180), SHARP_LEFT(-135), LEFT(-90), SLIGHT_LEFT(-45);
@@ -137,6 +143,8 @@ data class BriefingSegment(
     val selectionRank: Int = 0,
     /** Which way to go here and what to look for; null when the source does not say. */
     val cue: ManeuverCue? = null,
+    /** The drive from the approach viewpoint through the point, frame by frame; road views can play it. */
+    val approachDrive: List<RoutePose> = emptyList(),
 ) {
     /** Where its road view starts: the approach viewpoint when there is one, else the point itself. */
     val previewCoordinate: GeoCoordinate? get() = approach?.coordinate ?: coordinate
@@ -164,14 +172,12 @@ data class RouteSnapshot(
     val geometry: List<GeoCoordinate> = emptyList(),
 ) {
     /**
-     * The [count] most important segments in the order the driver meets them. Each keeps its index in
-     * [segments], which the detail screen and its previous/next buttons use.
+     * The [count] most important segments, always in the order the driver meets them (nearest to the
+     * origin first). Importance only decides which ones are in the list, never where they stand in it.
      */
-    fun mostImportantSegments(count: Int): List<IndexedValue<BriefingSegment>> {
-        val indexed = segments.withIndex().toList()
+    fun mostImportantSegments(count: Int): List<BriefingSegment> =
         // Unranked lists (curated demo routes) have no order of importance; show the first ones.
-        return if (segments.none { it.selectionRank > 0 }) indexed.take(count) else indexed.filter { it.value.selectionRank in 1..count }
-    }
+        if (segments.none { it.selectionRank > 0 }) segments.take(count) else segments.filter { it.selectionRank in 1..count }
 }
 
 /** A candidate is accepted only when it is tied to a verified, source-specific route snapshot. */

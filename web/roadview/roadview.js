@@ -18,6 +18,16 @@
   let candidateOverlayRendered = false;
   const routeOverlays = [];
 
+  // Auto drive: plays the approach like a slow drive, from the viewpoint through the junction.
+  const AUTO_DRIVE_START_DELAY_MS = 1800;
+  const AUTO_DRIVE_STEP_MS = 1200;
+  const AUTO_DRIVE_LOOKUP_TIMEOUT_MS = 2500;
+  const AUTO_DRIVE_RADIUS_METERS = 20;
+  const AUTO_DRIVE_MAX_POSES = 40;
+  const driveButton = document.getElementById("autodrive");
+  let autoDrive = null;
+  let autoDriveStarted = false;
+
   const send = (message) => {
     if (window.DejaVroomBridge && typeof window.DejaVroomBridge.postMessage === "function") {
       window.DejaVroomBridge.postMessage(message);
@@ -98,6 +108,8 @@
       }
       try {
         roadview = new window.kakao.maps.Roadview(container);
+        // The app's banner counts down to the junction as the driver steps along the road.
+        window.kakao.maps.event.addListener(roadview, "position_changed", reportRemainingDistance);
         window.kakao.maps.event.addListener(roadview, "init", () => {
           window.clearTimeout(timer);
           roadview.relayout();
@@ -107,6 +119,11 @@
           status.textContent = config.selectedCandidate ? "! 표시가 분기점입니다" : "Kakao Roadview";
           if (config.thumbnail) status.style.display = "none";
           send("shown");
+          // "init" can fire again when the panorama changes; the drive starts once.
+          if (!autoDriveStarted) {
+            autoDriveStarted = true;
+            startAutoDrive(config, false);
+          }
         });
         roadview.setPanoId(panoId, selectedPosition);
       } catch (failure) {
@@ -154,6 +171,142 @@
       config.selectedCandidateIndex = Number.isInteger(candidate.displayIndex) ? candidate.displayIndex : index;
       config.panoId = panoId;
       showPano(panoId, position);
+    });
+  }
+
+  function drivePoses(config) {
+    const candidate = config && config.selectedCandidate;
+    const poses = candidate && Array.isArray(candidate.drive) ? candidate.drive : [];
+    return poses.filter((pose) => pose && Number.isFinite(pose.latitude) && Number.isFinite(pose.longitude) &&
+      pose.latitude >= -90 && pose.latitude <= 90 && pose.longitude >= -180 && pose.longitude <= 180).slice(0, AUTO_DRIVE_MAX_POSES);
+  }
+
+  // The first run starts on the pose the panorama already shows; a replay goes back to the first pose.
+  function startAutoDrive(config, fromStart) {
+    const poses = drivePoses(config);
+    if (!roadview || !driveButton || !config || config.thumbnail || poses.length < 2) return;
+    stopAutoDrive();
+    autoDrive = { config, poses, index: fromStart ? -1 : 0, panoId: fromStart ? null : (config.panoId || null), playing: true, timer: 0 };
+    driveButton.hidden = false;
+    updateDriveButton();
+    autoDrive.timer = window.setTimeout(stepAutoDrive, fromStart ? 0 : AUTO_DRIVE_START_DELAY_MS);
+  }
+
+  function stopAutoDrive() {
+    if (!autoDrive) return;
+    window.clearTimeout(autoDrive.timer);
+    autoDrive.playing = false;
+    updateDriveButton();
+  }
+
+  function updateDriveButton() {
+    if (driveButton) driveButton.textContent = autoDrive && autoDrive.playing ? "멈춤" : "분기점까지 다시 보기";
+  }
+
+  function stepAutoDrive() {
+    const drive = autoDrive;
+    if (!drive || !drive.playing) return;
+    drive.index += 1;
+    if (drive.index >= drive.poses.length) {
+      drive.playing = false;
+      updateDriveButton();
+      send("drive-finished");
+      return;
+    }
+    const pose = drive.poses[drive.index];
+    const active = () => autoDrive === drive && drive.playing;
+    const proceed = () => {
+      if (!active()) return;
+      if (Number.isFinite(pose.remainingMeters)) send(`drive-progress:${Math.round(pose.remainingMeters)}`);
+      drive.timer = window.setTimeout(stepAutoDrive, AUTO_DRIVE_STEP_MS);
+    };
+    let answered = false;
+    // A lookup that never answers must not freeze the drive; skip the frame instead.
+    const guard = window.setTimeout(() => {
+      if (answered) return;
+      answered = true;
+      proceed();
+    }, AUTO_DRIVE_LOOKUP_TIMEOUT_MS);
+    try {
+      const position = new window.kakao.maps.LatLng(pose.latitude, pose.longitude);
+      new window.kakao.maps.RoadviewClient().getNearestPanoId(position, AUTO_DRIVE_RADIUS_METERS, (panoId) => {
+        if (answered) return;
+        answered = true;
+        window.clearTimeout(guard);
+        if (!active()) return;
+        try {
+          const heading = Number(pose.headingDegrees) || 0;
+          // If "init" fires again for the new panorama, it faces the camera with config.heading.
+          drive.config.heading = heading;
+          if (panoId && panoId !== drive.panoId) {
+            drive.panoId = panoId;
+            roadview.setPanoId(panoId, position);
+          }
+          const face = () => {
+            if (!active()) return;
+            try { roadview.setViewpoint({ pan: heading, tilt: 0, zoom: 0 }); } catch (_) { /* the next frame faces again */ }
+          };
+          face();
+          window.setTimeout(face, 400);
+        } catch (failure) {
+          console.error(`roadview auto-drive failed ${failure && failure.message || failure}`);
+          stopAutoDrive();
+          return;
+        }
+        proceed();
+      });
+    } catch (failure) {
+      window.clearTimeout(guard);
+      console.error(`roadview auto-drive failed ${failure && failure.message || failure}`);
+      stopAutoDrive();
+    }
+  }
+
+  function flatDistanceMeters(a, b) {
+    const meanLatitude = (a.latitude + b.latitude) / 2 * Math.PI / 180;
+    const dx = (b.longitude - a.longitude) * Math.PI / 180 * 6371000 * Math.cos(meanLatitude);
+    const dy = (b.latitude - a.latitude) * Math.PI / 180 * 6371000;
+    return Math.hypot(dx, dy);
+  }
+
+  // Tells the app how far the junction is from where the panorama stands now. While the drive plays, its
+  // own frames report the distance along the route; this covers the driver's own steps along the road.
+  function reportRemainingDistance() {
+    const config = pendingConfig;
+    const candidate = config && config.selectedCandidate;
+    if (!roadview || !candidate || config.thumbnail || (autoDrive && autoDrive.playing)) return;
+    try {
+      const position = roadview.getPosition();
+      if (!position || typeof position.getLat !== "function") return;
+      const here = { latitude: position.getLat(), longitude: position.getLng() };
+      if (!Number.isFinite(here.latitude) || !Number.isFinite(here.longitude)) return;
+      const straight = flatDistanceMeters(here, candidate);
+      // Past the junction the distance grows again; the nearest frame of the drive says which side this is.
+      let nearest = null;
+      let nearestDistance = Infinity;
+      for (const pose of drivePoses(config)) {
+        const distance = flatDistanceMeters(here, pose);
+        if (distance < nearestDistance) {
+          nearest = pose;
+          nearestDistance = distance;
+        }
+      }
+      const passed = nearest !== null && Number(nearest.remainingMeters) < 0;
+      const remaining = Math.round(passed ? -straight : straight);
+      if (remaining >= -500 && remaining <= 1000) send(`drive-progress:${remaining}`);
+    } catch (failure) {
+      console.error(`roadview distance report failed ${failure && failure.message || failure}`);
+    }
+  }
+
+  // Touching the panorama hands control back to the driver.
+  container.addEventListener("pointerdown", () => {
+    if (autoDrive && autoDrive.playing) stopAutoDrive();
+  }, { passive: true });
+  if (driveButton) {
+    driveButton.addEventListener("click", () => {
+      if (autoDrive && autoDrive.playing) stopAutoDrive();
+      else if (pendingConfig) startAutoDrive(pendingConfig, true);
     });
   }
 

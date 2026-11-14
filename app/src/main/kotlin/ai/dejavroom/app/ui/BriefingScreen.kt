@@ -81,12 +81,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 internal fun BriefingScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, compact: Boolean) {
     val route = state.route ?: return
-    if (route.segments.isEmpty()) return
-    val segment = route.segments[state.segmentIndex]
+    val segments = state.shownSegments
+    val segment = segments.getOrNull(state.segmentIndex) ?: return
     if (compact) {
         Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 3.dp)) {
             Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${state.segmentIndex + 1} / ${route.segments.size}", Modifier.background(DejaVroomTheme.colors.blue, CircleShape).padding(horizontal = 13.dp, vertical = 5.dp), color = DejaVroomTheme.colors.onPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("${state.segmentIndex + 1} / ${segments.size}", Modifier.background(DejaVroomTheme.colors.blue, CircleShape).padding(horizontal = 13.dp, vertical = 5.dp), color = DejaVroomTheme.colors.onPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(segment.type.label, color = DejaVroomTheme.colors.white, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -106,15 +106,15 @@ internal fun BriefingScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, com
                 onRetry = vm::retryRoadView,
             )
             Spacer(Modifier.height(7.dp))
-            BriefingCompactSegments(route.segments.take(3), state.segmentIndex, vm::selectSegment)
+            BriefingCompactSegments(segments, state.segmentIndex, vm::selectSegment)
             Spacer(Modifier.height(7.dp))
-            BriefingCompactControls(state, route.segments.size, vm)
+            BriefingCompactControls(state, segments.size, vm)
         }
         return
     }
     Column(Modifier.fillMaxSize().padding(start = 16.dp, end = 14.dp, top = 8.dp, bottom = 4.dp)) {
         Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("${state.segmentIndex + 1} / ${route.segments.size}", Modifier.background(DejaVroomTheme.colors.blue, CircleShape).padding(horizontal = 17.dp, vertical = 7.dp), color = DejaVroomTheme.colors.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("${state.segmentIndex + 1} / ${segments.size}", Modifier.background(DejaVroomTheme.colors.blue, CircleShape).padding(horizontal = 17.dp, vertical = 7.dp), color = DejaVroomTheme.colors.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(15.dp))
             Column(Modifier.weight(1f)) {
                 Text(segment.type.label, color = DejaVroomTheme.colors.white, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -135,7 +135,7 @@ internal fun BriefingScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, com
                 onRetry = vm::retryRoadView,
             )
             BriefingSegmentList(
-                segments = route.segments.take(3),
+                segments = segments,
                 activeIndex = state.segmentIndex,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 onSelect = vm::selectSegment,
@@ -147,13 +147,13 @@ internal fun BriefingScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, com
                 Text(voiceLabel(state), color = if (state.voiceEnabled) DejaVroomTheme.colors.blue else DejaVroomTheme.colors.muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.weight(1f))
-            repeat(route.segments.size) { index ->
+            repeat(segments.size) { index ->
                 Box(Modifier.padding(horizontal = 5.dp).size(if (index == state.segmentIndex) 12.dp else 9.dp).background(if (index == state.segmentIndex) DejaVroomTheme.colors.blue else DejaVroomTheme.colors.stroke, CircleShape))
             }
             Spacer(Modifier.weight(1f))
             SecondaryButton("‹  이전 구간", Modifier.width(150.dp), enabled = state.segmentIndex > 0, onClick = vm::previousSegment)
             Spacer(Modifier.width(10.dp))
-            PrimaryButton(if (state.segmentIndex == route.segments.lastIndex) "브리핑 완료" else "다음 구간", "›", Modifier.width(200.dp), vm::nextSegment)
+            PrimaryButton(if (state.segmentIndex == segments.lastIndex) "브리핑 완료" else "다음 구간", "›", Modifier.width(200.dp), vm::nextSegment)
         }
     }
 }
