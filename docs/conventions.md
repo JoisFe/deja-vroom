@@ -25,6 +25,21 @@
 | 도메인 판단은 도메인 타입의 행동으로 둔다 (Rich domain model) | `observation.assess()`, `candidate.scoreWith(weights)` |
 | 시연하며 바꿀 값은 규칙 객체로 묶어 주입하고 `config/*.yml`에서 읽는다. 정의에 가까운 값만 상수로 둔다 | `SelectionRules`, `ApproachPolicy` ← `config/briefing.yml`, `SearchSettings` ← `config/search.yml` |
 
+## 포맷 · 린트
+
+Spotless가 ktlint로 Kotlin 파일(`app/src/**/*.kt`, `*.gradle.kts`)을 정리하고 검사한다. 규칙은 [`.editorconfig`](../.editorconfig)에 있다. 공식 Kotlin 스타일, 한 줄 120자, 쓰지 않는 import 삭제다.
+
+| 언제 | 하는 일 | 걸리면 |
+|---|---|---|
+| 커밋 직전 (`.githooks/pre-commit`) | 커밋에 든 Kotlin 파일을 포맷하고 다시 담는다 | 자동으로 못 고치는 위반(예: 120자를 넘는 줄)이 있으면 커밋이 멈춘다 |
+| 푸시 직전 (`.githooks/pre-push`) | `spotlessCheck` | 푸시가 멈춘다 |
+| PR (`.github/workflows/android-ci.yml`) | `spotlessCheck`와 단위 테스트 | 검사가 실패로 표시된다 |
+| 직접 | `./gradlew spotlessApply`로 고치고 `./gradlew spotlessCheck`로 확인한다 | – |
+
+- 훅은 빌드할 때 연결된다. Gradle 작업 `installGitHooks`가 `core.hooksPath`를 `.githooks`로 맞춘다. 빌드 없이 바로 쓰려면 `git config core.hooksPath .githooks`를 실행한다.
+- 기존 코드는 한꺼번에 바꾸지 않는다. `origin/main`과 달라진 파일만 대상이다(`ratchetFrom`). 파일을 처음 고칠 때 그 파일 전체를 규칙에 맞춘다.
+- 훅은 Gradle을 실행한다. Kotlin 파일이 든 커밋과 푸시는 그 시간만큼 늦어지고, Kotlin 파일이 없으면 바로 끝난다.
+
 ## 패키지
 
 ```text

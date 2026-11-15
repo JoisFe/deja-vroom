@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Stops the push when Spotless (ktlint) finds unformatted Kotlin or a rule violation in the working tree.
+# The pre-commit hook already formats every commit, so this catches what got past it: commits made with
+# --no-verify, or made before the hooks were installed.
+set -eo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+# git lists what is being pushed on stdin. Deleting a remote branch sends no commits: nothing to check.
+pushing=false
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  case "$local_sha" in *[!0]*) pushing=true ;; esac
+done
+if [ "$pushing" = false ]; then exit 0; fi
+
+# Spotless only looks at files that differ from origin/main. When no Kotlin file does, skip the Gradle start-up.
+if git rev-parse --verify --quiet origin/main >/dev/null && git diff --quiet origin/main -- '*.kt' '*.kts'; then
+  exit 0
+fi
+
+if ! ./gradlew --quiet spotlessCheck; then
+  {
+    echo "푸시를 멈췄다: 포맷이나 린트 규칙에 맞지 않는 Kotlin 파일이 있다."
+    echo "./gradlew spotlessApply 로 고치고, 남은 위반은 직접 고친 뒤 커밋하고 다시 푸시한다."
+  } >&2
+  exit 1
+fi

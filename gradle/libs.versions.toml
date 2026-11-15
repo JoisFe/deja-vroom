@@ -12,6 +12,8 @@ coroutinesTest = "1.8.1"
 orgJson = "20240303"
 testExt = "1.2.1"
 espresso = "3.6.1"
+spotless = "8.11.0"
+ktlint = "1.8.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core" }
@@ -38,3 +40,4 @@ androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-mani
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
