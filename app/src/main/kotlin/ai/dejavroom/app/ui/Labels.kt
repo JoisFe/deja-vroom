@@ -13,8 +13,6 @@ import ai.dejavroom.app.model.BriefingSegment
 import ai.dejavroom.app.model.ManeuverCue
 import ai.dejavroom.app.model.RoadViewContentOrigin
 import ai.dejavroom.app.model.RouteMatchStatus
-import ai.dejavroom.app.model.RouteSource
-import ai.dejavroom.app.model.SegmentSelectionSource
 import ai.dejavroom.app.model.SegmentType
 import android.os.Bundle
 import android.webkit.WebView
@@ -85,12 +83,6 @@ internal fun voiceLabel(state: DejaVroomUiState): String = when {
     else -> "음성 요청 ON · TTS 미연동"
 }
 
-internal fun selectionSourceLabel(source: SegmentSelectionSource): String = when (source) {
-    SegmentSelectionSource.ROUTE_ANALYSIS -> "경로 후보 분석"
-    SegmentSelectionSource.PUBLIC_DATA -> "공공 데이터 후보"
-    SegmentSelectionSource.CURATED_DEMO -> "사전 구성 데모"
-}
-
 internal fun contentOriginLabel(origin: RoadViewContentOrigin): String = when (origin) {
     RoadViewContentOrigin.LIVE_PROVIDER -> "공급자 도로 사진"
     RoadViewContentOrigin.CURATED -> "등록 이미지"
@@ -119,12 +111,6 @@ internal fun roadViewStatusMessage(result: RoadViewLookupResult?): String = when
     is RoadViewLookupResult.Available -> if (result.views.isEmpty()) "이 구간의 사진이 없습니다." else "사진 정보를 확인 중입니다."
 }
 
-internal fun routeSourceLabel(source: RouteSource): String = when (source) {
-    RouteSource.PLEOS_NAVIGATION -> "Pleos 경로"
-    RouteSource.EXTERNAL_ROUTE -> "OSRM/OSM 경로 · 개발 서비스"
-    RouteSource.CURATED_DEMO -> "Demo 경로"
-}
-
 /** Top two human-readable reasons; source and provenance tags are left out. */
 internal fun selectionReasons(segment: BriefingSegment): String = segment.selectionEvidence
     .filterNot { it.startsWith("도로 그래프") || it.startsWith("경로와 거리") || it == "경로 형상만으로 추정" }
@@ -139,7 +125,8 @@ internal fun cardSubtitle(segment: BriefingSegment): String {
     val finalApproach = segment.selectionEvidence.firstOrNull { it.startsWith("도착 ") && it.endsWith("진입") }
     val parts = listOfNotNull(segment.cue?.summary, finalApproach)
     if (parts.isNotEmpty()) return parts.joinToString(" · ")
-    return selectionReasons(segment).ifBlank { selectionSourceLabel(segment.selectionSource) }
+    // Where the data came from is not the driver's concern; with nothing else to say, say what kind of place it is.
+    return selectionReasons(segment).ifBlank { segment.type.label }
 }
 
 /**

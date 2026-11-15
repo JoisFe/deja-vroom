@@ -10,7 +10,8 @@
   let pendingConfig = null;
   let roadview;
   let nativeArrowObserver;
-  let nativeArrowScaleObserver;
+  let arrowTidyScheduled = false;
+  let lastArrowPolicy = "";
   let lastScaledArrowCount = 0;
   let overlayAttempted = false;
   let junctionOverlayAttempted = false;
@@ -18,17 +19,28 @@
   let candidateOverlayRendered = false;
   const routeOverlays = [];
 
-  // Auto drive: plays the approach like a slow drive, from the viewpoint through the junction.
+  // Auto drive: plays the approach like a slow drive, from the viewpoint up to the junction, and stops there.
   const AUTO_DRIVE_START_DELAY_MS = 1800;
   const AUTO_DRIVE_STEP_MS = 1200;
-  // Reaching the junction is the moment the whole drive is for: it stays there long enough to take in.
-  const AUTO_DRIVE_ARRIVAL_HOLD_MS = 2800;
+  // A frame with no photo of this road is passed over at once instead of being waited on.
+  const AUTO_DRIVE_SKIP_MS = 150;
   const AUTO_DRIVE_LOOKUP_TIMEOUT_MS = 2500;
-  const AUTO_DRIVE_RADIUS_METERS = 20;
+  // A photo further than this from where the car should be belongs to some other road (the opposite
+  // carriageway, a path under a bridge). The drive leaves the frame out rather than show it.
+  const AUTO_DRIVE_RADIUS_METERS = 12;
+  // If the new photo does not report in by then, the camera turns anyway.
+  const AUTO_DRIVE_PHOTO_WAIT_MS = 700;
   const AUTO_DRIVE_MAX_POSES = 40;
+  // A camera turn takes this long at most; a wide turn at a junction still ends well inside one frame.
+  const CAMERA_TURN_MAX_MS = 900;
+  // Further than this from the drive, the photo is on a road the drive knows nothing about.
+  const OFF_DRIVE_METERS = 60;
   const driveButton = document.getElementById("autodrive");
   let autoDrive = null;
-  let autoDriveStarted = false;
+  let shownOnce = false;
+  let lastReportedMeters = null;
+  let cameraTurn = 0;
+  let afterPhoto = null;
 
   const send = (message) => {
     if (window.DejaVroomBridge && typeof window.DejaVroomBridge.postMessage === "function") {
@@ -110,22 +122,35 @@
       }
       try {
         roadview = new window.kakao.maps.Roadview(container);
-        // The app's banner counts down to the junction as the driver steps along the road.
-        window.kakao.maps.event.addListener(roadview, "position_changed", reportRemainingDistance);
+        // Every new photo, however it was reached, tells the app where it stands and lets a waiting
+        // camera turn begin.
+        window.kakao.maps.event.addListener(roadview, "position_changed", () => {
+          reportRemainingDistance();
+          const turn = afterPhoto;
+          afterPhoto = null;
+          if (turn) turn();
+        });
         window.kakao.maps.event.addListener(roadview, "init", () => {
           window.clearTimeout(timer);
+          // Kakao fires "init" again for each new panorama. Only the first one sets the page up; a later
+          // one means the photo is up, so a waiting camera turn begins, or the camera is put back on the route.
+          if (shownOnce) {
+            const turn = afterPhoto;
+            afterPhoto = null;
+            if (turn) turn();
+            else if (!cameraTurn) setPan(Number(config.heading) || 0);
+            return;
+          }
+          shownOnce = true;
           roadview.relayout();
-          roadview.setViewpoint({ pan: Number(config.heading) || 0, tilt: 0, zoom: 0 });
+          setPan(Number(config.heading) || 0);
           inspectNativeArrowLayer();
           renderSelectedCandidate(config);
           status.textContent = config.selectedCandidate ? "! 표시가 분기점입니다" : "Kakao Roadview";
           if (config.thumbnail) status.style.display = "none";
           send("shown");
-          // "init" can fire again when the panorama changes; the drive starts once.
-          if (!autoDriveStarted) {
-            autoDriveStarted = true;
-            startAutoDrive(config, false);
-          }
+          reportRemainingDistance();
+          startAutoDrive(config, false);
         });
         roadview.setPanoId(panoId, selectedPosition);
       } catch (failure) {
@@ -188,7 +213,11 @@
     const poses = drivePoses(config);
     if (!roadview || !driveButton || !config || config.thumbnail || poses.length < 2) return;
     stopAutoDrive();
-    autoDrive = { config, poses, index: fromStart ? -1 : 0, panoId: fromStart ? null : (config.panoId || null), playing: true, timer: 0 };
+    autoDrive = {
+      config, poses, index: fromStart ? -1 : 0, panoId: fromStart ? null : (config.panoId || null), playing: true, timer: 0,
+      // Where the camera was last turned to; a replay starts from wherever the driver left it.
+      heading: fromStart ? null : Number(config.heading) || 0,
+    };
     driveButton.hidden = false;
     updateDriveButton();
     autoDrive.timer = window.setTimeout(stepAutoDrive, fromStart ? 0 : AUTO_DRIVE_START_DELAY_MS);
@@ -198,6 +227,8 @@
     if (!autoDrive) return;
     window.clearTimeout(autoDrive.timer);
     autoDrive.playing = false;
+    afterPhoto = null;
+    stopCameraTurn();
     updateDriveButton();
   }
 
@@ -205,6 +236,8 @@
     if (driveButton) driveButton.textContent = autoDrive && autoDrive.playing ? "멈춤" : "분기점까지 다시 보기";
   }
 
+  // One frame of the drive: find the photo nearest to where the car is on the route, show it, then turn
+  // the camera the way the route goes. The app is told nothing here; it hears from the photo itself.
   function stepAutoDrive() {
     const drive = autoDrive;
     if (!drive || !drive.playing) return;
@@ -216,21 +249,16 @@
       return;
     }
     const pose = drive.poses[drive.index];
-    const previous = drive.poses[drive.index - 1];
     const active = () => autoDrive === drive && drive.playing;
-    // The arrival is the frame where the junction stops being ahead.
-    const arrival = Number(pose.remainingMeters) <= 0 && !(previous && Number(previous.remainingMeters) <= 0);
-    const proceed = () => {
-      if (!active()) return;
-      if (Number.isFinite(pose.remainingMeters)) send(`drive-progress:${Math.round(pose.remainingMeters)}`);
-      drive.timer = window.setTimeout(stepAutoDrive, arrival ? AUTO_DRIVE_ARRIVAL_HOLD_MS : AUTO_DRIVE_STEP_MS);
+    const next = (delay) => {
+      if (active()) drive.timer = window.setTimeout(stepAutoDrive, delay);
     };
     let answered = false;
-    // A lookup that never answers must not freeze the drive; skip the frame instead.
+    // A lookup that never answers must not freeze the drive; the frame is passed over instead.
     const guard = window.setTimeout(() => {
       if (answered) return;
       answered = true;
-      proceed();
+      next(AUTO_DRIVE_SKIP_MS);
     }, AUTO_DRIVE_LOOKUP_TIMEOUT_MS);
     try {
       const position = new window.kakao.maps.LatLng(pose.latitude, pose.longitude);
@@ -239,32 +267,76 @@
         answered = true;
         window.clearTimeout(guard);
         if (!active()) return;
+        if (!panoId) {
+          next(AUTO_DRIVE_SKIP_MS);
+          return;
+        }
         try {
           const heading = Number(pose.headingDegrees) || 0;
-          // If "init" fires again for the new panorama, it faces the camera with config.heading.
+          const before = drive.heading;
+          drive.heading = heading;
+          // Remembered so that an "init" for a later panorama faces the same way.
           drive.config.heading = heading;
-          if (panoId && panoId !== drive.panoId) {
+          // Whatever the new photo did to the camera, the turn starts from where the drive was looking.
+          const turn = () => {
+            if (active()) turnCamera(heading, before);
+          };
+          if (panoId === drive.panoId) {
+            turn();
+          } else {
             drive.panoId = panoId;
+            // The camera turns once the new photo is up; turning first would swing the old one round.
+            afterPhoto = turn;
+            window.setTimeout(() => {
+              if (afterPhoto !== turn) return;
+              afterPhoto = null;
+              turn();
+            }, AUTO_DRIVE_PHOTO_WAIT_MS);
             roadview.setPanoId(panoId, position);
           }
-          const face = () => {
-            if (!active()) return;
-            try { roadview.setViewpoint({ pan: heading, tilt: 0, zoom: 0 }); } catch (_) { /* the next frame faces again */ }
-          };
-          face();
-          window.setTimeout(face, 400);
         } catch (failure) {
           console.error(`roadview auto-drive failed ${failure && failure.message || failure}`);
           stopAutoDrive();
           return;
         }
-        proceed();
+        next(AUTO_DRIVE_STEP_MS);
       });
     } catch (failure) {
       window.clearTimeout(guard);
       console.error(`roadview auto-drive failed ${failure && failure.message || failure}`);
       stopAutoDrive();
     }
+  }
+
+  function setPan(pan) {
+    try {
+      roadview.setViewpoint({ pan: ((pan % 360) + 360) % 360, tilt: 0, zoom: 0 });
+    } catch (_) { /* the next frame faces the route again */ }
+  }
+
+  function stopCameraTurn() {
+    window.cancelAnimationFrame(cameraTurn);
+    cameraTurn = 0;
+  }
+
+  // Turns the camera from [from] to [pan] the short way round. A snap reads as a jump cut, so anything
+  // more than a nudge is eased over a moment, longer for a wider turn. Without [from] it just faces [pan].
+  function turnCamera(pan, from) {
+    stopCameraTurn();
+    const delta = Number.isFinite(from) ? ((pan - from + 540) % 360) - 180 : 0;
+    if (Math.abs(delta) < 2) {
+      setPan(pan);
+      return;
+    }
+    setPan(from);
+    const duration = Math.min(CAMERA_TURN_MAX_MS, 250 + Math.abs(delta) * 6);
+    const started = performance.now();
+    const frame = (now) => {
+      const progress = Math.min(1, Math.max(0, (now - started) / duration));
+      setPan(from + delta * progress * progress * (3 - 2 * progress));
+      cameraTurn = progress < 1 ? window.requestAnimationFrame(frame) : 0;
+    };
+    cameraTurn = window.requestAnimationFrame(frame);
   }
 
   function flatDistanceMeters(a, b) {
@@ -274,31 +346,56 @@
     return Math.hypot(dx, dy);
   }
 
-  // Tells the app how far the junction is from where the panorama stands now. While the drive plays, its
-  // own frames report the distance along the route; this covers the driver's own steps along the road.
+  // How far the junction still is from [here], measured along the drive; negative once past it.
+  // Beyond either end of the drive the distance to that end is added on. Away from the drive altogether
+  // (another road the driver stepped onto) only the straight distance is known.
+  function remainingFrom(here, poses, junction) {
+    const straight = flatDistanceMeters(here, junction);
+    if (poses.length < 2) return straight;
+    let nearest = null;
+    for (let i = 0; i + 1 < poses.length; i += 1) {
+      const from = poses[i];
+      const to = poses[i + 1];
+      const span = flatDistanceMeters(from, to);
+      const toFrom = flatDistanceMeters(from, here);
+      const toTo = flatDistanceMeters(to, here);
+      const along = span <= 0 ? 0 : Math.min(span, Math.max(0, (toFrom * toFrom - toTo * toTo + span * span) / (2 * span)));
+      const share = span <= 0 ? 0 : along / span;
+      const foot = {
+        latitude: from.latitude + (to.latitude - from.latitude) * share,
+        longitude: from.longitude + (to.longitude - from.longitude) * share,
+      };
+      const off = flatDistanceMeters(foot, here);
+      if (!nearest || off < nearest.off) {
+        nearest = {
+          off,
+          remaining: Number(from.remainingMeters) + (Number(to.remainingMeters) - Number(from.remainingMeters)) * share,
+          beforeStart: i === 0 && share <= 0,
+          pastEnd: i + 2 === poses.length && share >= 1,
+        };
+      }
+    }
+    if (!Number.isFinite(nearest.remaining)) return straight;
+    if (nearest.pastEnd) return nearest.remaining - nearest.off;
+    if (nearest.beforeStart) return nearest.remaining + nearest.off;
+    return nearest.off > OFF_DRIVE_METERS ? straight : nearest.remaining;
+  }
+
+  // Tells the app how far the junction is from where the photo on screen actually stands. The banner
+  // follows the picture: it changes when the picture does, and never to a place the picture is not.
   function reportRemainingDistance() {
     const config = pendingConfig;
     const candidate = config && config.selectedCandidate;
-    if (!roadview || !candidate || config.thumbnail || (autoDrive && autoDrive.playing)) return;
+    if (!roadview || !candidate || config.thumbnail) return;
     try {
       const position = roadview.getPosition();
       if (!position || typeof position.getLat !== "function") return;
       const here = { latitude: position.getLat(), longitude: position.getLng() };
       if (!Number.isFinite(here.latitude) || !Number.isFinite(here.longitude)) return;
-      const straight = flatDistanceMeters(here, candidate);
-      // Past the junction the distance grows again; the nearest frame of the drive says which side this is.
-      let nearest = null;
-      let nearestDistance = Infinity;
-      for (const pose of drivePoses(config)) {
-        const distance = flatDistanceMeters(here, pose);
-        if (distance < nearestDistance) {
-          nearest = pose;
-          nearestDistance = distance;
-        }
-      }
-      const passed = nearest !== null && Number(nearest.remainingMeters) < 0;
-      const remaining = Math.round(passed ? -straight : straight);
-      if (remaining >= -500 && remaining <= 1000) send(`drive-progress:${remaining}`);
+      const remaining = Math.round(remainingFrom(here, drivePoses(config), candidate));
+      if (remaining === lastReportedMeters || remaining < -500 || remaining > 1000) return;
+      lastReportedMeters = remaining;
+      send(`drive-progress:${remaining}`);
     } catch (failure) {
       console.error(`roadview distance report failed ${failure && failure.message || failure}`);
     }
@@ -307,6 +404,7 @@
   // Touching the panorama hands control back to the driver.
   container.addEventListener("pointerdown", () => {
     if (autoDrive && autoDrive.playing) stopAutoDrive();
+    stopCameraTurn();
   }, { passive: true });
   if (driveButton) {
     driveButton.addEventListener("click", () => {
@@ -337,7 +435,7 @@
     overlay.setMap(roadview);
     routeOverlays.push(overlay);
     // The app shows the maneuver, the distance and the sign in its own banner over this page.
-    document.getElementById("attribution").textContent = "Kakao Maps · © OpenStreetMap contributors · ODbL 1.0 · OSRM";
+    document.getElementById("attribution").textContent = "Kakao Maps · © OpenStreetMap contributors";
     send(`route-candidate-selected:${config.selectedCandidateIndex}`);
   }
 
@@ -372,58 +470,65 @@
 
   // Kakao has no public arrow visibility/size option. Its current WebView renderer pairs
   // private _ar_N_* arrow nodes with _at_N_* compass labels; keep only the route-heading sector.
+  // Kakao rebuilds those nodes constantly while a panorama loads, so the tidy-up is done once per
+  // frame at most and touches a node only when it has to.
   function inspectNativeArrowLayer() {
-    const applyDirectionPolicy = () => {
-      const arrows = [...container.querySelectorAll('[id^="_ar_"]')];
-      if (pendingConfig && pendingConfig.thumbnail) {
-        container.querySelectorAll('[id^="_ar_"], [id^="_at_"]').forEach((element) => element.style.setProperty("display", "none", "important"));
-        return;
-      }
-      const expectedDirection = compassDirection(Number(pendingConfig && pendingConfig.heading) || 0);
-      const diagnostics = [];
-      for (const arrow of arrows) {
-        const index = arrow.id.match(/^_ar_(\d+)_/)?.[1];
-        const label = index ? container.querySelector(`[id^="_at_${index}_"]`) : null;
-        const labelText = (label && label.innerText || "").trim();
-        const keep = labelText === expectedDirection;
-        arrow.style.setProperty("display", keep ? "" : "none", "important");
-        if (label) label.style.setProperty("display", keep ? "" : "none", "important");
-        diagnostics.push(`${arrow.id}:${labelText || "?"}:${keep ? "keep" : "hide"}`);
-      }
-      if (diagnostics.length) send(`arrow-policy:${expectedDirection}:${diagnostics.join(",")}`);
-    };
-    applyDirectionPolicy();
+    tidyNativeArrows();
     nativeArrowObserver?.disconnect();
-    nativeArrowObserver = new MutationObserver(applyDirectionPolicy);
-    nativeArrowObserver.observe(container, { childList: true, subtree: true });
-    scaleNativeArrowLayer();
-    nativeArrowScaleObserver?.disconnect();
-    nativeArrowScaleObserver = new MutationObserver(scaleNativeArrowLayer);
-    nativeArrowScaleObserver.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: ["style"] });
+    nativeArrowObserver = new MutationObserver(scheduleArrowTidy);
+    nativeArrowObserver.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: ["style"] });
   }
 
-  // Kakao has no public size option for its ground arrows. In the debug WebView, its current
-  // renderer exposes them as private `_ar_*` DOM nodes with perspective matrix transforms.
-  // Append a local scale after Kakao's matrix so the arrow gets smaller without changing the
-  // panorama or replacing Kakao's movement hit target. This selector is SDK-version fragile.
-  function scaleNativeArrowLayer() {
+  function scheduleArrowTidy() {
+    if (arrowTidyScheduled) return;
+    arrowTidyScheduled = true;
+    window.requestAnimationFrame(() => {
+      arrowTidyScheduled = false;
+      tidyNativeArrows();
+    });
+  }
+
+  function setStyle(element, property, value) {
+    if (element.style.getPropertyValue(property) !== value) element.style.setProperty(property, value, value ? "important" : "");
+  }
+
+  function tidyNativeArrows() {
+    const thumbnail = Boolean(pendingConfig && pendingConfig.thumbnail);
+    if (thumbnail) {
+      container.querySelectorAll('[id^="_ar_"], [id^="_at_"]').forEach((element) => setStyle(element, "display", "none"));
+      return;
+    }
     const arrows = [...container.querySelectorAll('[id^="_ar_"]')];
+    const expectedDirection = compassDirection(Number(pendingConfig && pendingConfig.heading) || 0);
+    const diagnostics = [];
     for (const arrow of arrows) {
-      if (!(pendingConfig && pendingConfig.thumbnail)) {
-        if (CSS.supports("scale", "0.65")) {
-          if (arrow.style.scale !== "0.65") arrow.style.scale = "0.65";
-        } else if (arrow.style.zoom !== "0.65") {
-          arrow.style.zoom = "0.65";
-        }
+      const index = arrow.id.match(/^_ar_(\d+)_/)?.[1];
+      const label = index ? container.querySelector(`[id^="_at_${index}_"]`) : null;
+      const labelText = (label && label.innerText || "").trim();
+      const keep = labelText === expectedDirection;
+      setStyle(arrow, "display", keep ? "" : "none");
+      if (label) setStyle(label, "display", keep ? "" : "none");
+      // Kakao has no size option either. A local scale after its own perspective matrix makes the
+      // arrow smaller without moving it or replacing Kakao's hit target. This is SDK-version fragile.
+      if (CSS.supports("scale", "0.65")) {
+        if (arrow.style.scale !== "0.65") arrow.style.scale = "0.65";
+      } else if (arrow.style.zoom !== "0.65") {
+        arrow.style.zoom = "0.65";
       }
       if (arrow.style.transformOrigin !== "50% 50%") arrow.style.transformOrigin = "50% 50%";
+      diagnostics.push(`${arrow.id}:${labelText || "?"}:${keep ? "keep" : "hide"}`);
     }
-    if (arrows.length > 0) {
-      if (!(pendingConfig && pendingConfig.thumbnail)) status.textContent = "도로 위 화살표가 경로 진행 방향을 나타냅니다.";
-      if (arrows.length !== lastScaledArrowCount) {
-        lastScaledArrowCount = arrows.length;
-        send(`native-arrow-scaled:${arrows.length}`);
-      }
+    if (arrows.length === 0) return;
+    const hint = "도로 위 화살표가 경로 진행 방향을 나타냅니다.";
+    if (status.textContent !== hint) status.textContent = hint;
+    const policy = `${expectedDirection}:${diagnostics.join(",")}`;
+    if (policy !== lastArrowPolicy) {
+      lastArrowPolicy = policy;
+      send(`arrow-policy:${policy}`);
+    }
+    if (arrows.length !== lastScaledArrowCount) {
+      lastScaledArrowCount = arrows.length;
+      send(`native-arrow-scaled:${arrows.length}`);
     }
   }
 
@@ -566,7 +671,7 @@
   window.addEventListener("resize", () => roadview && roadview.relayout());
   window.addEventListener("pagehide", () => {
     nativeArrowObserver?.disconnect();
-    nativeArrowScaleObserver?.disconnect();
+    stopAutoDrive();
     routeOverlays.forEach((overlay) => overlay.setMap(null));
     routeOverlays.length = 0;
     junctionOverlayAttempted = false;

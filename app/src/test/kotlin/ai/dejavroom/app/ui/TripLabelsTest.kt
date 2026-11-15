@@ -27,7 +27,7 @@ class TripLabelsTest {
     fun `a trip that can be picked up again says where it was going and how far it got`() {
         assertEquals("강남역까지 가던 길 · 미리 본 3곳이 남았습니다", tripResumeLine(trip))
         assertEquals("강남역까지 가던 길 · 미리 본 3곳 중 2곳을 지나왔습니다", tripResumeLine(trip.advancedTo(north[24])))
-        assertEquals("강남역까지 가던 길", tripResumeLine(trip.showing(emptyList())))
+        assertEquals("강남역까지 가던 길", tripResumeLine(Trip.startedWith(trip.destination, north, emptyList(), nowMillis = 0)))
     }
 
     @Test

@@ -49,38 +49,59 @@ class RoutePolylineTest {
     }
 
     @Test
-    fun `the drive toward a junction runs from the viewpoint through it and turns with the route`() {
-        val drive = route.driveThrough(corner, leadMeters = 150.0, pastMeters = 60.0, stepMeters = 20.0, maxSteps = 30)
-        // 210 m in 20 m hops: 11 hops, 12 frames, counting down to the junction and then past it.
-        assertEquals(12, drive.size)
+    fun `the drive runs from the viewpoint up to the junction and ends looking the way the route leaves`() {
+        val drive = route.driveTo(corner, leadMeters = 150.0, stepMeters = 20.0, maxSteps = 30)
+        // 150 m in hops of at most 20 m: 8 hops, 9 frames, counting down to the junction and no further.
+        assertEquals(9, drive.size)
         assertEquals(150, drive.first().remainingMeters)
-        assertEquals(-60, drive.last().remainingMeters)
+        assertEquals(0, drive.last().remainingMeters)
         assertTrue(drive.zipWithNext().all { (a, b) -> a.remainingMeters > b.remainingMeters })
         assertEquals(route.viewpointBefore(corner, 150.0).coordinate, drive.first().coordinate)
         assertEquals(0.0, drive.first().headingDegrees, 1.0) // driving north toward the corner
-        assertEquals(90.0, drive.last().headingDegrees, 1.0) // and east once past it
+        assertEquals(90.0, drive.last().headingDegrees, 1.0) // on it, looking east where the route goes
     }
 
     @Test
-    fun `one frame of the drive stands exactly on the junction`() {
-        // Distances that do not divide into the step: the frames spread out, the junction frame stays.
-        val drive = route.driveThrough(corner, leadMeters = 144.0, pastMeters = 55.0, stepMeters = 20.0, maxSteps = 30)
-        val onJunction = drive.single { it.remainingMeters == 0 }
+    fun `the last frame of the drive stands exactly on the junction`() {
+        // A distance that does not divide into the step: the frames spread out, the junction frame stays.
+        val drive = route.driveTo(corner, leadMeters = 144.0, stepMeters = 20.0, maxSteps = 30)
+        val onJunction = drive.last()
         assertEquals(0.0, onJunction.coordinate.distanceMetersTo(north.last()), 0.5)
         // With the default step it is also the only frame that counts as being there.
         assertEquals(listOf(onJunction), drive.filter { it.phase == ApproachPhase.AT_POINT })
         assertEquals(ApproachPhase.APPROACHING, drive.first().phase)
-        assertEquals(ApproachPhase.PASSED, drive.last().phase)
     }
 
     @Test
     fun `a long approach is thinned so the drive still plays quickly`() {
-        val drive = RoutePolyline(north).driveThrough(900.0, leadMeters = 350.0, pastMeters = 60.0, stepMeters = 20.0, maxSteps = 10)
-        // 10 hops, 11 frames: the approach gives up frames, the junction and the way out keep theirs.
+        val drive = RoutePolyline(north).driveTo(900.0, leadMeters = 350.0, stepMeters = 20.0, maxSteps = 10)
         assertEquals(11, drive.size)
         assertEquals(350, drive.first().remainingMeters)
-        assertEquals(1, drive.count { it.remainingMeters == 0 })
-        assertEquals(-60, drive.last().remainingMeters)
+        assertEquals(0, drive.last().remainingMeters)
+    }
+
+    @Test
+    fun `a view that already stands on the point has nowhere to drive`() {
+        assertEquals(emptyList<Any>(), route.driveTo(corner, leadMeters = 0.0, stepMeters = 20.0, maxSteps = 10))
+    }
+
+    @Test
+    fun `the view and every frame stand in the right-hand lanes when asked to`() {
+        // Northbound, so "to the right" is east. One degree of longitude here is about 88 km.
+        val eastOf = { meters: Double -> 127.00 + meters / 88_200.0 }
+        val viewpoint = route.viewpointBefore(corner, 150.0, laneOffsetMeters = 3.0)
+        assertEquals(eastOf(3.0), viewpoint.coordinate.longitude, 2e-6)
+        assertEquals(route.viewpointBefore(corner, 150.0).coordinate.latitude, viewpoint.coordinate.latitude, 1e-7)
+        assertEquals(0.0, viewpoint.headingDegrees, 1.0)
+
+        val drive = route.driveTo(corner, leadMeters = 150.0, stepMeters = 20.0, maxSteps = 30, laneOffsetMeters = 3.0)
+        drive.forEach { assertEquals(eastOf(3.0), it.coordinate.longitude, 2e-6) }
+        // On the corner the car is still on the road it came along, so it has not moved onto the new one's side.
+        assertEquals(3.0, drive.last().coordinate.distanceMetersTo(north.last()), 0.3)
+        assertEquals(90.0, drive.last().headingDegrees, 1.0)
+        // On the eastbound leg the right-hand side is south.
+        val later = route.viewpointBefore(corner + 500.0, 100.0, laneOffsetMeters = 3.0)
+        assertTrue(later.coordinate.latitude < north.last().latitude)
     }
 
     @Test
@@ -94,7 +115,7 @@ class RoutePolylineTest {
 
     @Test
     fun `the drive to an arrival point stops at the end of the route`() {
-        val drive = route.driveThrough(route.lengthMeters, leadMeters = 80.0, pastMeters = 0.0, stepMeters = 20.0, maxSteps = 10)
+        val drive = route.driveTo(route.lengthMeters, leadMeters = 80.0, stepMeters = 20.0, maxSteps = 10)
         assertEquals(listOf(80, 60, 40, 20, 0), drive.map { it.remainingMeters })
     }
 }

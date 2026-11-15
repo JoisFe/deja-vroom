@@ -20,6 +20,19 @@ class RoadViewBridgeContractTest {
     }
 
     @Test
+    fun `the place search page speaks over the same bridge and keeps its key as a placeholder too`() {
+        val placesPage = webFile("places.html")
+        val placesScript = webFile("places.js")
+        assertTrue(placesPage.contains("<script src=\"places.js\"></script>"))
+        assertTrue(placesPage.contains("content=\"__KAKAO_JS_KEY__\""))
+        assertTrue(placesScript.contains("window.$ROADVIEW_BRIDGE_NAME"))
+        // The messages the app's parser knows.
+        listOf("\"ready\"", "\"fail:config\"", "\"fail:sdk-load\"", "type: \"places\"", "type: \"places-error\"").forEach {
+            assertTrue("places.js must send $it", placesScript.contains(it))
+        }
+    }
+
+    @Test
     fun `page loads the script and keeps the key as a deploy-time placeholder`() {
         assertTrue(page.contains("<script src=\"roadview.js\"></script>"))
         assertTrue(page.contains("content=\"__KAKAO_JS_KEY__\""))

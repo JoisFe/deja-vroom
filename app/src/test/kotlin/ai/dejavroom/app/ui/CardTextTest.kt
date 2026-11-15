@@ -53,6 +53,13 @@ class CardTextTest {
     }
 
     @Test
+    fun `a card with nothing to say names the kind of place, never where the data came from`() {
+        val bare = cardSubtitle(segment())
+        assertEquals("고속도로 분기점", bare)
+        assertFalse(bare.contains("분석") || bare.contains("후보") || bare.contains("데모"))
+    }
+
+    @Test
     fun `without a cue the card falls back to its main reasons`() {
         assertEquals("방향 전환 87° · 300m 안에 전환 4회", cardSubtitle(segment(evidence = listOf("방향 전환 87°", "300m 안에 전환 4회", "경로 형상만으로 추정"))))
     }

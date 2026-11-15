@@ -3,9 +3,11 @@ package ai.dejavroom.app.ui
 import ai.dejavroom.app.BuildConfig
 import ai.dejavroom.app.data.RoadViewConfig
 import ai.dejavroom.app.data.BriefingSettings
+import ai.dejavroom.app.data.KakaoPlaceSearchRepository
 import ai.dejavroom.app.data.OsmRouteRepository
+import ai.dejavroom.app.data.PlaceSearchFactory
 import ai.dejavroom.app.data.PleosCurrentLocationRepository
-import ai.dejavroom.app.data.SearchDefaults
+import ai.dejavroom.app.data.SearchSettings
 import ai.dejavroom.app.data.SharedPreferencesTripStore
 import ai.dejavroom.app.data.RoadViewProviderFactory
 import ai.dejavroom.app.R
@@ -179,7 +181,7 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
             if (route != null) {
                 Spacer(Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("${route.origin}  ›  ${route.destination}     약 ${route.durationMinutes}분 · ${route.distanceKm}km · ${routeSourceLabel(route.source)}", Modifier.weight(1f), color = DejaVroomTheme.colors.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${route.origin}  ›  ${route.destination}     약 ${route.durationMinutes}분 · ${route.distanceKm}km", Modifier.weight(1f), color = DejaVroomTheme.colors.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (state.screen != DejaVroomScreen.DESTINATION) EditRouteButton(vm::editRoute)
                 }
             } else if (BuildConfig.DEBUG) {
@@ -214,7 +216,7 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
             Spacer(Modifier.width(16.dp))
             Text("⌑", color = DejaVroomTheme.colors.blue, fontSize = 18.sp)
             Spacer(Modifier.width(7.dp))
-            Text("약 ${route.durationMinutes}분 · ${route.distanceKm}km · ${routeSourceLabel(route.source)}", color = DejaVroomTheme.colors.white, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text("약 ${route.durationMinutes}분 · ${route.distanceKm}km", color = DejaVroomTheme.colors.white, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             if (state.screen != DejaVroomScreen.DESTINATION) {
                 Spacer(Modifier.width(12.dp))
                 EditRouteButton(vm::editRoute)
@@ -288,24 +290,29 @@ private fun briefingSettings(app: android.app.Application): BriefingSettings = r
 }
 
 /** config/search.yml (asset) → what the search screen starts with. A broken file falls back to the defaults. */
-private fun searchDefaults(app: android.app.Application): SearchDefaults = runCatching {
-    SearchDefaults.fromYaml(app.assets.open(SearchDefaults.ASSET_NAME).bufferedReader().use { it.readText() })
+private fun searchSettings(app: android.app.Application): SearchSettings = runCatching {
+    SearchSettings.fromYaml(app.assets.open(SearchSettings.ASSET_NAME).bufferedReader().use { it.readText() })
 }.getOrElse { failure ->
     android.util.Log.w("DejaVroomSearch", "config/search.yml을 읽지 못해 기본값을 쓴다: ${failure.message}")
-    SearchDefaults()
+    SearchSettings()
 }
 
 /** Stores, the vehicle's navigation and the configs under config/ need the application, so the ViewModel is built with it. */
 private val DejaVroomViewModelFactory = viewModelFactory {
     initializer {
         val app = checkNotNull(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY])
+        val roadView = roadViewConfig(app)
+        val search = searchSettings(app)
+        // config/search.yml picks the place search; the Kakao one lives on the same site as the road view.
+        val places = PlaceSearchFactory.create(search.placeSearch, roadView) { site -> KakaoPlaceSearchRepository(app, site) }
         DejaVroomViewModel(
-            repository = OsmRouteRepository(settings = briefingSettings(app)),
-            roadViewProvider = RoadViewProviderFactory.create(roadViewConfig(app)),
+            repository = OsmRouteRepository(geocoder = places.geocoder, settings = briefingSettings(app)),
+            roadViewProvider = RoadViewProviderFactory.create(roadView),
+            placeSearch = places.suggestions,
             recentSearchStore = SharedPreferencesRecentSearchStore(app),
             currentLocation = PleosCurrentLocationRepository(app),
             tripStore = SharedPreferencesTripStore(app),
-            searchDefaults = searchDefaults(app),
+            searchSettings = search,
         )
     }
 }

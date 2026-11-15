@@ -60,8 +60,8 @@ data class BriefingSettings(
                     arrivalLeadMeters = reader.double("approach.arrivalLeadMeters", approach.arrivalLeadMeters),
                     previousManeuverMarginMeters = approach.previousManeuverMarginMeters,
                     driveStepMeters = reader.double("approach.driveStepMeters", approach.driveStepMeters),
-                    drivePastMeters = reader.double("approach.drivePastMeters", approach.drivePastMeters),
                     driveMaxSteps = reader.int("approach.driveMaxSteps", approach.driveMaxSteps),
+                    laneOffsetMeters = reader.double("approach.laneOffsetMeters", approach.laneOffsetMeters),
                 ),
                 maneuver = ManeuverRules(
                     lookAlikeAngleDegrees = reader.int("maneuver.lookAlikeAngleDegrees", maneuver.lookAlikeAngleDegrees),

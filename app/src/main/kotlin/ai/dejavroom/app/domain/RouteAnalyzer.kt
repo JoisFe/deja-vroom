@@ -123,13 +123,13 @@ class RouteAnalyzer(
         evidence: List<String> = candidate.evidence,
     ): BriefingSegment {
         val lead = approachPolicy.leadMeters(candidate.approach, candidate.routeOffsetMeters)
-        val approach = polyline.viewpointBefore(candidate.routeOffsetMeters, lead)
-        val drive = polyline.driveThrough(
+        val approach = polyline.viewpointBefore(candidate.routeOffsetMeters, lead, approachPolicy.laneOffsetMeters)
+        val drive = polyline.driveTo(
             offsetMeters = candidate.routeOffsetMeters,
             leadMeters = lead,
-            pastMeters = approachPolicy.drivePastMeters(candidate.approach),
             stepMeters = approachPolicy.driveStepMeters,
             maxSteps = approachPolicy.driveMaxSteps,
+            laneOffsetMeters = approachPolicy.laneOffsetMeters,
         )
         val verifiedGuidance = candidate.verifiedGuidance?.takeIf(String::isNotBlank)
         return BriefingSegment(

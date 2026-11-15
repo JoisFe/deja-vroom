@@ -44,6 +44,15 @@ data class GeoCoordinate(val latitude: Double, val longitude: Double) {
         return (Math.toDegrees(atan2(sin(dLon) * cos(lat2), cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon))) + 360.0) % 360.0
     }
 
+    /** The point [meters] away in the compass direction [bearingDegrees]; flat-earth, for lane-sized moves. */
+    fun moved(bearingDegrees: Double, meters: Double): GeoCoordinate {
+        val bearing = Math.toRadians(bearingDegrees)
+        return GeoCoordinate(
+            latitude = latitude + Math.toDegrees(meters * cos(bearing) / EARTH_RADIUS_METERS),
+            longitude = longitude + Math.toDegrees(meters * sin(bearing) / (EARTH_RADIUS_METERS * cos(Math.toRadians(latitude)))),
+        )
+    }
+
     private companion object { const val EARTH_RADIUS_METERS = 6_371_000.0 }
 }
 
@@ -166,7 +175,7 @@ data class BriefingSegment(
     val routeLanes: List<RouteLane> = emptyList(),
     /** Viewpoint before the decision point; road views start here. Null for points without route geometry. */
     val approach: ApproachViewpoint? = null,
-    /** 1 = most worth previewing. 0 = unranked. Segments themselves are listed in route order. */
+    /** 1 = most worth previewing. 0 = unranked. It never orders the list: segments stay in route order. */
     val selectionRank: Int = 0,
     /** Which way to go here and what to look for; null when the source does not say. */
     val cue: ManeuverCue? = null,
@@ -197,15 +206,7 @@ data class RouteSnapshot(
     val source: RouteSource = RouteSource.CURATED_DEMO,
     val geometryStatus: RouteGeometryStatus = RouteGeometryStatus.UNAVAILABLE,
     val geometry: List<GeoCoordinate> = emptyList(),
-) {
-    /**
-     * The [count] most important segments, always in the order the driver meets them (nearest to the
-     * origin first). Importance only decides which ones are in the list, never where they stand in it.
-     */
-    fun mostImportantSegments(count: Int): List<BriefingSegment> =
-        // Unranked lists (curated demo routes) have no order of importance; show the first ones.
-        if (segments.none { it.selectionRank > 0 }) segments.take(count) else segments.filter { it.selectionRank in 1..count }
-}
+)
 
 /** A candidate is accepted only when it is tied to a verified, source-specific route snapshot. */
 data class RouteSegmentCandidate(

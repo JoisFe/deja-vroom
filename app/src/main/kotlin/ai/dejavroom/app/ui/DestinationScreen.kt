@@ -1,16 +1,17 @@
 package ai.dejavroom.app.ui
 
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
-import ai.dejavroom.app.data.PHOTON_ATTRIBUTION
 import ai.dejavroom.app.feature.DejaVroomUiState
 import ai.dejavroom.app.feature.SuggestionStatus
 import ai.dejavroom.app.feature.inputOf
 import ai.dejavroom.app.feature.startsFromCurrentLocation
 import ai.dejavroom.app.model.Place
 import ai.dejavroom.app.model.SearchField
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,11 +35,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -73,8 +80,31 @@ private object Spacing {
 
 @Composable
 internal fun DestinationScreen(state: DejaVroomUiState, actions: DestinationActions, compact: Boolean) {
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    // Everything that ends typing also puts the keyboard away: a car screen has no back key to do it.
+    val formActions = remember(actions, focusManager, keyboard) {
+        val leaveFields = {
+            focusManager.clearFocus()
+            keyboard?.hide()
+        }
+        actions.copy(
+            onSelectPlace = { field, place -> leaveFields(); actions.onSelectPlace(field, place) },
+            onUseCurrentLocation = { leaveFields(); actions.onUseCurrentLocation() },
+            onDismissSuggestions = { leaveFields(); actions.onDismissSuggestions() },
+            onSearch = { leaveFields(); actions.onSearch() },
+        )
+    }
+    BackHandler(enabled = state.activeField != null, onBack = formActions.onDismissSuggestions)
+    // A touch anywhere that is not a field, a row or a button means the driver is done typing.
+    val doneOnOutsideTouch = Modifier.pointerInput(formActions) { detectTapGestures(onTap = { formActions.onDismissSuggestions() }) }
+    DestinationLayout(state, formActions, compact, doneOnOutsideTouch)
+}
+
+@Composable
+private fun DestinationLayout(state: DejaVroomUiState, actions: DestinationActions, compact: Boolean, modifier: Modifier) {
     if (compact) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = Spacing.m, vertical = Spacing.s)) {
+        Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = Spacing.m, vertical = Spacing.s)) {
             DestinationForm(state, actions, Modifier.fillMaxWidth(), dense = true)
             Spacer(Modifier.height(Spacing.l))
             RouteAnalysisPreview(Modifier.fillMaxWidth())
@@ -83,7 +113,7 @@ internal fun DestinationScreen(state: DejaVroomUiState, actions: DestinationActi
         }
     } else {
         Row(
-            Modifier.fillMaxSize().padding(horizontal = Spacing.m, vertical = Spacing.s),
+            modifier.fillMaxSize().padding(horizontal = Spacing.m, vertical = Spacing.s),
             horizontalArrangement = Arrangement.spacedBy(Spacing.l),
         ) {
             Column(Modifier.weight(1.05f).fillMaxHeight().verticalScroll(rememberScrollState())) {
@@ -114,11 +144,13 @@ internal fun DestinationForm(state: DejaVroomUiState, actions: DestinationAction
         Text("출발 전에 헷갈리기 쉬운 구간을 먼저 살펴보세요.", color = DejaVroomTheme.colors.muted, fontSize = if (dense) 13.sp else 15.sp)
         Spacer(Modifier.height(Spacing.l))
 
+        // "Next" on the keyboard moves from the origin to the destination.
+        val destinationFocus = remember { FocusRequester() }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                SearchFieldBlock(state, actions, SearchField.ORIGIN, dense)
+                SearchFieldBlock(state, actions, SearchField.ORIGIN, dense, destinationFocus)
                 Spacer(Modifier.height(Spacing.s))
-                SearchFieldBlock(state, actions, SearchField.DESTINATION, dense)
+                SearchFieldBlock(state, actions, SearchField.DESTINATION, dense, destinationFocus)
             }
             Spacer(Modifier.width(Spacing.s))
             // Swap sits beside the two fields, like most navigation apps.
@@ -158,7 +190,7 @@ internal fun DestinationForm(state: DejaVroomUiState, actions: DestinationAction
 }
 
 @Composable
-private fun SearchFieldBlock(state: DejaVroomUiState, actions: DestinationActions, field: SearchField, dense: Boolean) {
+private fun SearchFieldBlock(state: DejaVroomUiState, actions: DestinationActions, field: SearchField, dense: Boolean, destinationFocus: FocusRequester) {
     val isOrigin = field == SearchField.ORIGIN
     if (isOrigin) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -186,7 +218,8 @@ private fun SearchFieldBlock(state: DejaVroomUiState, actions: DestinationAction
         onValueChange = { actions.onValueChange(field, it) },
         onFocus = { actions.onFocus(field) },
         onClear = { actions.onClear(field) },
-        onImeAction = { if (isOrigin) actions.onFocus(SearchField.DESTINATION) else actions.onSearch() },
+        onImeAction = { if (isOrigin) destinationFocus.requestFocus() else actions.onSearch() },
+        focusRequester = destinationFocus.takeUnless { isOrigin },
     )
     if (isOrigin) OriginCaption(state)
     if (state.activeField == field) {
@@ -224,6 +257,7 @@ private fun RouteSearchField(
     onFocus: () -> Unit,
     onClear: () -> Unit,
     onImeAction: () -> Unit,
+    focusRequester: FocusRequester? = null,
 ) {
     val shape = RoundedCornerShape(14.dp)
     Row(
@@ -245,7 +279,9 @@ private fun RouteSearchField(
                 cursorBrush = SolidColor(DejaVroomTheme.colors.blue),
                 keyboardOptions = KeyboardOptions(imeAction = imeAction),
                 keyboardActions = KeyboardActions(onAny = { onImeAction() }),
-                modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) onFocus() },
+                modifier = Modifier.fillMaxWidth()
+                    .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+                    .onFocusChanged { if (it.isFocused) onFocus() },
             )
         }
         // The clear slot is always reserved so the field does not shift when text appears.
@@ -280,7 +316,7 @@ private fun SuggestionPanel(state: DejaVroomUiState, actions: DestinationActions
                     query.length < 2 -> "두 글자 이상 입력하면 추천 검색어가 나옵니다"
                     suggestions?.status == SuggestionStatus.LOADING -> "추천 검색어 찾는 중…"
                     suggestions?.status == SuggestionStatus.EMPTY -> "추천 결과가 없습니다. 입력한 그대로 검색할 수 있습니다"
-                    suggestions?.status == SuggestionStatus.ERROR -> "추천 검색어를 불러오지 못했습니다. 입력한 그대로 검색할 수 있습니다"
+                    suggestions?.status == SuggestionStatus.ERROR -> suggestions.problem ?: "추천 검색어를 불러오지 못했습니다. 입력한 그대로 검색할 수 있습니다"
                     else -> "추천 검색어"
                 },
                 color = if (suggestions?.status == SuggestionStatus.ERROR) DejaVroomTheme.colors.error else DejaVroomTheme.colors.muted,
@@ -297,21 +333,19 @@ private fun SuggestionPanel(state: DejaVroomUiState, actions: DestinationActions
                 onClick = { actions.onSelectPlace(field, place) },
             )
         }
-        if (suggestions?.items.orEmpty().isNotEmpty()) {
-            Text(PHOTON_ATTRIBUTION, color = DejaVroomTheme.colors.dim, fontSize = 10.sp, modifier = Modifier.padding(horizontal = Spacing.m, vertical = 4.dp))
+        if (suggestions?.items.orEmpty().isNotEmpty() && state.placeSearchAttribution.isNotBlank()) {
+            Text(state.placeSearchAttribution, color = DejaVroomTheme.colors.dim, fontSize = 10.sp, modifier = Modifier.padding(horizontal = Spacing.m, vertical = 4.dp))
         }
     }
 }
 
 @Composable
 private fun RecentList(recents: List<Place>, field: SearchField, actions: DestinationActions) {
-    if (recents.isEmpty()) {
-        Text("최근 검색이 없습니다", color = DejaVroomTheme.colors.muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s))
-        return
-    }
+    // The panel can always be closed from its own header, with or without anything to list.
     Row(Modifier.fillMaxWidth().height(Spacing.touch).padding(start = Spacing.m), verticalAlignment = Alignment.CenterVertically) {
-        Text("최근 검색", color = DejaVroomTheme.colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-        TextButton(onClick = actions.onClearRecents) { Text("전체 삭제", color = DejaVroomTheme.colors.muted, fontSize = 12.sp) }
+        Text(if (recents.isEmpty()) "최근 검색이 없습니다" else "최근 검색", color = DejaVroomTheme.colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+        if (recents.isNotEmpty()) TextButton(onClick = actions.onClearRecents) { Text("전체 삭제", color = DejaVroomTheme.colors.muted, fontSize = 12.sp) }
+        TextButton(onClick = actions.onDismissSuggestions) { Text("닫기", color = DejaVroomTheme.colors.muted, fontSize = 12.sp) }
     }
     recents.forEach { place ->
         PlaceRow(
@@ -409,7 +443,8 @@ internal fun RouteAnalysisPreview(modifier: Modifier = Modifier) {
 
 @Composable
 internal fun RouteDataAttribution() {
-    Text("경로·도로 그래프: OpenStreetMap / OSRM 개발 서비스 · 추천 검색어: Photon · 복잡도는 차로·현재 위험도 의미가 아닙니다.", color = DejaVroomTheme.colors.dim, fontSize = 11.sp, lineHeight = 14.sp)
+    // The one line the map data's licence asks for; which services compute the route is not the driver's concern.
+    Text("지도 데이터 © OpenStreetMap contributors", color = DejaVroomTheme.colors.dim, fontSize = 11.sp, lineHeight = 14.sp)
 }
 
 @Composable

@@ -7,7 +7,7 @@ import ai.dejavroom.app.data.CurrentLocationRepository
 import ai.dejavroom.app.data.InMemoryTripStore
 import ai.dejavroom.app.data.NoCurrentLocationRepository
 import ai.dejavroom.app.data.OsmRouteRepository
-import ai.dejavroom.app.data.SearchDefaults
+import ai.dejavroom.app.data.SearchSettings
 import ai.dejavroom.app.data.TripStore
 import ai.dejavroom.app.domain.Trip
 import ai.dejavroom.app.model.ServiceArea
@@ -31,6 +31,7 @@ import ai.dejavroom.app.model.SearchField
 import ai.dejavroom.app.data.InMemoryRecentSearchStore
 import ai.dejavroom.app.data.PhotonPlaceSearchRepository
 import ai.dejavroom.app.data.PlaceSearchRepository
+import ai.dejavroom.app.data.PlaceSearchUnavailableException
 import ai.dejavroom.app.data.RecentSearchStore
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
@@ -48,9 +49,7 @@ data class DejaVroomUiState(
     val originInput: String = "",
     val destinationInput: String = "",
     val route: RouteSnapshot? = null,
-    /** How many points the driver asked to see. */
-    val displayCount: Int = DEFAULT_DISPLAY_COUNT,
-    /** Position in [shownSegments], not in the full route. */
+    /** Position in [shownSegments]. */
     val segmentIndex: Int = 0,
     val screen: DejaVroomScreen = DejaVroomScreen.DESTINATION,
     val voiceEnabled: Boolean = true,
@@ -70,13 +69,15 @@ data class DejaVroomUiState(
     val isLocating: Boolean = false,
     /** Why the origin could not be set to where the car is; shown until the next attempt. */
     val locationNotice: LocationNotice? = null,
+    /** Whose data the place suggestions are; shown under them. */
+    val placeSearchAttribution: String = "",
 ) {
     /**
-     * The points on screen: the [displayCount] most important ones, nearest to the origin first. Cards,
-     * their numbers and the previous/next buttons all walk this one list, so "2 / 3" means the same everywhere.
+     * The points on screen: every point picked for the route, nearest to the origin first. Cards, their
+     * numbers and the previous/next buttons all walk this one list, so "2 / 6" means the same everywhere.
      */
     val shownSegments: List<BriefingSegment>
-        get() = route?.mostImportantSegments(displayCount).orEmpty()
+        get() = route?.segments.orEmpty()
 
     /** Ids of the points on screen that are already behind the car. */
     val passedSegmentIds: Set<String>
@@ -89,11 +90,6 @@ data class DejaVroomUiState(
     /** The trip the search screen can pick up again: under way, and going where the destination field says. */
     val resumableTrip: Trip?
         get() = trip?.takeIf { !it.arrived && it.destination.name == destinationInput.trim() }
-
-    companion object {
-        const val DEFAULT_DISPLAY_COUNT = 3
-        val DISPLAY_COUNT_CHOICES = listOf(3, 5)
-    }
 }
 
 enum class SuggestionStatus { IDLE, LOADING, RESULTS, EMPTY, ERROR }
@@ -118,6 +114,8 @@ data class SuggestionState(
     val query: String = "",
     val status: SuggestionStatus = SuggestionStatus.IDLE,
     val items: List<Place> = emptyList(),
+    /** With [SuggestionStatus.ERROR]: what the place search said is wrong, when it said anything. */
+    val problem: String? = null,
 )
 
 internal fun DejaVroomUiState.inputOf(field: SearchField) =
@@ -141,6 +139,13 @@ internal fun DejaVroomUiState.startingFrom(here: Place): DejaVroomUiState =
 /** True while the origin field still shows the car's position as it was read. */
 internal val DejaVroomUiState.startsFromCurrentLocation: Boolean
     get() = originPlace?.live == true && originPlace.name == originInput.trim()
+
+/**
+ * "현재 위치" is a label, not text to edit, so the origin field opens empty when it is touched. Left
+ * empty, it goes back to the label; typing anything lets go of the car's position.
+ */
+internal fun DejaVroomUiState.withCarOriginRestored(): DejaVroomUiState =
+    if (originInput.isBlank() && originPlace?.live == true) copy(originInput = originPlace.name) else this
 
 internal fun DejaVroomUiState.selectingBriefingSegment(index: Int): DejaVroomUiState {
     if (isDrivingRestricted) return this
@@ -187,7 +192,7 @@ class DejaVroomViewModel(
     private val suggestionDebounceMillis: Long = 300,
     private val currentLocation: CurrentLocationRepository = NoCurrentLocationRepository,
     private val tripStore: TripStore = InMemoryTripStore(),
-    private val searchDefaults: SearchDefaults = SearchDefaults(),
+    private val searchSettings: SearchSettings = SearchSettings(),
     private val nowMillis: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
     private val speechController = BriefingSpeechController(speechOutput)
@@ -196,13 +201,14 @@ class DejaVroomViewModel(
     private val savedTrip: Trip? = tripStore.load()?.takeUnless { it.isOver(nowMillis()) }.also { if (it == null) tripStore.clear() }
     private val mutableState = MutableStateFlow(
         DejaVroomUiState(
-            originInput = searchDefaults.origin,
+            originInput = searchSettings.origin,
             // A trip still under way comes back with its destination already filled in.
-            destinationInput = savedTrip?.destination?.name ?: searchDefaults.destination,
+            destinationInput = savedTrip?.destination?.name ?: searchSettings.destination,
             destinationPlace = savedTrip?.destination,
             trip = savedTrip,
             voiceOutputAvailable = speechOutput.outputAvailable,
             recentSearches = recentSearchStore.all(),
+            placeSearchAttribution = placeSearch.attribution,
         ),
     )
 
@@ -219,6 +225,8 @@ class DejaVroomViewModel(
                 .distinctUntilChanged()
                 .collectLatest { request -> loadSuggestions(request) }
         }
+        // A place search that needs a moment to come up starts now, not at the first letter typed.
+        viewModelScope.launch { placeSearch.prepare() }
         viewModelScope.launch {
             restrictionSource.isRestricted.collect { restricted ->
                 mutableState.update { it.copy(isDrivingRestricted = restricted) }
@@ -246,13 +254,17 @@ class DejaVroomViewModel(
 
     fun focusField(field: SearchField) {
         if (state.value.isDrivingRestricted) return
-        mutableState.update { it.copy(activeField = field) }
+        mutableState.update { current ->
+            if (field == SearchField.ORIGIN && current.startsFromCurrentLocation) current.copy(originInput = "", activeField = field)
+            else if (field == SearchField.ORIGIN) current.copy(activeField = field)
+            else current.withCarOriginRestored().copy(activeField = field)
+        }
         requestSuggestions(field, state.value.inputOf(field))
     }
 
     fun dismissSuggestions() {
         suggestionQueries.value = null
-        mutableState.update { it.copy(activeField = null, suggestions = SuggestionState()) }
+        mutableState.update { it.withCarOriginRestored().copy(activeField = null, suggestions = SuggestionState()) }
     }
 
     fun selectPlace(place: Place) {
@@ -267,7 +279,7 @@ class DejaVroomViewModel(
         mutableState.update {
             when (field) {
                 SearchField.ORIGIN -> it.copy(originInput = place.name, originPlace = place, locationNotice = null)
-                SearchField.DESTINATION -> it.copy(destinationInput = place.name, destinationPlace = place)
+                SearchField.DESTINATION -> it.withCarOriginRestored().copy(destinationInput = place.name, destinationPlace = place)
             }.copy(activeField = null, suggestions = SuggestionState(), errorMessage = null)
         }
     }
@@ -278,7 +290,7 @@ class DejaVroomViewModel(
         if (state.value.isDrivingRestricted) return
         suggestionQueries.value = null
         originChosen = true
-        mutableState.update { it.swappingFields() }
+        mutableState.update { it.withCarOriginRestored().swappingFields() }
     }
 
     /**
@@ -293,7 +305,7 @@ class DejaVroomViewModel(
             advanceTrip(here)
             mutableState.update { current ->
                 val follows = current.startsFromCurrentLocation ||
-                    (searchDefaults.originSource == SearchDefaults.OriginSource.CURRENT && !originChosen)
+                    (searchSettings.originSource == SearchSettings.OriginSource.CURRENT && !originChosen)
                 val busy = current.isDrivingRestricted || current.isSearchingRoute || current.activeField == SearchField.ORIGIN
                 if (follows && !busy) current.startingFrom(here) else current
             }
@@ -395,6 +407,8 @@ class DejaVroomViewModel(
             SuggestionState(field, query, if (places.isEmpty()) SuggestionStatus.EMPTY else SuggestionStatus.RESULTS, places)
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (unavailable: PlaceSearchUnavailableException) {
+            SuggestionState(field, query, SuggestionStatus.ERROR, problem = unavailable.message)
         } catch (_: Exception) {
             SuggestionState(field, query, SuggestionStatus.ERROR)
         }
@@ -411,7 +425,7 @@ class DejaVroomViewModel(
 
     /** True when a route was found and its cards are on screen. */
     private suspend fun searchRouteNow(): Boolean {
-        mutableState.update { it.copy(isSearchingRoute = true, errorMessage = null) }
+        mutableState.update { it.withCarOriginRestored().copy(isSearchingRoute = true, errorMessage = null) }
         return try {
             // The car may have moved since its position was read, so a route from it starts with a fresh read.
             if (state.value.startsFromCurrentLocation) (locate() as? Here.At)?.place?.let { here ->
@@ -462,11 +476,10 @@ class DejaVroomViewModel(
      */
     private fun tripFor(route: RouteSnapshot, searched: DejaVroomUiState): Trip? {
         val end = route.geometry.lastOrNull()?.takeIf { route.geometry.size >= 2 } ?: return null
-        val shown = route.mostImportantSegments(searched.displayCount)
         val here = searched.originPlace?.takeIf { searched.startsFromCurrentLocation }?.coordinate
         val underWay = searched.trip?.takeIf { here != null && !it.isOver(nowMillis()) && it.isGoingTo(end) }
-        return underWay?.continuedWith(route.geometry, shown)
-            ?: Trip.startedWith(Place(route.destination, coordinate = end), route.geometry, shown, nowMillis())
+        return underWay?.continuedWith(route.geometry, route.segments)
+            ?: Trip.startedWith(Place(route.destination, coordinate = end), route.geometry, route.segments, nowMillis())
     }
 
     fun startBriefing() {
@@ -486,17 +499,6 @@ class DejaVroomViewModel(
         if (index !in state.value.shownSegments.indices) return
         speechController.stop()
         transition { it.copy(screen = DejaVroomScreen.ROADVIEW_TEST, segmentIndex = index) }
-    }
-
-    /** Shows the [count] most important points. The list changes, so the position starts over. */
-    fun showSegmentCount(count: Int) {
-        if (count !in DejaVroomUiState.DISPLAY_COUNT_CHOICES) return
-        mutableState.update { current ->
-            val resized = current.copy(displayCount = count, segmentIndex = 0)
-            // The trip remembers the points that were on screen, so it follows what is shown.
-            resized.copy(trip = current.trip?.takeIf { current.route != null }?.showing(resized.shownSegments) ?: current.trip)
-        }
-        state.value.trip?.let(tripStore::save)
     }
 
     fun openSelectedRoadView() = openSegmentRoadView(state.value.segmentIndex)
@@ -634,6 +636,7 @@ class DejaVroomViewModel(
     override fun onCleared() {
         speechController.stop()
         currentLocation.release()
+        placeSearch.release()
         super.onCleared()
     }
 }

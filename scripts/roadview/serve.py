@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve web/roadview locally the same way GitHub Pages does, with the Kakao JS key injected.
+"""Serve web/roadview (road view and place search pages) locally the same way GitHub Pages does, with the Kakao JS key injected.
 
 Production is the static site built by .github/workflows/roadview-pages.yml. This server only
 replaces the `__KAKAO_JS_KEY__` placeholder with `kakaoJsKey` from local.properties so the
@@ -15,6 +15,13 @@ ROOT = Path(__file__).resolve().parents[2]
 WEB_ROOT = ROOT / "web"
 KEY_PATTERN = re.compile(r"^\s*kakaoJsKey\s*=\s*([A-Za-z0-9]+)\s*$", re.MULTILINE)
 PLACEHOLDER = "__KAKAO_JS_KEY__"
+# Pages that carry the key placeholder: the road view itself and the place search the app asks out of sight.
+KEYED_PAGES = {
+    "/roadview": "index.html",
+    "/roadview/": "index.html",
+    "/roadview/index.html": "index.html",
+    "/roadview/places.html": "places.html",
+}
 
 
 def read_js_key() -> str:
@@ -30,8 +37,9 @@ class RoadviewHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
 
     def do_GET(self):
-        if urlsplit(self.path).path in ("/roadview", "/roadview/", "/roadview/index.html"):
-            html = (WEB_ROOT / "roadview" / "index.html").read_text(encoding="utf-8")
+        page = KEYED_PAGES.get(urlsplit(self.path).path)
+        if page:
+            html = (WEB_ROOT / "roadview" / page).read_text(encoding="utf-8")
             body = html.replace(PLACEHOLDER, read_js_key()).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")

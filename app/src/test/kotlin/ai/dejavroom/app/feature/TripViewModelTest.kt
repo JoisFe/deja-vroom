@@ -7,7 +7,8 @@ import ai.dejavroom.app.data.InMemoryRecentSearchStore
 import ai.dejavroom.app.data.InMemoryTripStore
 import ai.dejavroom.app.data.PlaceSearchRepository
 import ai.dejavroom.app.data.RouteRepository
-import ai.dejavroom.app.data.SearchDefaults
+import ai.dejavroom.app.data.SearchSettings
+import ai.dejavroom.app.data.UnconfiguredPlaceSearchRepository
 import ai.dejavroom.app.model.BriefingSegment
 import ai.dejavroom.app.model.GeoCoordinate
 import ai.dejavroom.app.model.Place
@@ -15,6 +16,7 @@ import ai.dejavroom.app.model.PlaceInput
 import ai.dejavroom.app.model.RouteGeometryStatus
 import ai.dejavroom.app.model.RouteSnapshot
 import ai.dejavroom.app.model.RouteSource
+import ai.dejavroom.app.model.SearchField
 import ai.dejavroom.app.model.SegmentType
 import androidx.lifecycle.ViewModelStore
 import kotlinx.coroutines.Dispatchers
@@ -77,14 +79,14 @@ class TripViewModelTest {
     private val recents = InMemoryRecentSearchStore()
     private var now = 1_000_000L
 
-    private fun viewModel(defaults: SearchDefaults = SearchDefaults()) = DejaVroomViewModel(
+    private fun viewModel(defaults: SearchSettings = SearchSettings()) = DejaVroomViewModel(
         repository = routes, placeSearch = FakePlaceSearchRepository(), recentSearchStore = recents,
-        currentLocation = location, tripStore = trips, searchDefaults = defaults, nowMillis = { now },
+        currentLocation = location, tripStore = trips, searchSettings = defaults, nowMillis = { now },
     )
 
     @Test
     fun `the search screen opens with the configured places`() = runTest(dispatcher) {
-        val state = viewModel(SearchDefaults(origin = "판교역", destination = "코엑스")).state.value
+        val state = viewModel(SearchSettings(origin = "판교역", destination = "코엑스")).state.value
         assertEquals("판교역" to "코엑스", state.originInput to state.destinationInput)
         assertNull(state.trip)
     }
@@ -115,7 +117,7 @@ class TripViewModelTest {
     @Test
     fun `an origin fixed in the config or chosen by the driver is not replaced`() = runTest(dispatcher) {
         location.next = at(0)
-        val fixed = viewModel(SearchDefaults(originSource = SearchDefaults.OriginSource.PLACE))
+        val fixed = viewModel(SearchSettings(originSource = SearchSettings.OriginSource.PLACE))
         fixed.onAppForegrounded()
         advanceUntilIdle()
         assertEquals("수원시 영통구", fixed.state.value.originInput)
@@ -154,6 +156,44 @@ class TripViewModelTest {
     }
 
     @Test
+    fun `the current location label opens empty for typing and comes back when nothing is typed`() = runTest(dispatcher) {
+        location.next = at(0, "경기 수원시 영통구")
+        val vm = viewModel()
+        vm.onAppForegrounded()
+        advanceUntilIdle()
+
+        // Touching the field: there is nothing to erase before typing or speaking a place.
+        vm.focusField(SearchField.ORIGIN)
+        assertEquals("", vm.state.value.originInput)
+        assertFalse(vm.state.value.startsFromCurrentLocation)
+        // Closing it without typing, or moving on to the destination, puts the label back.
+        vm.dismissSuggestions()
+        assertEquals(Place.CURRENT_LOCATION_NAME, vm.state.value.originInput)
+        assertTrue(vm.state.value.startsFromCurrentLocation)
+        vm.focusField(SearchField.ORIGIN)
+        vm.focusField(SearchField.DESTINATION)
+        assertTrue(vm.state.value.startsFromCurrentLocation)
+
+        // Searching with the field still open starts from the car as well.
+        vm.focusField(SearchField.ORIGIN)
+        vm.searchRoute()
+        advanceUntilIdle()
+        assertEquals(road[0], routes.origins.single().resolvedPlace?.coordinate)
+
+        // Typing lets go of the car's position, and so does clearing the field by hand.
+        vm.editRoute()
+        vm.focusField(SearchField.ORIGIN)
+        vm.updateOrigin("서울역")
+        vm.dismissSuggestions()
+        assertEquals("서울역", vm.state.value.originInput)
+        vm.useCurrentLocation()
+        advanceUntilIdle()
+        vm.clearField(SearchField.ORIGIN)
+        vm.dismissSuggestions()
+        assertEquals("", vm.state.value.originInput)
+    }
+
+    @Test
     fun `a route from the car's position starts with a fresh read of it`() = runTest(dispatcher) {
         location.next = at(0)
         val vm = viewModel()
@@ -185,6 +225,30 @@ class TripViewModelTest {
         // A place the driver picked is not a secret: it is passed on as it is.
         val seoulStation = FakePlaceSearchRepository.DEMO_PLACES[1]
         assertEquals(seoulStation.coordinate, seoulStation.searchBias)
+    }
+
+    @Test
+    fun `a place search that is not set up says so under the field and names its source when it works`() = runTest(dispatcher) {
+        val unconfigured = DejaVroomViewModel(
+            repository = routes, placeSearch = UnconfiguredPlaceSearchRepository("Kakao 장소 검색 주소가 설정되지 않았습니다"), suggestionDebounceMillis = 0,
+        )
+        unconfigured.updateDestination("강남역")
+        advanceUntilIdle()
+        assertEquals(SuggestionStatus.ERROR, unconfigured.state.value.suggestions.status)
+        assertEquals("Kakao 장소 검색 주소가 설정되지 않았습니다", unconfigured.state.value.suggestions.problem)
+        assertEquals("", unconfigured.state.value.placeSearchAttribution)
+
+        val broken = object : PlaceSearchRepository {
+            override val attribution = "장소 정보 © 테스트"
+            override suspend fun suggest(query: String, bias: GeoCoordinate?): List<Place> = error("network")
+        }
+        val vm = DejaVroomViewModel(repository = routes, placeSearch = broken, suggestionDebounceMillis = 0)
+        vm.updateDestination("강남역")
+        advanceUntilIdle()
+        // Any other failure keeps the plain wording.
+        assertEquals(SuggestionStatus.ERROR, vm.state.value.suggestions.status)
+        assertNull(vm.state.value.suggestions.problem)
+        assertEquals("장소 정보 © 테스트", vm.state.value.placeSearchAttribution)
     }
 
     @Test
@@ -330,16 +394,6 @@ class TripViewModelTest {
         advanceUntilIdle()
         assertEquals(DejaVroomScreen.SUMMARY, vm.state.value.screen)
         assertEquals(emptyList<Place>(), recents.all())
-    }
-
-    @Test
-    fun `showing more points keeps the trip in step with the screen`() = runTest(dispatcher) {
-        val vm = viewModel()
-        vm.searchRoute()
-        advanceUntilIdle()
-        vm.showSegmentCount(5)
-        assertEquals(vm.state.value.shownSegments.map { it.id }, vm.state.value.trip!!.leg.map { it.id })
-        assertEquals(vm.state.value.trip, trips.load())
     }
 
     @Test

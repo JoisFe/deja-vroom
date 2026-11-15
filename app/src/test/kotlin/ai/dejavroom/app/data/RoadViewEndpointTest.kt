@@ -11,6 +11,19 @@ class RoadViewEndpointTest {
     private val pages = requireNotNull(RoadViewEndpoint.parse("https://team.github.io/deja-vroom/roadview/"))
 
     @Test
+    fun `the place search page sits next to the road view page and nothing else passes for it`() {
+        assertEquals("https://team.github.io/deja-vroom/roadview/places.html", pages.placesUrl)
+        val revised = requireNotNull(RoadViewEndpoint.parse("http://localhost:8080/roadview", revision = "ab12"))
+        assertEquals("http://localhost:8080/roadview/places.html?rev=ab12", revised.placesUrl)
+        assertTrue(pages.isPlacesPage("https://team.github.io/deja-vroom/roadview/places.html?rev=1"))
+        assertFalse(pages.isPlacesPage("https://team.github.io/deja-vroom/roadview/"))
+        assertFalse(pages.isPlacesPage("https://evil.example/deja-vroom/roadview/places.html"))
+        assertFalse(pages.isPlacesPage("https://team.github.io/other/places.html"))
+        // The road view screen still only accepts the road view page.
+        assertFalse(pages.isRoadViewPage("https://team.github.io/deja-vroom/roadview/places.html"))
+    }
+
+    @Test
     fun `empty or missing setting means not configured`() {
         assertNull(RoadViewEndpoint.parse(""))
         assertNull(RoadViewEndpoint.parse("   "))
