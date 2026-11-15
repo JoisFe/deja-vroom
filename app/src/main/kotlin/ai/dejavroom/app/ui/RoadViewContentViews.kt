@@ -1,9 +1,18 @@
 package ai.dejavroom.app.ui
 
+import ai.dejavroom.app.core.designsystem.DejaVroomTheme
+import ai.dejavroom.app.core.designsystem.PhotoOverlay
+import ai.dejavroom.app.data.HttpImageBytesLoader
+import ai.dejavroom.app.data.ImageBytesLoader
+import ai.dejavroom.app.data.RoadViewContent
+import ai.dejavroom.app.data.RoadViewLookupResult
+import ai.dejavroom.app.data.RoadViewResult
 import android.graphics.BitmapFactory
 import android.view.ViewGroup
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.Image
@@ -30,13 +39,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.viewinterop.AndroidView
-import ai.dejavroom.app.core.designsystem.DejaVroomTheme
-import ai.dejavroom.app.core.designsystem.PhotoOverlay
-import ai.dejavroom.app.data.HttpImageBytesLoader
-import ai.dejavroom.app.data.ImageBytesLoader
-import ai.dejavroom.app.data.RoadViewContent
-import ai.dejavroom.app.data.RoadViewLookupResult
-import ai.dejavroom.app.data.RoadViewResult
 
 /*
  * Renders road view results by content type only. Nothing here knows which provider produced the result:
@@ -49,9 +51,17 @@ internal fun RoadViewThumbnail(lookup: RoadViewLookupResult?, compact: Boolean, 
     val view = (lookup as? RoadViewLookupResult.Available)?.views?.firstOrNull()
     when (val content = view?.content) {
         is RoadViewContent.InteractivePage -> RoadViewPageThumbnail(content, modifier)
+
         is RoadViewContent.StillImage -> RoadViewPhoto(view, content, modifier, showDetails = !compact)
+
         // The card puts its own labels in the top corners and the bottom-start one, so the badge takes the last.
-        RoadViewContent.Illustration -> RoadScene(modifier, variant = 0, large = !compact, badgeAlignment = Alignment.BottomEnd)
+        RoadViewContent.Illustration -> RoadScene(
+            modifier,
+            variant = 0,
+            large = !compact,
+            badgeAlignment = Alignment.BottomEnd,
+        )
+
         null -> RoadViewMessage(roadViewStatusMessage(lookup), modifier)
     }
 }
@@ -67,32 +77,42 @@ internal fun RoadViewPhoto(
 ) {
     val image by produceState<ImageLoad>(ImageLoad.Loading, content.imageUrl) {
         val bytes = loader.load(content.imageUrl)
-        value = bytes?.let { runCatching { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }.getOrNull() }
-            ?.let(ImageLoad::Loaded) ?: ImageLoad.Failed
+        value =
+            bytes?.let { runCatching { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }.getOrNull() }
+                ?.let(ImageLoad::Loaded) ?: ImageLoad.Failed
     }
     val type = DejaVroomTheme.type
     val dimens = DejaVroomTheme.dimens
     Box(modifier.background(PhotoOverlay.placeholder)) {
         when (val state = image) {
             ImageLoad.Loading -> RoadViewMessage("사진을 불러오고 있습니다", Modifier.fillMaxSize())
+
             ImageLoad.Failed -> RoadViewMessage("사진을 불러오지 못했습니다", Modifier.fillMaxSize())
-            is ImageLoad.Loaded -> Image(state.bitmap, contentDescription = "도로 사진", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+
+            is ImageLoad.Loaded -> Image(
+                state.bitmap,
+                contentDescription = "도로 사진",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
         // Bottom-end: a summary card writes how far before the point the photo was taken at the bottom-start.
         Column(
             Modifier.align(Alignment.BottomEnd).padding(dimens.spaceS).clip(RoundedCornerShape(dimens.radiusSmall))
                 .background(PhotoOverlay.scrim).padding(horizontal = dimens.spaceS, vertical = dimens.spaceXs),
         ) {
-            Text(view.attribution.orEmpty(), color = PhotoOverlay.onScrim, style = type.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (showDetails) {
-                Text(
-                    listOfNotNull(
-                        view.capturedAt?.let { "촬영 $it" },
-                        "${content.distanceMeters}m 거리",
-                        "방향 차이 ${content.headingDifferenceDegrees}°",
-                    ).joinToString(" · "),
-                    color = PhotoOverlay.onScrimVariant, style = type.labelSmall, maxLines = 1,
-                )
+            Text(
+                view.attribution.orEmpty(),
+                color = PhotoOverlay.onScrim,
+                style = type.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // How far the photo is from the point and how its heading differs are how it was picked,
+            // not driver information.
+            val capturedAt = view.capturedAt
+            if (showDetails && capturedAt != null) {
+                Text("촬영 $capturedAt", color = PhotoOverlay.onScrimVariant, style = type.labelSmall, maxLines = 1)
             }
         }
     }
@@ -100,8 +120,16 @@ internal fun RoadViewPhoto(
 
 @Composable
 internal fun RoadViewMessage(message: String, modifier: Modifier = Modifier) {
-    Box(modifier.background(DejaVroomTheme.colors.surfaceVariant).padding(DejaVroomTheme.dimens.spaceM), contentAlignment = Alignment.Center) {
-        Text(message, color = DejaVroomTheme.colors.onSurfaceVariant, style = DejaVroomTheme.type.labelMedium, textAlign = TextAlign.Center)
+    Box(
+        modifier.background(DejaVroomTheme.colors.surfaceVariant).padding(DejaVroomTheme.dimens.spaceM),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            message,
+            color = DejaVroomTheme.colors.onSurfaceVariant,
+            style = DejaVroomTheme.type.labelMedium,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -121,12 +149,16 @@ private fun RoadViewPageThumbnail(content: RoadViewContent.InteractivePage, modi
                 tag = url
                 // Without an exact height the page's own height is zero to WebView, so "height: 100%" in the
                 // page collapses to its minimum and the picture stays a strip at the top of the card.
-                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                layoutParams =
+                    ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 setBackgroundColor(PhotoOverlay.placeholder.toArgb())
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = false
                 settings.allowContentAccess = false
+                settings.javaScriptCanOpenWindowsAutomatically = false
+                settings.setSupportMultipleWindows(false)
+                settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                         !content.endpoint.isRoadViewPage(request.url.toString())
@@ -134,18 +166,36 @@ private fun RoadViewPageThumbnail(content: RoadViewContent.InteractivePage, modi
                     override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                         if (request.isForMainFrame) loadFailed = true
                     }
+
+                    /** Returning true keeps the app alive; the message replaces the view and onRelease destroys it. */
+                    override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                        view.tag = RendererGone
+                        loadFailed = true
+                        return true
+                    }
                 }
                 loadUrl(url)
             }
         },
-        update = { view -> if (view.tag != url) { view.tag = url; view.loadUrl(url) } },
+        update = { view ->
+            if (view.tag != RendererGone && view.tag != url) {
+                view.tag = url
+                view.loadUrl(url)
+            }
+        },
         onRelease = { view ->
-            view.stopLoading()
-            view.loadUrl("about:blank")
+            // A view whose renderer died cannot load anything again; it is only destroyed.
+            if (view.tag != RendererGone) {
+                view.stopLoading()
+                view.loadUrl("about:blank")
+            }
             view.destroy()
         },
     )
 }
+
+/** Tag of a thumbnail WebView whose renderer died. */
+private object RendererGone
 
 private sealed interface ImageLoad {
     data object Loading : ImageLoad

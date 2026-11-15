@@ -20,6 +20,13 @@ class BriefingSettingsTest {
     }
 
     @Test
+    fun `the committed config file says what the code defaults say`() {
+        // A broken file falls back to these defaults, so a rehearsal must not behave differently when that happens.
+        val file = listOf("../config/briefing.yml", "config/briefing.yml").map(::File).first { it.exists() }
+        assertEquals(BriefingSettings(), BriefingSettings.fromYaml(file.readText()))
+    }
+
+    @Test
     fun `a missing file or a missing key keeps the defaults`() {
         assertEquals(BriefingSettings(), BriefingSettings.fromYaml(null))
         val partial = BriefingSettings.fromYaml("selection:\n  maxCards: 3\n")
@@ -57,14 +64,27 @@ class BriefingSettingsTest {
 
     @Test
     fun `a typo cannot silently change the algorithm`() {
-        val unknownKey = assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("selection:\n  maxCard: 3\n") }
+        val unknownKey =
+            assertThrows(IllegalArgumentException::class.java) {
+                BriefingSettings.fromYaml("selection:\n  maxCard: 3\n")
+            }
         assertTrue(unknownKey.message!!.contains("selection.maxCard"))
-        assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("weights:\n  errorCost: high\n") }
+        assertThrows(IllegalArgumentException::class.java) {
+            BriefingSettings.fromYaml("weights:\n  errorCost: high\n")
+        }
         assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("selection:\n  maxCards: 99\n") }
-        assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("approach:\n  minLeadMeters: 500\n") }
-        assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("approach:\n  driveMaxSteps: 1\n") }
-        assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("approach:\n  laneOffsetMeters: 25\n") }
+        assertThrows(IllegalArgumentException::class.java) {
+            BriefingSettings.fromYaml("approach:\n  minLeadMeters: 500\n")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BriefingSettings.fromYaml("approach:\n  driveMaxSteps: 1\n")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BriefingSettings.fromYaml("approach:\n  laneOffsetMeters: 25\n")
+        }
         // A setting that no longer exists is a typo like any other.
-        assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("approach:\n  drivePastMeters: 60\n") }
+        assertThrows(IllegalArgumentException::class.java) {
+            BriefingSettings.fromYaml("approach:\n  drivePastMeters: 60\n")
+        }
     }
 }

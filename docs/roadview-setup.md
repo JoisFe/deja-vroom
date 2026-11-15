@@ -110,6 +110,7 @@ CI처럼 파일을 쓰지 않을 때는 `./gradlew :app:assembleRelease -Proadvi
 | `roadviewBaseUrl` | 앱 (`BuildConfig.ROADVIEW_BASE_URL_OVERRIDE`) | `config/roadview.yml`의 `kakao.baseUrl`. 그것도 비면 설정 안내 |
 | `mapillaryClientToken` | 앱 (`BuildConfig.MAPILLARY_CLIENT_TOKEN`) | `provider: mapillary`일 때 설정 안내 |
 | `kakaoJsKey` | `scripts/roadview/serve.py` (로컬 확인 전용) | 로컬 페이지가 키 오류를 보여 준다 |
+| `developerEntry` | 앱 (`BuildConfig.DEVELOPER_ENTRY`). `true`이면 debug 빌드의 머리글에 "로드뷰 점검"이 보이고, 누르면 경로 없이 로드뷰를 연다 | 버튼이 보이지 않는다 |
 
 `https` 주소와 `http://localhost`만 받는다. 그 밖의 `http` 주소는 설정되지 않은 것으로 본다.
 
@@ -151,7 +152,7 @@ roadviewProvider=mapillary
 |---|---|
 | 찾는 범위 | 후보 지점 반경 80m |
 | 고르는 기준 | 거리(m) + 0.7 × 경로 방향과의 각도 차이(°)가 가장 작은 사진 |
-| 화면 표기 | `© Mapillary contributors · CC BY-SA 4.0 · 촬영 <사용자>`, 촬영일, 거리, 방향 차이. 라이선스상 출처 표기를 지우지 않는다 |
+| 화면 표기 | `© Mapillary contributors · CC BY-SA 4.0 · 촬영 <사용자>`, 촬영일. 라이선스상 출처 표기를 지우지 않는다 |
 | 토큰 노출 | Client Token은 앱에 들어가는 공개용 토큰이다. 그래도 저장소에는 커밋하지 않는다 |
 
 ## 문제 해결

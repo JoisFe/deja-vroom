@@ -31,7 +31,7 @@ APK 단독 제출은 불가하며, 저장소에 소스와 함께 올려야 한�
 | 항목 | 규칙 | 상태 |
 |---|---|---|
 | APK 위치 | 저장소 안 `apk/` 폴더 | 폴더 준비 ✅ |
-| APK 파일명 | `팀명_앱이름_release.apk`, 실행 가능한 release 빌드 | 예정 |
+| APK 파일명 | `팀명_앱이름_release.apk`, 실행 가능한 release 빌드. 서명하지 않은 APK는 설치할 수 없다. [서명 방법](../apk/README.md#서명) | 예정 |
 | 용량 초과 | GitHub Releases에 올리고 Release 페이지 URL 제출 | 해당 시 |
 | README 필수 4항목 | ① 앱 이름 + 한 줄 소개 ② 실행 방법 ③ 테스트 환경·필요한 설정 ④ APK 위치 또는 Release 링크 | [README](../README.md) ✅ |
 

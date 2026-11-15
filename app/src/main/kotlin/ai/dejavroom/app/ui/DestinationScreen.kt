@@ -91,21 +91,40 @@ internal fun DestinationScreen(state: DejaVroomUiState, actions: DestinationActi
             keyboard?.hide()
         }
         actions.copy(
-            onSelectPlace = { field, place -> leaveFields(); actions.onSelectPlace(field, place) },
-            onUseCurrentLocation = { leaveFields(); actions.onUseCurrentLocation() },
-            onDismissSuggestions = { leaveFields(); actions.onDismissSuggestions() },
-            onSearch = { leaveFields(); actions.onSearch() },
+            onSelectPlace = { field, place ->
+                leaveFields()
+                actions.onSelectPlace(field, place)
+            },
+            onUseCurrentLocation = {
+                leaveFields()
+                actions.onUseCurrentLocation()
+            },
+            onDismissSuggestions = {
+                leaveFields()
+                actions.onDismissSuggestions()
+            },
+            onSearch = {
+                leaveFields()
+                actions.onSearch()
+            },
         )
     }
     BackHandler(enabled = state.activeField != null, onBack = formActions.onDismissSuggestions)
     // A touch anywhere that is not a field, a row or a button means the driver is done typing.
-    val doneOnOutsideTouch = Modifier.pointerInput(formActions) { detectTapGestures(onTap = { formActions.onDismissSuggestions() }) }
+    val doneOnOutsideTouch = Modifier.pointerInput(formActions) {
+        detectTapGestures(onTap = { formActions.onDismissSuggestions() })
+    }
     DestinationLayout(state, formActions, compact, doneOnOutsideTouch)
 }
 
 // The shell pads the content area, so neither layout adds outer padding of its own.
 @Composable
-private fun DestinationLayout(state: DejaVroomUiState, actions: DestinationActions, compact: Boolean, modifier: Modifier) {
+private fun DestinationLayout(
+    state: DejaVroomUiState,
+    actions: DestinationActions,
+    compact: Boolean,
+    modifier: Modifier,
+) {
     val dimens = DejaVroomTheme.dimens
     if (compact) {
         Column(modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -129,7 +148,11 @@ private fun DestinationLayout(state: DejaVroomUiState, actions: DestinationActio
                     // Up here every suggestion stays above it, and the fields keep their place.
                     SuggestionPanel(state, actions, typing)
                 } else {
-                    RouteAnalysisPreview(searching = state.isSearchingRoute, dense = false, modifier = Modifier.fillMaxWidth().weight(1f))
+                    RouteAnalysisPreview(
+                        searching = state.isSearchingRoute,
+                        dense = false,
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                    )
                     Spacer(Modifier.height(dimens.spaceS))
                     RouteDataAttribution()
                 }
@@ -139,7 +162,13 @@ private fun DestinationLayout(state: DejaVroomUiState, actions: DestinationActio
 }
 
 @Composable
-internal fun DestinationForm(state: DejaVroomUiState, actions: DestinationActions, modifier: Modifier, dense: Boolean, suggestionsInline: Boolean) {
+internal fun DestinationForm(
+    state: DejaVroomUiState,
+    actions: DestinationActions,
+    modifier: Modifier,
+    dense: Boolean,
+    suggestionsInline: Boolean,
+) {
     val colors = DejaVroomTheme.colors
     val dimens = DejaVroomTheme.dimens
     val type = DejaVroomTheme.type
@@ -166,16 +195,18 @@ internal fun DestinationForm(state: DejaVroomUiState, actions: DestinationAction
             Spacer(Modifier.width(dimens.spaceM))
             // Swap sits beside the two fields, like most navigation apps.
             Box(
-                Modifier.size(dimens.dp(84)).cardSurface(RoundedCornerShape(dimens.radiusMedium)).clickable(onClick = actions.onSwap),
+                Modifier.size(
+                    dimens.dp(84),
+                ).cardSurface(RoundedCornerShape(dimens.radiusMedium)).clickable(onClick = actions.onSwap),
                 contentAlignment = Alignment.Center,
             ) {
                 AppIcon(DejaVroomIcons.Swap, tint = colors.accent, contentDescription = "출발지와 목적지 바꾸기")
             }
         }
 
-        if (state.errorMessage != null) {
+        state.searchProblem?.let { problem ->
             Spacer(Modifier.height(dimens.spaceS))
-            Text(state.errorMessage, color = colors.error, style = type.labelMedium)
+            Text(searchProblemText(problem), color = colors.error, style = type.labelMedium)
         }
 
         if (state.activeField == null) {
@@ -201,7 +232,13 @@ internal fun DestinationForm(state: DejaVroomUiState, actions: DestinationAction
 }
 
 @Composable
-private fun SearchFieldBlock(state: DejaVroomUiState, actions: DestinationActions, field: SearchField, destinationFocus: FocusRequester, suggestionsInline: Boolean) {
+private fun SearchFieldBlock(
+    state: DejaVroomUiState,
+    actions: DestinationActions,
+    field: SearchField,
+    destinationFocus: FocusRequester,
+    suggestionsInline: Boolean,
+) {
     val dimens = DejaVroomTheme.dimens
     val isOrigin = field == SearchField.ORIGIN
     if (isOrigin) {
@@ -319,19 +356,30 @@ private fun SuggestionPanel(state: DejaVroomUiState, actions: DestinationActions
     val type = DejaVroomTheme.type
     val query = state.inputOf(field).trim()
     val suggestions = state.suggestions.takeIf { it.field == field }
-    Column(Modifier.fillMaxWidth().cardSurface(RoundedCornerShape(dimens.radiusMedium)).padding(vertical = dimens.spaceXs)) {
+    Column(
+        Modifier.fillMaxWidth().cardSurface(RoundedCornerShape(dimens.radiusMedium)).padding(vertical = dimens.spaceXs),
+    ) {
         if (query.isEmpty()) {
             RecentList(state.recentSearches, field, actions)
             return@Column
         }
         // Fixed-height status row: loading/empty/error never move the rows below it.
-        Row(Modifier.fillMaxWidth().height(dimens.touchTarget).padding(start = dimens.spaceL), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth().height(dimens.touchTarget).padding(start = dimens.spaceL),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 when {
                     query.length < 2 -> "두 글자 이상 입력하면 추천 검색어가 나옵니다"
+
                     suggestions?.status == SuggestionStatus.LOADING -> "추천 검색어 찾는 중…"
+
                     suggestions?.status == SuggestionStatus.EMPTY -> "추천 결과가 없습니다. 입력한 그대로 검색할 수 있습니다"
-                    suggestions?.status == SuggestionStatus.ERROR -> suggestions.problem ?: "추천 검색어를 불러오지 못했습니다. 입력한 그대로 검색할 수 있습니다"
+
+                    suggestions?.status == SuggestionStatus.ERROR ->
+                        suggestions.problem
+                            ?: "추천 검색어를 불러오지 못했습니다. 입력한 그대로 검색할 수 있습니다"
+
                     else -> "추천 검색어"
                 },
                 color = if (suggestions?.status == SuggestionStatus.ERROR) colors.error else colors.onSurfaceVariant,
@@ -367,7 +415,10 @@ private fun RecentList(recents: List<Place>, field: SearchField, actions: Destin
     val colors = DejaVroomTheme.colors
     val dimens = DejaVroomTheme.dimens
     // The panel can always be closed from its own header, with or without anything to list.
-    Row(Modifier.fillMaxWidth().height(dimens.touchTarget).padding(start = dimens.spaceL), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().height(dimens.touchTarget).padding(start = dimens.spaceL),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
             if (recents.isEmpty()) "최근 검색이 없습니다" else "최근 검색",
             color = colors.onSurfaceVariant,
@@ -400,20 +451,40 @@ private fun ClosePanelAction(onClick: () -> Unit) {
 }
 
 @Composable
-private fun PlaceRow(title: AnnotatedString, subtitle: String, leading: ImageVector, onClick: () -> Unit, onRemove: (() -> Unit)? = null) {
+private fun PlaceRow(
+    title: AnnotatedString,
+    subtitle: String,
+    leading: ImageVector,
+    onClick: () -> Unit,
+    onRemove: (() -> Unit)? = null,
+) {
     val colors = DejaVroomTheme.colors
     val dimens = DejaVroomTheme.dimens
     val type = DejaVroomTheme.type
     Row(
-        Modifier.fillMaxWidth().heightIn(min = dimens.dp(88)).clickable(onClick = onClick).padding(start = dimens.spaceL),
+        Modifier.fillMaxWidth().heightIn(
+            min = dimens.dp(88),
+        ).clickable(onClick = onClick).padding(start = dimens.spaceL),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AppIcon(leading, tint = colors.accent)
         Spacer(Modifier.width(dimens.spaceM))
         Column(Modifier.weight(1f).padding(vertical = dimens.spaceXs)) {
-            Text(title, color = colors.onSurface, style = type.bodySmall.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                title,
+                color = colors.onSurface,
+                style = type.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             if (subtitle.isNotBlank()) {
-                Text(subtitle, color = colors.onSurfaceVariant, style = type.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    subtitle,
+                    color = colors.onSurfaceVariant,
+                    style = type.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
         if (onRemove != null) {
@@ -448,15 +519,31 @@ private fun RecentChips(recents: List<Place>, actions: DestinationActions) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    Modifier.size(dimens.dp(60)).background(colors.selectedSurface, RoundedCornerShape(dimens.radiusSmall)),
+                    Modifier.size(
+                        dimens.dp(60),
+                    ).background(colors.selectedSurface, RoundedCornerShape(dimens.radiusSmall)),
                     contentAlignment = Alignment.Center,
                 ) {
                     AppIcon(DejaVroomIcons.History, tint = colors.accent)
                 }
                 Spacer(Modifier.width(dimens.spaceS))
                 Column(Modifier.weight(1f)) {
-                    Text(place.name, color = colors.onSurface, style = type.bodySmall.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(place.address.ifBlank { "최근 검색" }, color = colors.onSurfaceVariant, style = type.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        place.name,
+                        color = colors.onSurface,
+                        style = type.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        place.address.ifBlank {
+                            "최근 검색"
+                        },
+                        color = colors.onSurfaceVariant,
+                        style = type.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
@@ -470,7 +557,14 @@ private fun highlight(text: String, query: String): AnnotatedString {
     val color = DejaVroomTheme.colors.accent
     return buildAnnotatedString {
         append(text.substring(0, start))
-        withStyle(SpanStyle(color = color, fontWeight = FontWeight.Bold)) { append(text.substring(start, start + query.length)) }
+        withStyle(SpanStyle(color = color, fontWeight = FontWeight.Bold)) {
+            append(
+                text.substring(
+                    start,
+                    start + query.length,
+                ),
+            )
+        }
         append(text.substring(start + query.length))
     }
 }
@@ -486,7 +580,10 @@ internal fun RouteAnalysisPreview(searching: Boolean, dense: Boolean, modifier: 
     val dimens = DejaVroomTheme.dimens
     val type = DejaVroomTheme.type
     Column(modifier.cardSurface()) {
-        RouteIllustration(searching, Modifier.fillMaxWidth().then(if (dense) Modifier.height(dimens.dp(300)) else Modifier.weight(1f)))
+        RouteIllustration(
+            searching,
+            Modifier.fillMaxWidth().then(if (dense) Modifier.height(dimens.dp(300)) else Modifier.weight(1f)),
+        )
         Column(
             Modifier.padding(start = dimens.dp(36), top = dimens.dp(32), end = dimens.dp(36), bottom = dimens.dp(36)),
             verticalArrangement = Arrangement.spacedBy(dimens.spaceM),
@@ -499,7 +596,9 @@ internal fun RouteAnalysisPreview(searching: Boolean, dense: Boolean, modifier: 
             ).forEach { (number, label) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        Modifier.size(dimens.dp(52)).background(colors.selectedSurface, RoundedCornerShape(dimens.radiusSmall)),
+                        Modifier.size(
+                            dimens.dp(52),
+                        ).background(colors.selectedSurface, RoundedCornerShape(dimens.radiusSmall)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(number, color = colors.accent, style = type.labelSmall.copy(fontWeight = FontWeight.Bold))
@@ -559,7 +658,10 @@ private fun RouteIllustration(searching: Boolean, modifier: Modifier = Modifier)
             RouteMarkerCenters.forEachIndexed { index, center ->
                 NumberMarker(
                     index + 1,
-                    Modifier.offset(unit * (center.x - ROUTE_MARKER_DIAMETER / 2), unit * (center.y - ROUTE_MARKER_DIAMETER / 2)),
+                    Modifier.offset(
+                        unit * (center.x - ROUTE_MARKER_DIAMETER / 2),
+                        unit * (center.y - ROUTE_MARKER_DIAMETER / 2),
+                    ),
                     size = unit * ROUTE_MARKER_DIAMETER,
                     ring = true,
                     ringColor = colors.surface,
@@ -568,7 +670,11 @@ private fun RouteIllustration(searching: Boolean, modifier: Modifier = Modifier)
         }
         // In the corner the route leaves empty, so it never covers a marker.
         if (searching) {
-            CircularProgressIndicator(Modifier.align(Alignment.TopStart).padding(dimens.spaceXl).size(dimens.dp(72)), color = colors.primary, strokeWidth = dimens.dp(8))
+            CircularProgressIndicator(
+                Modifier.align(Alignment.TopStart).padding(dimens.spaceXl).size(dimens.dp(72)),
+                color = colors.primary,
+                strokeWidth = dimens.dp(8),
+            )
         }
     }
 }
@@ -576,7 +682,11 @@ private fun RouteIllustration(searching: Boolean, modifier: Modifier = Modifier)
 @Composable
 internal fun RouteDataAttribution() {
     // The one line the map data's licence asks for; which services compute the route is not the driver's concern.
-    Text("지도 데이터 © OpenStreetMap contributors", color = DejaVroomTheme.colors.onSurfaceVariant, style = DejaVroomTheme.type.labelSmall)
+    Text(
+        "지도 데이터 © OpenStreetMap contributors",
+        color = DejaVroomTheme.colors.onSurfaceVariant,
+        style = DejaVroomTheme.type.labelSmall,
+    )
 }
 
 @Composable

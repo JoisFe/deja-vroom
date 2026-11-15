@@ -32,12 +32,12 @@ class PlaceSuggestionViewModelTest {
     private val dispatcher = StandardTestDispatcher()
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
+
     @After fun tearDown() = Dispatchers.resetMain()
 
     private class RecordingRouteRepository : RouteRepository {
         var lastOrigin: PlaceInput? = null
         var lastDestination: PlaceInput? = null
-        override suspend fun preview(origin: String, destination: String) = error("string overload not expected")
         override suspend fun preview(origin: PlaceInput, destination: PlaceInput): RouteSnapshot {
             lastOrigin = origin
             lastDestination = destination
@@ -49,7 +49,12 @@ class PlaceSuggestionViewModelTest {
         search: PlaceSearchRepository = FakePlaceSearchRepository(),
         routes: RouteRepository = RecordingRouteRepository(),
         recents: InMemoryRecentSearchStore = InMemoryRecentSearchStore(),
-    ) = DejaVroomViewModel(repository = routes, placeSearch = search, recentSearchStore = recents, suggestionDebounceMillis = 300)
+    ) = DejaVroomViewModel(
+        repository = routes,
+        placeSearch = search,
+        recentSearchStore = recents,
+        suggestionDebounceMillis = 300,
+    )
 
     @Test
     fun `typing quickly sends only the last query after the debounce`() = runTest(dispatcher) {
