@@ -8,6 +8,8 @@
 | `mapillary` | Mapillary 거리 사진 한 장(CC BY-SA). 앱이 Graph API를 직접 호출한다 | [Mapillary](#mapillary) 절 |
 | `demo` | 네트워크 없이 자체 그림 | 없음 |
 
+Kakao로 설정하면 같은 키와 페이지 주소로 장소 검색도 동작한다. [장소 검색 설정](place-search-setup.md)에 따로 넣을 값은 없다.
+
 저장소에는 키와 주소가 들어 있지 않다. 아래 단계대로 각자 채운다. 설정이 비어 있으면 앱은 오류 없이 "로드뷰 주소가 설정되지 않았습니다 · docs/roadview-setup.md 참고" 같은 안내를 보여 준다.
 
 ## 0. 제공자 고르기와 우선순위

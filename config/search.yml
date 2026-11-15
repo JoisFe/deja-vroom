@@ -1,5 +1,5 @@
-# 검색 화면이 처음 열릴 때의 출발지와 목적지.
-# 고치고 다시 빌드하면 적용된다. 설명: docs/pleos-sdk.md
+# 검색 화면 설정: 처음 열릴 때의 출발지·목적지와, 장소를 찾아 주는 서비스.
+# 고치고 다시 빌드하면 적용된다. 설명: docs/pleos-sdk.md, docs/place-search-setup.md
 
 origin:
   # current = 차량의 현재 위치를 출발지로 쓴다(Pleos NaviHelper). 받지 못하면 아래 place를 쓴다
@@ -9,3 +9,8 @@ origin:
 
 destination:
   place: 강남역
+
+placeSearch:
+  # kakao  = Kakao 장소 검색. 로드뷰와 같은 페이지 주소와 JavaScript 키를 쓴다. 따로 넣을 키는 없다
+  # photon = Photon·Nominatim (OpenStreetMap). 설정이 필요 없지만 국내 상호와 새 건물 정보가 적다
+  provider: kakao

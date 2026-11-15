@@ -45,7 +45,7 @@ jobs:
         run: |
           mkdir -p _site/roadview
           cp web/roadview/* _site/roadview/
-          sed -i "s/__KAKAO_JS_KEY__/${KAKAO_JS_KEY}/" _site/roadview/index.html
+          sed -i "s/__KAKAO_JS_KEY__/${KAKAO_JS_KEY}/" _site/roadview/index.html _site/roadview/places.html
           if grep -rq "__KAKAO_JS_KEY__" _site; then
             echo "::error::키 자리 표시자가 남아 있습니다."
             exit 1

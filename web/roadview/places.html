@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <!-- Static-hosting CSP. Host sources without a scheme follow the page scheme: https on GitHub Pages, http on local serve.py. -->
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests; default-src 'self'; script-src 'self' dapi.kakao.com *.daumcdn.net t1.kakaocdn.net; connect-src 'self' dapi.kakao.com *.daumcdn.net t1.kakaocdn.net; img-src 'self' data:; style-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <!-- Replaced at deploy time; never commit a real key. See docs/place-search-setup.md. -->
+  <meta name="kakao-js-key" content="__KAKAO_JS_KEY__">
+  <title>Déjà Vroom Places</title>
+</head>
+<body>
+  <!-- No screen of its own: the app loads this page out of sight and asks it for places. -->
+  <script src="places.js"></script>
+</body>
+</html>

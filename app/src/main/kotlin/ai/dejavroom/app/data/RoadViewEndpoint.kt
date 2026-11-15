@@ -33,13 +33,25 @@ class RoadViewEndpoint private constructor(
 
     /** True only for this page itself (any query); every other navigation is blocked. */
     fun isRoadViewPage(url: String): Boolean {
-        val uri = runCatching { URI(url) }.getOrNull() ?: return false
-        if (originOf(uri) != origin) return false
-        val path = uri.rawPath.orEmpty()
+        val path = pathOnSite(url) ?: return false
         return path == pagePath || path == pagePath.removeSuffix("/") || path == pagePath + "index.html"
     }
 
+    /** The place search page hosted next to the road view page; the app loads it out of sight. */
+    val placesUrl: String
+        get() = pageUrl + PLACES_PAGE + (if (revision.isBlank()) "" else "?rev=$revision")
+
+    fun isPlacesPage(url: String): Boolean = pathOnSite(url) == pagePath + PLACES_PAGE
+
+    /** The path of [url] when it is on this site, else null. */
+    private fun pathOnSite(url: String): String? {
+        val uri = runCatching { URI(url) }.getOrNull() ?: return null
+        return if (originOf(uri) == origin) uri.rawPath.orEmpty() else null
+    }
+
     companion object {
+        private const val PLACES_PAGE = "places.html"
+
         fun parse(baseUrl: String, revision: String = ""): RoadViewEndpoint? {
             val trimmed = baseUrl.trim()
             if (trimmed.isEmpty()) return null

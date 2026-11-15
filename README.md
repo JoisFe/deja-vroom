@@ -73,7 +73,7 @@ cd deja-vroom
 ./gradlew :app:installDebug         # 실행 중인 에뮬레이터에 설치
 ```
 
-현재 앱은 출발지와 목적지로 Nominatim/OSRM 경로를 미리 보고, 선택한 후보의 Kakao Roadview를 여는 프로토타입이다. 출발지는 차량의 현재 위치(Pleos NaviHelper)로 채워지고, 받지 못하면 `config/search.yml`의 값(수원시 영통구)을 쓴다. 직접 바꿀 수도 있다. 가던 길에 다시 열면 지나온 지점을 표시한다. Pleos 내비 경로는 아직 쓰지 않는다. 후보 로드뷰는 `config/roadview.yml`에서 고른 제공자(기본 Kakao 로드뷰, 또는 Mapillary)로 보여 준다. 빌드 전에 선택한 제공자의 설정(Kakao 페이지 주소 또는 Mapillary 토큰)을 채운다. 설정 방법은 [로드뷰 설정](docs/roadview-setup.md)에 있다. 최종 Déjà Vroom 시연 목표는 [시연 시나리오](docs/scenario.md)에 있다.
+현재 앱은 출발지와 목적지를 Kakao 장소 검색(설정에 따라 Photon)으로 찾아 OSRM 경로를 미리 보고, 선택한 후보의 Kakao Roadview를 여는 프로토타입이다. 출발지는 차량의 현재 위치(Pleos NaviHelper)로 채워지고, 받지 못하면 `config/search.yml`의 값(수원시 영통구)을 쓴다. 직접 바꿀 수도 있다. 가던 길에 다시 열면 지나온 지점을 표시한다. Pleos 내비 경로는 아직 쓰지 않는다. 후보 로드뷰는 `config/roadview.yml`에서 고른 제공자(기본 Kakao 로드뷰, 또는 Mapillary)로 보여 준다. 빌드 전에 선택한 제공자의 설정(Kakao 페이지 주소 또는 Mapillary 토큰)을 채운다. 설정 방법은 [로드뷰 설정](docs/roadview-setup.md)에 있다. 최종 Déjà Vroom 시연 목표는 [시연 시나리오](docs/scenario.md)에 있다.
 
 ## 테스트 환경과 필요한 설정
 
@@ -84,7 +84,8 @@ cd deja-vroom
 | 앱 | Kotlin, Jetpack Compose, minSdk 28 |
 | 빌드 | Gradle Wrapper (`./gradlew`), Gradle 실행 JDK 17 또는 21 |
 | Pleos SDK | NaviHelper 3.0.5를 쓴다(현재 위치). Vehicle, TextToSpeech는 계획 단계이며 Pleos Playground 프로젝트 승인이 필요하다. [사용 현황](docs/pleos-sdk.md) |
-| 검색 화면 첫 값 | `config/search.yml` (출발지를 현재 위치로 할지 고정할지, 기본 출발지·목적지) |
+| 검색 화면 | `config/search.yml` (출발지를 현재 위치로 할지 고정할지, 기본 출발지·목적지, 장소 검색 제공자) |
+| 장소 검색 | 제공자는 `config/search.yml`의 `placeSearch.provider`. 기본 Kakao는 로드뷰와 같은 키·페이지 주소를 쓴다. [장소 검색 설정](docs/place-search-setup.md) |
 | 로드뷰 | 제공자는 `config/roadview.yml`. Kakao는 페이지 주소, Mapillary는 `local.properties`의 `mapillaryClientToken` (비어 있으면 앱이 설정 안내를 보여 준다). [로드뷰 설정](docs/roadview-setup.md) |
 | 알고리즘 조정 값 | `config/briefing.yml` (카드 수, 가중치, 몇 초 앞에서 보여 줄지). 고치고 다시 빌드하면 적용된다. [볼 곳 선정 알고리즘](docs/algorithm.md#조정-값) |
 | 비밀 값 | 저장소에 두지 않는다. Kakao JavaScript 키는 저장소 Secret `KAKAO_JS_KEY`, 그 밖의 값은 `secrets.properties`(git 제외) |
@@ -168,6 +169,7 @@ provider: mapillary   # kakao | mapillary | demo
 | [Pleos SDK 사용 현황](docs/pleos-sdk.md) | 호출하는 API, 확인한 범위, 현재 위치와 지나온 지점 표시, 위치 정보 취급 |
 | [코드 컨벤션](docs/conventions.md) | Kotlin·Compose 규칙, 브랜치·커밋·PR |
 | [개발 흐름](docs/workflow.md) | Spec Kit 스펙 → Claude Code 하네스 구현 → 에뮬레이터 검증 |
+| [장소 검색 설정](docs/place-search-setup.md) | 제공자 선택(Kakao·Photon), 넣어야 하는 값, 확인 방법, 문제 해결 |
 | [로드뷰 설정](docs/roadview-setup.md) | 제공자 선택(Kakao·Mapillary·데모), Kakao 키·도메인·Pages 배포, Mapillary 토큰, 문제 해결 |
 | [제출물 체크리스트](docs/submission.md) | 공모전 제출물, 블라인드 점검, 라이선스 |
 | [Claude Code 하네스](.claude/README.md) | 이 저장소의 에이전트·스킬·규칙 |

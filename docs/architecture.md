@@ -40,6 +40,10 @@ flowchart LR
 
 도로 사진은 `data/RoadViewProvider.kt`의 인터페이스 하나로 감싼다. 구현체(`KakaoRoadViewProvider`, `MapillaryRoadViewProvider`, `DemoRoadViewProvider`)는 `RoadViewProviderFactory`가 `config/roadview.yml`과 `local.properties`를 보고 고른다. 결과는 `RoadViewContent`(InteractivePage · StillImage · Illustration)로 오고, 화면은 이 타입으로만 분기한다. 자세한 내용은 [README](../README.md#로드뷰-제공자-선택)에 있다.
 
+### 장소 검색 제공자
+
+추천 검색어와 입력한 글자의 장소 변환은 `data/PlaceSearchRepository.kt`의 인터페이스 하나로 감싼다. 구현체(`KakaoPlaceSearchRepository`, `PhotonPlaceSearchRepository`)는 `PlaceSearchFactory`가 `config/search.yml`의 `placeSearch.provider`를 보고 고른다. Kakao 구현체는 로드뷰와 같은 사이트의 검색 페이지를 보이지 않는 WebView로 열어 묻는다. 자세한 내용은 [장소 검색 설정](place-search-setup.md)에 있다.
+
 ## 상태 흐름
 
 ```mermaid
