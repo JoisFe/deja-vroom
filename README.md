@@ -123,7 +123,7 @@ cd deja-vroom
 
 | 항목 | 위치 |
 |---|---|
-| release APK | [`apk/`](apk/) 폴더 (파일명 규칙 `팀명_앱이름_release.apk`, 업로드 예정) |
+| release APK | [`데자부름_데자부름_release.apk`](apk/데자부름_데자부름_release.apk) · 로드뷰 페이지 배포 필요 ([상세](apk/README.md)) |
 | 100 MB 초과 시 | [GitHub Releases](../../releases) |
 
 ## 구성도
