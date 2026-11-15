@@ -4,7 +4,6 @@ import ai.dejavroom.app.R
 import ai.dejavroom.app.core.designsystem.DejaVroomIcons
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
 import ai.dejavroom.app.core.designsystem.PhotoOverlay
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -31,12 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -289,28 +283,6 @@ internal fun Modifier.cardSurface(
 @Composable
 internal fun Eyebrow(text: String) {
     Text(text, color = DejaVroomTheme.colors.accent, style = DejaVroomTheme.type.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.09.em), maxLines = 1)
-}
-
-@Composable
-internal fun RouteMiniMap(activeIndex: Int, modifier: Modifier = Modifier.fillMaxWidth().height(DejaVroomTheme.dimens.dp(180))) {
-    val colors = DejaVroomTheme.colors
-    val dimens = DejaVroomTheme.dimens
-    val shape = RoundedCornerShape(dimens.radiusSmall)
-    Box(modifier.clip(shape).background(colors.surfaceVariant).border(1.dp, colors.hairline, shape).padding(dimens.spaceS)) {
-        Canvas(Modifier.fillMaxSize()) {
-            val path = Path().apply {
-                moveTo(size.width * .08f, size.height * .78f)
-                cubicTo(size.width * .30f, size.height * .72f, size.width * .20f, size.height * .16f, size.width * .48f, size.height * .30f)
-                cubicTo(size.width * .73f, size.height * .43f, size.width * .66f, size.height * .82f, size.width * .91f, size.height * .20f)
-            }
-            drawPath(path, colors.primary.copy(alpha = .35f), style = Stroke(width = dimens.dp(18).toPx(), cap = StrokeCap.Round))
-            drawPath(path, colors.primary, style = Stroke(width = dimens.dp(6).toPx(), cap = StrokeCap.Round))
-            listOf(Offset(size.width * .24f, size.height * .69f), Offset(size.width * .48f, size.height * .30f), Offset(size.width * .72f, size.height * .47f)).forEachIndexed { index, point ->
-                drawCircle(if (index == activeIndex) colors.marker else colors.onSurface, radius = dimens.dp(8).toPx(), center = point)
-            }
-        }
-        Text("경로 위치 · 데모", Modifier.align(Alignment.TopStart), color = colors.onSurfaceVariant, style = DejaVroomTheme.type.labelSmall)
-    }
 }
 
 /**

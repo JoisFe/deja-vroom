@@ -121,17 +121,15 @@ internal fun DejaVroomApp(darkTheme: Boolean, vm: DejaVroomViewModel = viewModel
                             when (state.screen) {
                                 DejaVroomScreen.DESTINATION -> DestinationScreen(state, remember(vm) { vm.destinationActions() }, compact)
                                 DejaVroomScreen.SUMMARY -> SummaryScreen(state, vm, compact)
-                                DejaVroomScreen.BRIEFING -> BriefingScreen(state, vm, compact)
-                                DejaVroomScreen.COMPLETE -> CompleteScreen(state, vm, compact)
                                 DejaVroomScreen.NAVIGATION -> NavigationScreen(state, vm, compact)
-                                DejaVroomScreen.ROADVIEW_TEST -> RoadViewScreen(
+                                DejaVroomScreen.ROAD_VIEW -> RoadViewScreen(
                                     lookup = state.roadViewLookups[
                                         state.shownSegments.getOrNull(state.segmentIndex)?.id ?: DejaVroomViewModel.DEVELOPER_FIXTURE_KEY
                                     ],
                                     route = state.route,
                                     candidates = state.shownSegments,
                                     selectedIndex = state.segmentIndex,
-                                    onBack = vm::closeRoadViewTest,
+                                    onBack = vm::closeRoadView,
                                     onPrevious = { vm.openSegmentRoadView(state.segmentIndex - 1) },
                                     onNext = { vm.openSegmentRoadView(state.segmentIndex + 1) },
                                 )
@@ -164,7 +162,7 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
                     if (state.screen != DejaVroomScreen.DESTINATION) EditRouteButton(vm::editRoute)
                 }
             } else if (BuildConfig.DEVELOPER_ENTRY) {
-                TextAction("로드뷰 점검", Modifier.align(Alignment.End), onClick = vm::openRoadViewTest)
+                TextAction("로드뷰 점검", Modifier.align(Alignment.End), onClick = vm::openDeveloperRoadView)
             }
         }
         return
@@ -190,7 +188,7 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
             Text("출발 전 주행 미리보기", color = colors.onSurfaceVariant, style = type.labelMedium, maxLines = 1)
             if (BuildConfig.DEVELOPER_ENTRY) {
                 Spacer(Modifier.width(dimens.spaceS))
-                TextAction("로드뷰 점검", onClick = vm::openRoadViewTest)
+                TextAction("로드뷰 점검", onClick = vm::openDeveloperRoadView)
             }
         }
     }

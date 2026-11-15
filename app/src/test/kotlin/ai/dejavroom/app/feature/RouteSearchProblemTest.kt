@@ -28,7 +28,6 @@ class RouteSearchProblemTest {
     @After fun tearDown() = Dispatchers.resetMain()
 
     private class FailingRouteRepository(private val failure: Exception) : RouteRepository {
-        override suspend fun preview(origin: String, destination: String) = error("string overload not expected")
         override suspend fun preview(origin: PlaceInput, destination: PlaceInput): RouteSnapshot = throw failure
     }
 

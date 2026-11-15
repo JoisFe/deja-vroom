@@ -37,7 +37,6 @@ class PlaceSuggestionViewModelTest {
     private class RecordingRouteRepository : RouteRepository {
         var lastOrigin: PlaceInput? = null
         var lastDestination: PlaceInput? = null
-        override suspend fun preview(origin: String, destination: String) = error("string overload not expected")
         override suspend fun preview(origin: PlaceInput, destination: PlaceInput): RouteSnapshot {
             lastOrigin = origin
             lastDestination = destination

@@ -54,7 +54,6 @@ class TripViewModelTest {
         val origins = mutableListOf<PlaceInput>()
         var failNext = false
 
-        override suspend fun preview(origin: String, destination: String) = error("string overload not expected")
         override suspend fun preview(origin: PlaceInput, destination: PlaceInput): RouteSnapshot {
             origins += origin
             if (failNext) throw RoutePreviewException(RoutePreviewFailure.NO_ROUTE)

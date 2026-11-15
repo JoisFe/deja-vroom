@@ -14,9 +14,6 @@ import ai.dejavroom.app.model.ServiceArea
 import ai.dejavroom.app.data.DemoRoadViewProvider
 import ai.dejavroom.app.data.DrivingRestrictionSource
 import ai.dejavroom.app.data.FakeDrivingRestrictionSource
-import ai.dejavroom.app.data.NoopBriefingSpeechOutput
-import ai.dejavroom.app.data.BriefingSpeechOutput
-import ai.dejavroom.app.data.BriefingSpeechController
 import ai.dejavroom.app.data.RoadViewLookupResult
 import ai.dejavroom.app.data.RoadViewProvider
 import ai.dejavroom.app.data.RoadViewTarget
@@ -54,12 +51,9 @@ data class DejaVroomUiState(
     /** Position in [shownSegments]. */
     val segmentIndex: Int = 0,
     val screen: DejaVroomScreen = DejaVroomScreen.DESTINATION,
-    val voiceEnabled: Boolean = true,
-    val voiceOutputAvailable: Boolean = false,
     /** Why the last route search did not end in cards; cleared by the next edit or search. */
     val searchProblem: SearchProblem? = null,
     val roadViewLookups: Map<String, RoadViewLookupResult> = emptyMap(),
-    val roadViewIndices: Map<String, Int> = emptyMap(),
     val isDrivingRestricted: Boolean = false,
     val isSearchingRoute: Boolean = false,
     val originPlace: Place? = null,
@@ -158,45 +152,15 @@ internal val DejaVroomUiState.startsFromCurrentLocation: Boolean
 internal fun DejaVroomUiState.withCarOriginRestored(): DejaVroomUiState =
     if (originInput.isBlank() && originPlace?.live == true) copy(originInput = originPlace.name) else this
 
-internal fun DejaVroomUiState.selectingBriefingSegment(index: Int): DejaVroomUiState {
-    if (isDrivingRestricted) return this
-    val segments = shownSegments
-    if (segments.isEmpty()) return this
-    return copy(
-        screen = DejaVroomScreen.BRIEFING,
-        segmentIndex = index.coerceIn(segments.indices),
-    )
-}
+internal fun DejaVroomUiState.enteringRoadView(): DejaVroomUiState =
+    if (isDrivingRestricted) this else copy(screen = DejaVroomScreen.ROAD_VIEW)
 
-internal fun DejaVroomUiState.previousBriefingSegment(): DejaVroomUiState =
-    if (isDrivingRestricted) this else copy(segmentIndex = (segmentIndex - 1).coerceAtLeast(0))
-
-internal fun DejaVroomUiState.advancingBriefing(): DejaVroomUiState {
-    if (isDrivingRestricted) return this
-    val segments = shownSegments
-    if (segments.isEmpty()) return this
-    return if (segmentIndex >= segments.lastIndex) copy(screen = DejaVroomScreen.COMPLETE)
-    else copy(segmentIndex = segmentIndex + 1)
-}
-
-internal fun DejaVroomUiState.movingRoadViewIndex(segmentId: String, delta: Int): DejaVroomUiState {
-    if (isDrivingRestricted || delta == 0) return this
-    val views = (roadViewLookups[segmentId] as? RoadViewLookupResult.Available)?.views.orEmpty()
-    if (views.isEmpty()) return this
-    val index = roadViewIndices[segmentId] ?: 0
-    return copy(roadViewIndices = roadViewIndices + (segmentId to (index + delta).coerceIn(views.indices)))
-}
-
-internal fun DejaVroomUiState.enteringRoadViewTest(): DejaVroomUiState =
-    if (isDrivingRestricted) this else copy(screen = DejaVroomScreen.ROADVIEW_TEST)
-
-enum class DejaVroomScreen { DESTINATION, SUMMARY, BRIEFING, COMPLETE, NAVIGATION, ROADVIEW_TEST }
+enum class DejaVroomScreen { DESTINATION, SUMMARY, NAVIGATION, ROAD_VIEW }
 
 @OptIn(FlowPreview::class)
 class DejaVroomViewModel(
     private val repository: RouteRepository = OsmRouteRepository(),
     private val roadViewProvider: RoadViewProvider = DemoRoadViewProvider(),
-    private val speechOutput: BriefingSpeechOutput = NoopBriefingSpeechOutput(),
     private val restrictionSource: DrivingRestrictionSource = FakeDrivingRestrictionSource(),
     private val placeSearch: PlaceSearchRepository = PhotonPlaceSearchRepository(),
     private val recentSearchStore: RecentSearchStore = InMemoryRecentSearchStore(),
@@ -206,8 +170,6 @@ class DejaVroomViewModel(
     private val searchSettings: SearchSettings = SearchSettings(),
     private val nowMillis: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
-    private val speechController = BriefingSpeechController(speechOutput)
-
     /** A trip that ended (arrived, or left alone for a day) is forgotten instead of being offered again. */
     private val savedTrip: Trip? = tripStore.load()?.takeUnless { it.isOver(nowMillis()) }.also { if (it == null) tripStore.clear() }
     private val mutableState = MutableStateFlow(
@@ -217,7 +179,6 @@ class DejaVroomViewModel(
             destinationInput = savedTrip?.destination?.name ?: searchSettings.destination,
             destinationPlace = savedTrip?.destination,
             trip = savedTrip,
-            voiceOutputAvailable = speechOutput.outputAvailable,
             recentSearches = recentSearchStore.all(),
             placeSearchAttribution = placeSearch.attribution,
         ),
@@ -241,7 +202,6 @@ class DejaVroomViewModel(
         viewModelScope.launch {
             restrictionSource.isRestricted.collect { restricted ->
                 mutableState.update { it.copy(isDrivingRestricted = restricted) }
-                if (restricted) speechController.stop()
             }
         }
     }
@@ -391,7 +351,6 @@ class DejaVroomViewModel(
     }
 
     fun editRoute() {
-        speechController.stop()
         suggestionQueries.value = null
         transition { it.editingRoute() }
     }
@@ -448,7 +407,6 @@ class DejaVroomViewModel(
                 PlaceInput(current.originInput, current.originPlace),
                 PlaceInput(current.destinationInput, current.destinationPlace),
             )
-            speechController.stop()
             val searched = current.destinationPlace?.takeIf { it.name == current.destinationInput.trim() }
                 ?: Place(current.destinationInput.trim(), route.destination.takeIf { it != current.destinationInput.trim() }.orEmpty())
             // Where the car happens to be is not a place someone searched for.
@@ -463,7 +421,6 @@ class DejaVroomViewModel(
                     screen = DejaVroomScreen.SUMMARY,
                     segmentIndex = 0,
                     roadViewLookups = emptyMap(),
-                    roadViewIndices = emptyMap(),
                     isSearchingRoute = false,
                     recentSearches = recents,
                     activeField = null,
@@ -502,79 +459,28 @@ class DejaVroomViewModel(
             ?: Trip.startedWith(Place(route.destination, coordinate = end), route.geometry, route.segments, nowMillis())
     }
 
-    fun startBriefing() {
-        if (state.value.isDrivingRestricted) return
-        transition { it.copy(screen = DejaVroomScreen.BRIEFING, segmentIndex = 0) }
-        announceCurrentSegment()
-    }
-
-    fun selectSegment(index: Int) {
-        if (state.value.isDrivingRestricted) return
-        transition { it.selectingBriefingSegment(index) }
-        announceCurrentSegment()
-    }
-
     fun openSegmentRoadView(index: Int) {
         if (state.value.isDrivingRestricted) return
         if (index !in state.value.shownSegments.indices) return
-        speechController.stop()
-        transition { it.copy(screen = DejaVroomScreen.ROADVIEW_TEST, segmentIndex = index) }
-    }
-
-    fun openSelectedRoadView() = openSegmentRoadView(state.value.segmentIndex)
-
-    fun previousSegment() {
-        if (state.value.isDrivingRestricted) return
-        transition { it.previousBriefingSegment() }
-        announceCurrentSegment()
-    }
-
-    fun nextSegment() {
-        if (state.value.isDrivingRestricted) return
-        transition { it.advancingBriefing() }
-        announceCurrentSegment()
+        transition { it.copy(screen = DejaVroomScreen.ROAD_VIEW, segmentIndex = index) }
     }
 
     fun startNavigation() {
-        speechController.stop()
         transition { it.copy(screen = DejaVroomScreen.NAVIGATION) }
     }
 
-    fun openRoadViewTest() {
+    fun openDeveloperRoadView() {
         if (state.value.isDrivingRestricted) return
-        speechController.stop()
-        transition { it.enteringRoadViewTest() }
+        transition { it.enteringRoadView() }
         if (state.value.route == null) viewModelScope.launch { loadDeveloperFixtureView() }
     }
 
-    fun closeRoadViewTest() {
+    fun closeRoadView() {
         transition { it.copy(screen = if (it.route == null) DejaVroomScreen.DESTINATION else DejaVroomScreen.SUMMARY) }
     }
 
-    fun replay() {
-        if (state.value.isDrivingRestricted) return
-        transition { it.copy(screen = DejaVroomScreen.BRIEFING, segmentIndex = 0) }
-        announceCurrentSegment()
-    }
-
-    fun toggleVoice() {
-        val enabled = !state.value.voiceEnabled
-        if (!enabled) speechController.stop()
-        mutableState.update { it.copy(voiceEnabled = enabled) }
-        if (enabled) announceCurrentSegment()
-    }
-
     fun backToSummary() {
-        speechController.stop()
         transition { it.copy(screen = DejaVroomScreen.SUMMARY) }
-    }
-
-    fun nextRoadView() = changeRoadViewIndex(delta = 1)
-    fun previousRoadView() = changeRoadViewIndex(delta = -1)
-    fun retryRoadView() {
-        if (state.value.isDrivingRestricted) return
-        val segment = currentSegment() ?: return
-        viewModelScope.launch { loadRoadViews(segment.id) }
     }
 
     /** Explicitly labeled demo toggle; it never changes the actual vehicle restriction source. */
@@ -585,33 +491,7 @@ class DejaVroomViewModel(
     }
 
     private fun transition(transform: (DejaVroomUiState) -> DejaVroomUiState) {
-        mutableState.update { current ->
-            val next = transform(current)
-            if (next.screen != current.screen || next.segmentIndex != current.segmentIndex) speechController.stop()
-            next
-        }
-    }
-
-    private fun announceCurrentSegment() {
-        val current = state.value
-        val segment = currentSegment() ?: return
-        if (current.route == null) return
-        viewModelScope.launch {
-            speechController.announce(
-                text = "${current.segmentIndex + 1}번째 구간입니다. ${segment.type.label}. ${segment.guidance}",
-                enabled = current.voiceEnabled,
-                restricted = current.isDrivingRestricted,
-                briefingVisible = current.screen == DejaVroomScreen.BRIEFING,
-            )
-        }
-    }
-
-    private fun currentSegment() = state.value.shownSegments.getOrNull(state.value.segmentIndex)
-
-    private fun changeRoadViewIndex(delta: Int) {
-        if (state.value.isDrivingRestricted) return
-        val segmentId = currentSegment()?.id ?: return
-        mutableState.update { it.movingRoadViewIndex(segmentId, delta) }
+        mutableState.update(transform)
     }
 
     private suspend fun loadRoadViews(segmentId: String) {
@@ -620,10 +500,7 @@ class DejaVroomViewModel(
         val result = segment.roadViewTarget()?.let { lookupSafely(it) } ?: RoadViewLookupResult.NoCoverage
         mutableState.update { current ->
             if (current.route?.routeId != requestedRoute.routeId) return@update current
-            current.copy(
-                roadViewLookups = current.roadViewLookups + (segmentId to result),
-                roadViewIndices = current.roadViewIndices + (segmentId to 0),
-            )
+            current.copy(roadViewLookups = current.roadViewLookups + (segmentId to result))
         }
     }
 
@@ -654,7 +531,6 @@ class DejaVroomViewModel(
     }
 
     override fun onCleared() {
-        speechController.stop()
         currentLocation.release()
         placeSearch.release()
         super.onCleared()

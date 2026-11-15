@@ -20,8 +20,6 @@ import java.net.URL
 import java.net.URLEncoder
 import java.util.Locale
 
-private const val OPENSTREETMAP_ATTRIBUTION = "© OpenStreetMap contributors · ODbL 1.0"
-
 /** Route preview. Free text is geocoded once with Nominatim; picked suggestions skip geocoding. */
 class OsmRouteRepository(
     private val geocoder: DestinationGeocoder = NominatimDestinationGeocoder,
@@ -29,9 +27,6 @@ class OsmRouteRepository(
     private val settings: BriefingSettings = BriefingSettings(),
 ) : RouteRepository {
     private val analyzer = settings.routeAnalyzer()
-
-    override suspend fun preview(origin: String, destination: String): RouteSnapshot =
-        preview(PlaceInput(origin), PlaceInput(destination))
 
     override suspend fun preview(origin: PlaceInput, destination: PlaceInput): RouteSnapshot = withContext(Dispatchers.IO) {
         // The injected geocoder and router may throw anything; only a typed reason leaves this function.

@@ -13,8 +13,6 @@ import ai.dejavroom.app.feature.SearchProblem
 import ai.dejavroom.app.model.ApproachPhase
 import ai.dejavroom.app.model.BriefingSegment
 import ai.dejavroom.app.model.ManeuverCue
-import ai.dejavroom.app.model.RoadViewContentOrigin
-import ai.dejavroom.app.model.RouteMatchStatus
 import ai.dejavroom.app.model.SegmentType
 import android.os.Bundle
 import android.webkit.WebView
@@ -95,27 +93,6 @@ private fun routeFailureText(reason: RoutePreviewFailure): String = when (reason
     RoutePreviewFailure.OFFLINE -> "인터넷에 연결되지 않았습니다. 연결을 확인한 뒤 다시 시도해 주세요."
     RoutePreviewFailure.SERVICE_UNAVAILABLE -> "지금은 경로를 불러올 수 없습니다. 잠시 뒤 다시 시도해 주세요."
     RoutePreviewFailure.UNEXPECTED -> "경로를 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요."
-}
-
-internal fun voiceLabel(state: DejaVroomUiState): String = when {
-    !state.voiceEnabled -> "음성 안내 OFF"
-    state.voiceOutputAvailable -> "음성 안내 ON"
-    else -> "음성 요청 ON · TTS 미연동"
-}
-
-internal fun contentOriginLabel(origin: RoadViewContentOrigin): String = when (origin) {
-    RoadViewContentOrigin.LIVE_PROVIDER -> "공급자 도로 사진"
-    RoadViewContentOrigin.CURATED -> "등록 이미지"
-    RoadViewContentOrigin.DEMO_ILLUSTRATION -> "AI 생성 데모 · 실제 사진 아님"
-}
-
-internal fun routeMatchLabel(status: RouteMatchStatus): String = when (status) {
-    RouteMatchStatus.VERIFIED -> "경로 일치 확인"
-    RouteMatchStatus.UNVERIFIED -> "경로 일치 미확인"
-    RouteMatchStatus.MISMATCH -> "경로 불일치"
-    RouteMatchStatus.STALE -> "오래된 정보"
-    RouteMatchStatus.NO_COVERAGE -> "사진 없음"
-    RouteMatchStatus.NOT_APPLICABLE -> "실경로 매칭 미적용"
 }
 
 internal fun roadViewStatusMessage(result: RoadViewLookupResult?): String = when (result) {

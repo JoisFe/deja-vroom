@@ -1,6 +1,5 @@
 package ai.dejavroom.app.ui
 
-import ai.dejavroom.app.core.designsystem.DejaVroomIcons
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
 import ai.dejavroom.app.feature.DejaVroomUiState
 import ai.dejavroom.app.feature.DejaVroomViewModel
@@ -22,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,42 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-
-@Composable
-internal fun CompleteScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, compact: Boolean) {
-    val route = state.route ?: return
-    val colors = DejaVroomTheme.colors
-    val dimens = DejaVroomTheme.dimens
-    val type = DejaVroomTheme.type
-    val layout = if (compact) Modifier.fillMaxSize().verticalScroll(rememberScrollState()) else Modifier.fillMaxSize()
-    Column(layout, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Box(Modifier.size(dimens.dp(112)).background(colors.successContainer, CircleShape), contentAlignment = Alignment.Center) {
-            AppIcon(DejaVroomIcons.Check, tint = colors.success, size = dimens.dp(56))
-        }
-        Spacer(Modifier.height(dimens.spaceXl))
-        Text("주요 구간을 모두 확인했습니다.", color = colors.onSurface, style = type.titleLarge, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(dimens.spaceS))
-        Text("이제 주행을 시작할 수 있어요.", color = colors.onSurfaceVariant, style = type.bodyMedium, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(dimens.spaceXxl))
-        Row(horizontalArrangement = Arrangement.spacedBy(dimens.spaceM)) {
-            SummaryMetric("확인한 구간", "${state.shownSegments.size}곳", if (compact) Modifier.weight(1f) else Modifier.width(dimens.dp(280)))
-            SummaryMetric("예상 소요 시간", "약 ${route.durationMinutes}분", if (compact) Modifier.weight(1f) else Modifier.width(dimens.dp(280)))
-            SummaryMetric("전체 거리", "${route.distanceKm}km", if (compact) Modifier.weight(1f) else Modifier.width(dimens.dp(280)))
-        }
-        Spacer(Modifier.height(dimens.spaceXl))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(dimens.spaceM, Alignment.CenterHorizontally)) {
-            PrimaryButton(
-                "주행 시작",
-                if (compact) Modifier.weight(1f) else Modifier.width(dimens.dp(440)),
-                trailingIcon = DejaVroomIcons.ChevronRight,
-                onClick = vm::startNavigation,
-            )
-            SecondaryButton("다시 보기", if (compact) Modifier.weight(1f) else Modifier.width(dimens.dp(360)), onClick = vm::replay)
-        }
-    }
-}
 
 @Composable
 internal fun NavigationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, compact: Boolean) {
@@ -174,18 +137,6 @@ private fun Modifier.recapConnector(first: Boolean, last: Boolean): Modifier {
         val top = if (first) middle else 0f
         val bottom = if (last) middle else size.height
         if (top < bottom) drawLine(color, Offset(x.toPx(), top), Offset(x.toPx(), bottom), strokeWidth = width.toPx())
-    }
-}
-
-@Composable
-internal fun SummaryMetric(label: String, value: String, modifier: Modifier = Modifier.width(DejaVroomTheme.dimens.dp(280))) {
-    val colors = DejaVroomTheme.colors
-    val dimens = DejaVroomTheme.dimens
-    val type = DejaVroomTheme.type
-    Column(modifier.cardSurface(RoundedCornerShape(dimens.radiusMedium), elevated = false).padding(dimens.spaceL)) {
-        Text(label, color = colors.onSurfaceVariant, style = type.labelMedium)
-        Spacer(Modifier.height(dimens.spaceXs))
-        Text(value, color = colors.onSurface, style = type.titleMedium)
     }
 }
 
