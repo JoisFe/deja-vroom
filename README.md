@@ -121,6 +121,7 @@ cd deja-vroom
 ./gradlew :app:assembleDebug        # 디버그 빌드
 ./gradlew :app:testDebugUnitTest    # 단위 테스트
 ./gradlew :app:installDebug         # 실행 중인 에뮬레이터에 설치
+adb install apk/deja_vroom_deja_vroom_release.apk   # 빌드 없이 제출용 release APK 설치
 ```
 
 현재 앱은 출발지와 목적지를 Kakao 장소 검색(설정에 따라 Photon)으로 찾아 OSRM 경로를 미리 보고, 선택한 후보의 Kakao Roadview를 여는 프로토타입이다. 출발지는 차량의 현재 위치(Pleos NaviHelper)로 채워지고, 받지 못하면 `config/search.yml`의 값(수원시 영통구)을 쓴다. 직접 바꿀 수도 있다. 가던 길에 다시 열면 지나온 지점을 표시한다. Pleos 내비 경로는 아직 쓰지 않는다. 후보 로드뷰는 `config/roadview.yml`에서 고른 제공자(기본 Kakao 로드뷰, 또는 Mapillary)로 보여 준다. 빌드 전에 선택한 제공자의 설정(Kakao 페이지 주소 또는 Mapillary 토큰)을 채운다. 설정 방법은 [로드뷰 설정](docs/roadview-setup.md)에 있다. 최종 Déjà Vroom 시연 목표는 [시연 시나리오](docs/scenario.md)에 있다.
@@ -130,6 +131,7 @@ cd deja-vroom
 | 항목 | 값 |
 |---|---|
 | 에뮬레이터 | Pleos Connect Emulator 2.1.0, Android API 34 시스템 이미지 |
+| 화면 사양 | 2560×1440 가로, 160 dpi (Pleos Connect Emulator 기본값). 앱은 오른쪽 앱 영역에 표시된다 |
 | 차량 신호 입력 | Pleos Virtual Console (Gear, ACCEL, Brake, Steering, Turn Signal, 내비 TBT 주입) |
 | 앱 | Kotlin, Jetpack Compose, minSdk 28 |
 | 빌드 | Gradle Wrapper (`./gradlew`), Gradle 실행 JDK 17 또는 21 |
