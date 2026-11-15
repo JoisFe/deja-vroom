@@ -123,7 +123,7 @@ cd deja-vroom
 
 | 항목 | 위치 |
 |---|---|
-| release APK | [`데자부름_데자부름_release.apk`](apk/데자부름_데자부름_release.apk) · 로드뷰 페이지 배포 필요 ([상세](apk/README.md)) |
+| release APK | [`데자부름_데자부름_release.apk`](apk/데자부름_데자부름_release.apk) · Vercel 로드뷰 연결 ([상세](apk/README.md)) |
 | 100 MB 초과 시 | [GitHub Releases](../../releases) |
 
 ## 구성도

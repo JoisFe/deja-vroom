@@ -1,7 +1,9 @@
 # APK
 
 - 파일: `데자부름_데자부름_release.apk`
-- 기준 소스: `876c73c` (origin/main)
-- release 빌드이며 별도 키로 서명했습니다.
-- 로드뷰 페이지 `https://joisfe.github.io/deja-vroom/roadview/`가 현재 배포되지 않아 로드뷰 및 Kakao 장소 검색은 사용할 수 없습니다. 페이지 배포와 카카오 도메인 등록 확인 후 다시 검증해야 합니다.
+- 기준 소스: `f28c18b`의 앱 코드 (origin/main)
+- release 빌드이며 팀의 별도 키로 서명했습니다.
+- 로드뷰 및 장소 검색 페이지: `https://deja-vroom-roadview.vercel.app/roadview/`
+- 카카오 로드뷰는 배포된 페이지에서 표시를 확인했습니다. APK 전체 흐름은 별도 검증이 필요합니다.
 - 서명 키는 저장소 밖에 보관하며, 같은 앱의 업데이트에는 동일한 키가 필요합니다.
+- Vercel 페이지는 수동 배포되어 있습니다. 소스 변경이나 카카오 키 변경 시 페이지를 다시 배포해야 합니다.
