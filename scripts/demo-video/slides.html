@@ -1,0 +1,174 @@
+<!doctype html>
+<!-- Slides for the demo video, 2560x1440. slides.sh opens this page once per slide (slides.html?s=<id>)
+     and saves a screenshot to out/slides/<id>.png. Colors and type follow the app's design tokens
+     (DejaVroomTheme). Keep the bottom 220px clear: burned-in captions sit there. -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #FAFCFF; --bg-bottom: #E7EFFC; --surface: #FFFFFF; --surface-variant: #EEF3FB;
+    --on-surface: #131417; --on-surface-variant: #44464E; --primary: #0064FF; --accent: #0052D6;
+    --hairline: #E1E7F1; --marker: #FF8A1F; --on-marker: #1F1300; --selected: #E3EEFF;
+    --success: #176342; --success-container: #DDF3EA; --scrim: rgba(11, 23, 48, 0.92);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 2560px; height: 1440px; overflow: hidden; }
+  body {
+    font-family: "Apple SD Gothic Neo", "Pretendard", sans-serif; color: var(--on-surface);
+    background: linear-gradient(180deg, var(--bg) 0%, var(--bg-bottom) 100%);
+    -webkit-font-smoothing: antialiased; word-break: keep-all;
+  }
+  section { display: none; position: absolute; inset: 0; padding: 120px 160px 240px; }
+  section.on { display: flex; flex-direction: column; }
+  .eyebrow { font-size: 40px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); }
+  .chip { align-self: flex-start; font-size: 38px; font-weight: 700; color: var(--accent); background: var(--selected);
+          padding: 14px 32px; border-radius: 999px; }
+  h1 { font-size: 104px; font-weight: 800; line-height: 1.22; letter-spacing: -0.02em; margin-top: 36px; }
+  h1 em { font-style: normal; color: var(--primary); }
+  .lead { font-size: 50px; line-height: 1.5; color: var(--on-surface-variant); margin-top: 32px; }
+  .card { background: var(--surface); border-radius: 44px; box-shadow: 0 2px 4px rgba(19, 20, 23, 0.04), 0 16px 40px rgba(19, 20, 23, 0.07); }
+  .tag { font-size: 32px; color: var(--on-surface-variant); background: var(--surface-variant); border-radius: 14px;
+         padding: 6px 16px; display: inline-block; margin-top: 18px; font-family: "SF Mono", Menlo, monospace; }
+  svg { display: block; }
+
+  /* title / outro */
+  .center { align-items: center; justify-content: center; text-align: center; padding-bottom: 260px; }
+  .wordmark { font-size: 230px; font-weight: 800; letter-spacing: -0.03em; }
+  .wordmark span { color: var(--primary); }
+  .tagline { font-size: 76px; font-weight: 700; margin-top: 40px; }
+  .sub { font-size: 46px; color: var(--on-surface-variant); margin-top: 36px; line-height: 1.5; }
+  .route { display: flex; align-items: center; gap: 28px; margin-top: 70px; }
+  .dot { width: 64px; height: 64px; border-radius: 50%; background: var(--marker); color: var(--on-marker);
+         font-size: 34px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .line { width: 120px; height: 10px; border-radius: 5px; background: var(--primary); opacity: 0.85; }
+
+  /* phase2: signals -> moment -> output */
+  .flow { display: grid; grid-template-columns: 1fr 120px 640px 120px 1fr; align-items: center; margin-top: 80px; }
+  .signals { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .signal { padding: 34px 36px; display: flex; flex-direction: column; gap: 14px; }
+  .signal b { font-size: 54px; font-weight: 800; }
+  .signal .ic { width: 84px; height: 84px; border-radius: 24px; background: var(--selected); display: flex; align-items: center; justify-content: center; }
+  .arrow { font-size: 90px; color: var(--primary); text-align: center; font-weight: 800; }
+  .moment { padding: 56px 48px; text-align: center; background: var(--primary); color: #fff; }
+  .moment b { font-size: 64px; font-weight: 800; display: block; line-height: 1.25; }
+  .moment p { font-size: 38px; opacity: 0.9; margin-top: 20px; line-height: 1.45; }
+  .outputs { display: flex; flex-direction: column; gap: 28px; }
+  .output { padding: 40px 44px; display: flex; align-items: center; gap: 30px; }
+  .output b { font-size: 52px; font-weight: 800; }
+
+  /* moments: three cards */
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; margin-top: 90px; align-items: start; }
+  .when { padding: 48px; display: flex; flex-direction: column; gap: 28px; }
+  .when .k { font-size: 40px; font-weight: 800; color: var(--accent); }
+  .when h2 { font-size: 68px; font-weight: 800; line-height: 1.25; }
+  .bubble { background: var(--scrim); color: #fff; border-radius: 32px; padding: 40px 44px; font-size: 48px; line-height: 1.5; position: relative; }
+  .bubble small { display: block; font-size: 30px; opacity: 0.75; margin-bottom: 12px; }
+  .photo { border-radius: 28px; overflow: hidden; position: relative; height: 470px; background: #17202D; }
+  .photo img { width: 100%; height: 100%; object-fit: cover; }
+  .photo .badge { position: absolute; left: 24px; top: 24px; background: rgba(255,255,255,0.95); color: var(--on-surface);
+                  font-size: 30px; font-weight: 700; padding: 10px 22px; border-radius: 999px; }
+  .park { display: flex; align-items: center; gap: 30px; background: var(--surface-variant); border-radius: 28px; padding: 36px; }
+  .park .p { width: 110px; height: 110px; border-radius: 26px; background: var(--primary); color: #fff; font-size: 76px; font-weight: 800;
+             display: flex; align-items: center; justify-content: center; flex: none; }
+  .park span { font-size: 48px; font-weight: 700; line-height: 1.4; }
+  .draft { position: absolute; right: 160px; top: 120px; font-size: 32px; font-weight: 700; color: var(--on-surface-variant);
+           border: 3px dashed var(--hairline); border-radius: 18px; padding: 12px 26px; }
+
+  /* rules / future: rows */
+  .rows { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 70px; }
+  .row { padding: 48px 52px; display: flex; gap: 36px; align-items: flex-start; }
+  .row .n { flex: none; width: 92px; height: 92px; border-radius: 28px; background: var(--selected); color: var(--accent);
+            font-size: 46px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .row b { font-size: 54px; font-weight: 800; display: block; line-height: 1.3; }
+  .row p { font-size: 38px; color: var(--on-surface-variant); margin-top: 14px; line-height: 1.45; }
+</style>
+</head>
+<body>
+
+<section id="title" class="center">
+  <div class="eyebrow">PLEOS CONNECT · 초행길 사전 브리핑</div>
+  <div class="wordmark" style="margin-top:40px">Déjà <span>Vroom</span></div>
+  <div class="tagline">처음 가는 길도, 처음 보는 길이 아니도록.</div>
+  <div class="route"><div class="dot">1</div><div class="line"></div><div class="dot">2</div><div class="line"></div><div class="dot">3</div></div>
+  <div class="sub">놓치면 되돌리기 어려운 갈림길을, 분기점에 닿기 전 장면으로 미리 보여 줍니다</div>
+</section>
+
+<section id="phase2">
+  <div class="chip">2차 심사까지 개발할 내용</div>
+  <h1>주행 중 안내는, <em>언제 알려 줄지</em>를<br>차량 신호로 정합니다</h1>
+  <div class="flow">
+    <div class="signals">
+      <div class="card signal"><div class="ic"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#0052D6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg></div><b>방향지시등</b><span class="tag">TurnSignal</span></div>
+      <div class="card signal"><div class="ic"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#0052D6" stroke-width="2.4"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M3.5 10.5h6M14.5 10.5h6M12 14.5V21"/></svg></div><b>핸들 각도</b><span class="tag">SteeringWheel</span></div>
+      <div class="card signal"><div class="ic"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#0052D6" stroke-width="2.4" stroke-linecap="round"><rect x="6" y="3" width="12" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h6"/></svg></div><b>브레이크</b><span class="tag">Brake</span></div>
+      <div class="card signal"><div class="ic"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#0052D6" stroke-width="2.4" stroke-linecap="round"><path d="M5 5v14M12 5v14M19 5v7M5 12h14"/></svg></div><b>기어 · 차속</b><span class="tag">AAOS 차량 속성</span></div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="card moment"><b>운전자가<br>여유 있는 순간</b><p>직진 중 · 신호 대기 중<br>방향을 바꾸는 중에는 말하지 않음</p></div>
+    <div class="arrow">→</div>
+    <div class="outputs">
+      <div class="card output"><svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#0064FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg><div><b>음성 한 문장</b><br><span class="tag">TextToSpeech</span></div></div>
+      <div class="card output"><svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#0064FF" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5.5-5.5L6 19"/></svg><div><b>정차 중 사진 한 장</b><br><span class="tag">NaviHelper onTBTInfo</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="moments">
+  <div class="chip">2차 심사까지 개발할 내용 · 주행 중 안내</div>
+  <div class="draft">화면 시안</div>
+  <h1>지금 알려 주면 되는 <em>순간</em>에만</h1>
+  <div class="three">
+    <div class="card when">
+      <div class="k">갈림길 1km 전 · 여유 있는 순간</div>
+      <h2>음성으로 딱 한 문장</h2>
+      <div class="bubble"><small>Déjà Vroom</small>곧 아까 미리 본 양재 진출로예요.<br>오른쪽으로 빠질 준비를 해 주세요.</div>
+    </div>
+    <div class="card when">
+      <div class="k">신호 대기 중 · 정차했을 때만</div>
+      <h2>다음 갈림길 사진 한 장</h2>
+      <div class="photo"><img src="roadview.jpg" alt=""><div class="badge">다음 · 경부고속도로 진출로</div></div>
+    </div>
+    <div class="card when">
+      <div class="k">도착 직전</div>
+      <h2>주차장 입구 위치</h2>
+      <div class="park"><div class="p">P</div><span>목적지에 닿기 전에<br>주차장 입구가 어느 쪽인지<br>미리 알려 줍니다</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="rules">
+  <div class="chip">2차 심사까지 개발할 내용 · 안내 원칙</div>
+  <h1>필요한 순간에만, <em>짧게</em></h1>
+  <div class="rows">
+    <div class="card row"><div class="n">1</div><div><b>내비의 목적지·회전 안내를 그대로 받아 옵니다</b><p>목적지를 다시 입력하지 않아도 바로 분석<br><span class="tag">NaviHelper getDestinationInfo · onTBTInfo</span></p></div></div>
+    <div class="card row"><div class="n">2</div><div><b>내비가 이미 하는 말은 되풀이하지 않습니다</b><p>미리 본 장면을 떠올리게 하는 한 문장만</p></div></div>
+    <div class="card row"><div class="n">3</div><div><b>아는 길에서는 조용히 있습니다</b><p>출발지 주변과 단순한 회전은 건너뜁니다</p></div></div>
+    <div class="card row"><div class="n">4</div><div><b>읽기만 하고, 차를 제어하지 않습니다</b><p>사진은 정차 중에만 보여 줍니다</p></div></div>
+  </div>
+</section>
+
+<section id="future">
+  <div class="chip">그다음</div>
+  <h1>더 많은 초행길을, <em>덜 망설이게</em></h1>
+  <div class="rows">
+    <div class="card row"><div class="n">1</div><div><b>헷갈리는 지점을 데이터로</b><p>여러 운전자가 망설인 지점을 모아<br>미리 볼 곳을 더 정확하게 고릅니다</p></div></div>
+    <div class="card row"><div class="n">2</div><div><b>함께할 서비스</b><p>운전연수 · 보험 · 렌터카 업체와의 협력</p></div></div>
+    <div class="card row" style="grid-column: span 2"><div class="n">3</div><div><b>이런 분들께 먼저</b><p>초보 운전자 · 렌터카로 여행하는 분 · 이사로 생활권이 바뀐 운전자</p></div></div>
+  </div>
+</section>
+
+<section id="outro" class="center">
+  <div class="wordmark">Déjà <span>Vroom</span></div>
+  <div class="tagline">처음 가는 길도, 처음 보는 길이 아니도록.</div>
+  <div class="sub">Pleos Connect 차량용 앱</div>
+</section>
+
+<script>
+  const id = new URLSearchParams(location.search).get("s") || "title";
+  (document.getElementById(id) || document.getElementById("title")).classList.add("on");
+  // Without the road view frame the photo card keeps its dark placeholder instead of a broken image.
+  for (const img of document.images) img.onerror = () => img.remove();
+</script>
+</body>
+</html>

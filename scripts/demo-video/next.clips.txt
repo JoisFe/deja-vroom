@@ -1,0 +1,11 @@
+# 마무리 장면. next.ko.txt의 문장 순서와 한 줄씩 맞춘다. 형식은 intro.clips.txt와 같다.
+# 첫 두 줄은 첫 장면(coldopen.sh)과 같은 출구 표지를, 이번에는 흔들림 없이 제 속도로 다시 보여 준다.
+Great Eastern Highway and Roe Highway interchange.ogv|34|0
+Great Eastern Highway and Roe Highway interchange.ogv|37.5|0
+slide:phase2
+slide:phase2
+slide:moments
+slide:moments
+slide:rules
+slide:future
+slide:outro

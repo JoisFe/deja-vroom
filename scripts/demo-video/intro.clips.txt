@@ -1,0 +1,9 @@
+# 인트로 장면. intro.ko.txt의 문장 순서와 한 줄씩 맞춘다.
+# Wikimedia Commons 파일 이름|시작초|위아래 잘라낼 비율(블랙박스 시각 표시 등, 0이면 그대로)|끝초(선택)
+# 끝초를 적으면 그 구간만 쓰고 문장 길이에 맞춰 느리게 늘린다. 다음 장면이 섞이지 않게 장면 전환 직전으로 적는다.
+# "slide:<id>"는 slides.sh가 만든 슬라이드(slides.html의 section id)다. 출처 표기 의무가 없는 CC0·퍼블릭 도메인만 쓴다.
+Interchange 8 Pohjantie Oulu 20260307.webm|0|0
+Dashcam Recording (urban).ogv|89|0.05
+Dashcam Recording (urban).ogv|48|0.05
+slide:title
+slide:title
