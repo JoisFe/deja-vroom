@@ -8,7 +8,7 @@ paths:
 Base: Kotlin coding conventions (kotlinlang.org), Android Kotlin style guide, Compose API guidelines. Architecture decisions: skill `android-app-architecture`.
 
 ## Kotlin
-- Kotlin only; official code style (4-space indent, 120-col lines). Format with the IDE/ktlint before committing.
+- Kotlin only; official code style (4-space indent, 120-col lines), enforced by Spotless (ktlint, rules in `.editorconfig`). The git hooks in `.githooks` format on commit and check on push; `./gradlew spotlessApply` fixes by hand.
 - Names: `PascalCase` types, `camelCase` functions/properties, `SCREAMING_SNAKE_CASE` constants, packages lowercase. Files named after their main type.
 - Prefer `val` and immutable collections. `data class` for state and models.
 - Null safety: no `!!`. Use `?.`, `?:`, early return, or a sealed result. Treat every SDK callback value as nullable.

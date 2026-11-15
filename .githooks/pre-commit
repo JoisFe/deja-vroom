@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Formats the Kotlin files of this commit with Spotless (ktlint) and puts the result back into the commit.
+# The commit stops when a changed file breaks a rule that cannot be fixed automatically.
+# git finds this script through core.hooksPath=.githooks, which the Gradle task installGitHooks sets on every build.
+set -eo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+# Kotlin files in this commit (added, copied, modified, renamed). Without any, the commit goes through at once.
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- '*.kt' '*.kts')
+if [ -z "$staged" ]; then exit 0; fi
+
+# A file with both staged and unstaged changes cannot be formatted without pulling the rest into the commit.
+partial=$(comm -12 <(printf '%s\n' "$staged" | sort) <(git diff --name-only -- '*.kt' '*.kts' | sort))
+if [ -n "$partial" ]; then
+  {
+    echo "커밋을 멈췄다: 일부만 stage한 Kotlin 파일은 자동으로 포맷할 수 없다."
+    printf '%s\n' "$partial" | sed 's/^/  /'
+    echo "나머지 변경을 stage하거나 stash한 뒤 다시 커밋한다."
+  } >&2
+  exit 1
+fi
+
+# Spotless looks at every Kotlin file that differs from origin/main, staged or not, so a rule violation in
+# any of them stops the commit here instead of at the push.
+if ! ./gradlew --quiet spotlessApply; then
+  echo "커밋을 멈췄다: 자동으로 고칠 수 없는 위반이 있다. 위 목록을 고친 뒤 다시 커밋한다." >&2
+  exit 1
+fi
+
+printf '%s\n' "$staged" | while IFS= read -r file; do git add -- "$file"; done
+
+if git diff --cached --quiet; then
+  echo "커밋을 멈췄다: 포맷을 맞추고 나니 커밋할 변경이 없다." >&2
+  exit 1
+fi

@@ -1,0 +1,39 @@
+name: Android CI
+
+# Runs what docs/conventions.md asks of every pull request: Kotlin format and lint (Spotless) and the unit tests.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Spotless compares against origin/main (ratchetFrom), so the full history is needed.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Format and lint (Spotless)
+        run: ./gradlew spotlessCheck
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest
