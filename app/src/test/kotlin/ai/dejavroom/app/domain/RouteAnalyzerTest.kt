@@ -119,16 +119,20 @@ class RouteAnalyzerTest {
     }
 
     @Test
-    fun `each point comes with the drive from its viewpoint through the junction`() {
+    fun `each point comes with the drive from its viewpoint up to the junction`() {
         val segment = RouteAnalyzer().analyze(route(), listOf(junction(20))).single()
         val drive = segment.approachDrive
         assertEquals(segment.approach!!.coordinate, drive.first().coordinate)
         assertEquals(144, drive.first().remainingMeters)
-        assertEquals(-60, drive.last().remainingMeters)
+        // The drive ends on the junction: what lies beyond it is not this preview's to show.
+        assertEquals(0, drive.last().remainingMeters)
         assertTrue(drive.size in 2..11)
-        // Reaching the junction is its own frame: that is where the road view makes its announcement.
-        assertEquals(segment.coordinate, drive.single { it.remainingMeters == 0 }.coordinate)
-        // An arrival is the end of the road: its drive stops there.
+        // Northbound traffic keeps to the east side, and so do the view and every frame of the drive.
+        val junction = segment.coordinate!!
+        (drive.map { it.coordinate } + segment.approach!!.coordinate).forEach { assertTrue(it.longitude > junction.longitude) }
+        assertEquals(3.0, drive.last().coordinate.distanceMetersTo(junction), 0.3)
+        // The marker for the junction itself stays on the junction.
+        assertEquals(straight[20], junction)
         val arrivalDrive = RouteAnalyzer().analyze(route(), listOf(arrival())).single().approachDrive
         assertEquals(0, arrivalDrive.last().remainingMeters)
     }

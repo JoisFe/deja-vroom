@@ -44,6 +44,15 @@ data class GeoCoordinate(val latitude: Double, val longitude: Double) {
         return (Math.toDegrees(atan2(sin(dLon) * cos(lat2), cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon))) + 360.0) % 360.0
     }
 
+    /** The point [meters] away in the compass direction [bearingDegrees]; flat-earth, for lane-sized moves. */
+    fun moved(bearingDegrees: Double, meters: Double): GeoCoordinate {
+        val bearing = Math.toRadians(bearingDegrees)
+        return GeoCoordinate(
+            latitude = latitude + Math.toDegrees(meters * cos(bearing) / EARTH_RADIUS_METERS),
+            longitude = longitude + Math.toDegrees(meters * sin(bearing) / (EARTH_RADIUS_METERS * cos(Math.toRadians(latitude)))),
+        )
+    }
+
     private companion object { const val EARTH_RADIUS_METERS = 6_371_000.0 }
 }
 

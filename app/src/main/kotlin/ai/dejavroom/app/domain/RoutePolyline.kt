@@ -73,43 +73,50 @@ class RoutePolyline(private val points: List<GeoCoordinate>) {
     /**
      * Where a driver is [leadMeters] before reaching [offsetMeters], facing along the route toward it.
      * The heading follows the next stretch of road but never looks past the point into the turn itself.
+     * With [laneOffsetMeters] the driver stands in the right-hand lanes rather than on the route line.
      */
-    fun viewpointBefore(offsetMeters: Double, leadMeters: Double): ApproachViewpoint {
+    fun viewpointBefore(offsetMeters: Double, leadMeters: Double, laneOffsetMeters: Double = 0.0): ApproachViewpoint {
         val target = offsetMeters.coerceIn(0.0, lengthMeters)
         val standAt = (target - leadMeters).coerceIn(0.0, target)
         val span = (target - standAt).coerceIn(MIN_HEADING_SPAN_METERS, MAX_HEADING_SPAN_METERS)
         return ApproachViewpoint(
-            coordinate = pointAt(standAt),
+            coordinate = laneAt(standAt, laneOffsetMeters),
             headingDegrees = headingAt(standAt, span),
             leadMeters = (target - standAt).roundToInt(),
         )
     }
 
     /**
-     * The drive from [leadMeters] before [offsetMeters] to [pastMeters] after it, as poses about
-     * [stepMeters] apart. One pose always stands exactly on the point, because reaching it is the moment
-     * the whole drive is for. A long approach is thinned to [maxSteps] hops so it still plays quickly.
+     * The drive from [leadMeters] before [offsetMeters] up to the point itself, as poses about
+     * [stepMeters] apart. A long approach is thinned to [maxSteps] hops so it still plays quickly.
+     *
+     * It ends standing on the point and goes no further: reaching it is what the drive is for, and the
+     * ramps and underpasses beyond a junction are where a road photo is least likely to be of this road.
+     * The last pose already looks the way the route leaves.
      */
-    fun driveThrough(offsetMeters: Double, leadMeters: Double, pastMeters: Double, stepMeters: Double, maxSteps: Int): List<RoutePose> {
-        require(stepMeters > 0.0 && maxSteps >= 2)
+    fun driveTo(offsetMeters: Double, leadMeters: Double, stepMeters: Double, maxSteps: Int, laneOffsetMeters: Double = 0.0): List<RoutePose> {
+        require(stepMeters > 0.0 && maxSteps >= 1)
         val target = offsetMeters.coerceIn(0.0, lengthMeters)
-        val before = target - (target - leadMeters).coerceIn(0.0, target)
-        val after = (target + pastMeters).coerceIn(target, lengthMeters) - target
-        if (before + after < 1.0) return emptyList()
-        var hopsBefore = hopsToCover(before, stepMeters)
-        var hopsAfter = hopsToCover(after, stepMeters)
-        if (hopsBefore + hopsAfter > maxSteps) {
-            // Thin both sides in proportion to their length, keeping at least one hop wherever there is road.
-            val minBefore = if (hopsBefore == 0) 0 else 1
-            hopsAfter = if (hopsAfter == 0) 0 else (maxSteps * after / (before + after)).roundToInt().coerceIn(1, maxSteps - minBefore)
-            hopsBefore = if (hopsBefore == 0) 0 else maxSteps - hopsAfter
+        val lead = target - (target - leadMeters).coerceIn(0.0, target)
+        if (lead < 1.0) return emptyList()
+        val hops = hopsToCover(lead, stepMeters).coerceAtMost(maxSteps)
+        return (0..hops).map { hop ->
+            val at = target - lead + lead * hop / hops
+            RoutePose(laneAt(at, laneOffsetMeters), headingAt(at, DRIVE_HEADING_SPAN_METERS), (target - at).roundToInt())
         }
-        val offsets = buildList {
-            for (hop in 0 until hopsBefore) add(target - before + before * hop / hopsBefore)
-            add(target)
-            for (hop in 1..hopsAfter) add(target + after * hop / hopsAfter)
-        }
-        return offsets.map { at -> RoutePose(pointAt(at), headingAt(at, DRIVE_HEADING_SPAN_METERS), (target - at).roundToInt()) }
+    }
+
+    /**
+     * Where the car is at [offsetMeters]: [laneOffsetMeters] to the right of the route line, as traffic
+     * keeps right. The side is taken from the stretch just driven, because at a turn the car is still on
+     * the road it came along.
+     */
+    private fun laneAt(offsetMeters: Double, laneOffsetMeters: Double): GeoCoordinate {
+        val onLine = pointAt(offsetMeters)
+        if (laneOffsetMeters == 0.0) return onLine
+        val behind = (offsetMeters - LANE_HEADING_SPAN_METERS).coerceAtLeast(0.0)
+        val travel = if (offsetMeters - behind >= 1.0) pointAt(behind).bearingTo(onLine) else headingAt(offsetMeters, LANE_HEADING_SPAN_METERS)
+        return onLine.moved(travel + RIGHT_ANGLE_DEGREES, laneOffsetMeters)
     }
 
     /** Hops of at most [stepMeters] that cover [meters]. Rounding noise in the distance never adds a hop. */
@@ -119,6 +126,8 @@ class RoutePolyline(private val points: List<GeoCoordinate>) {
     private companion object {
         const val DISTANCE_NOISE_METERS = 0.01
         const val DRIVE_HEADING_SPAN_METERS = 20.0
+        const val LANE_HEADING_SPAN_METERS = 10.0
+        const val RIGHT_ANGLE_DEGREES = 90.0
         const val MIN_HEADING_SPAN_METERS = 5.0
         const val MAX_HEADING_SPAN_METERS = 30.0
     }

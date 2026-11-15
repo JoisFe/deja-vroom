@@ -28,13 +28,16 @@ sealed interface RoadViewPageEvent {
     enum class FailureReason { CONFIG, SDK_LOAD, NO_PANO, TIMEOUT, RENDER }
 
     companion object {
+        /** Cards are numbered from 0; a route never has more than 30 of them. */
+        private const val MAX_CANDIDATE_INDEX = 29
+
         fun parse(message: String?): RoadViewPageEvent? = when {
             message == null -> null
             message.startsWith("native-arrow-candidates-hidden:") -> message.substringAfter(':').toIntOrNull()?.takeIf { it in 1..100 }?.let(::NativeArrowCandidatesHidden)
             message == "native-arrow-layer-unverified" -> NativeArrowLayerUnverified
             message.startsWith("native-arrow-scaled:") -> message.substringAfter(':').toIntOrNull()?.takeIf { it in 1..100 }?.let(::NativeArrowScaled)
             message == "candidate-no-coverage" -> CandidateNoCoverage
-            message.startsWith("route-candidate-selected:") -> message.substringAfter(':').toIntOrNull()?.takeIf { it in 0..4 }?.let(::RouteCandidateSelected)
+            message.startsWith("route-candidate-selected:") -> message.substringAfter(':').toIntOrNull()?.takeIf { it in 0..MAX_CANDIDATE_INDEX }?.let(::RouteCandidateSelected)
             message.startsWith("route-overlay-ready:") -> message.substringAfter(':').toIntOrNull()?.takeIf { it in 1..50 }?.let(::RouteOverlayReady)
             message.startsWith("junction-overlay-ready:") -> message.substringAfter(':').toIntOrNull()?.takeIf { it in 1..7 }?.let(::JunctionOverlayReady)
             message.startsWith("overlay-suppressed:") -> message.substringAfter(':').takeIf { it.matches(Regex("[a-z0-9-]{1,80}")) }?.let(::OverlaySuppressed)
