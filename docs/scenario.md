@@ -64,7 +64,7 @@ sequenceDiagram
 
 | 영상 | 상태 |
 |---|---|
-| 에뮬레이터 화면 녹화 (가산점 제출용) | 준비 중. 공개 시 [Discussions](../../../discussions)의 시연 영상 글과 이 표에 링크 |
+| 에뮬레이터 화면 녹화 (가산점 제출용) | [media/deja-vroom-demo.mp4](media/deja-vroom-demo.mp4) (3분 17초, 음성·자막). 구간 안내는 [README](../README.md#시연-영상) |
 | 숏폼 (30초~1분, 세로) | 선택 |
 
 녹화·설명 음성·자막 생성 스크립트: [scripts/demo-video](../scripts/demo-video/README.md)
