@@ -5,6 +5,7 @@ import ai.dejavroom.app.data.PHOTON_ATTRIBUTION
 import ai.dejavroom.app.feature.DejaVroomUiState
 import ai.dejavroom.app.feature.SuggestionStatus
 import ai.dejavroom.app.feature.inputOf
+import ai.dejavroom.app.feature.startsFromCurrentLocation
 import ai.dejavroom.app.model.Place
 import ai.dejavroom.app.model.SearchField
 import androidx.compose.foundation.background
@@ -55,6 +56,7 @@ internal data class DestinationActions(
     val onFocus: (SearchField) -> Unit,
     val onClear: (SearchField) -> Unit,
     val onSwap: () -> Unit,
+    val onUseCurrentLocation: () -> Unit,
     val onSelectPlace: (SearchField, Place) -> Unit,
     val onRemoveRecent: (Place) -> Unit,
     val onClearRecents: () -> Unit,
@@ -140,6 +142,11 @@ internal fun DestinationForm(state: DejaVroomUiState, actions: DestinationAction
         }
 
         Spacer(Modifier.height(Spacing.l))
+        // A trip still under way: searching again from where the car is continues it.
+        state.resumableTrip?.let { trip ->
+            Text(tripResumeLine(trip), color = DejaVroomTheme.colors.blueLight, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 2)
+            Spacer(Modifier.height(Spacing.s))
+        }
         PrimaryButton(
             if (state.isSearchingRoute) "복잡 교차로 분석 중" else "복잡 구간 분석",
             if (state.isSearchingRoute) "…" else "›",
@@ -153,8 +160,22 @@ internal fun DestinationForm(state: DejaVroomUiState, actions: DestinationAction
 @Composable
 private fun SearchFieldBlock(state: DejaVroomUiState, actions: DestinationActions, field: SearchField, dense: Boolean) {
     val isOrigin = field == SearchField.ORIGIN
-    RouteFieldLabel(if (isOrigin) "출발지" else "목적지")
-    Spacer(Modifier.height(6.dp))
+    if (isOrigin) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { RouteFieldLabel("출발지") }
+            TextButton(onClick = actions.onUseCurrentLocation, enabled = !state.isLocating, modifier = Modifier.heightIn(min = Spacing.touch)) {
+                Text(
+                    if (state.isLocating) "현재 위치 찾는 중…" else "◎ 현재 위치",
+                    color = if (state.isLocating) DejaVroomTheme.colors.muted else DejaVroomTheme.colors.blue,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    } else {
+        RouteFieldLabel("목적지")
+        Spacer(Modifier.height(6.dp))
+    }
     RouteSearchField(
         icon = if (isOrigin) "⌾" else "⌕",
         value = state.inputOf(field),
@@ -167,10 +188,28 @@ private fun SearchFieldBlock(state: DejaVroomUiState, actions: DestinationAction
         onClear = { actions.onClear(field) },
         onImeAction = { if (isOrigin) actions.onFocus(SearchField.DESTINATION) else actions.onSearch() },
     )
+    if (isOrigin) OriginCaption(state)
     if (state.activeField == field) {
         Spacer(Modifier.height(6.dp))
         SuggestionPanel(state, actions, field)
     }
+}
+
+/** Under the origin field: where the car's position is, in the navigation's words, or why it could not be read. */
+@Composable
+private fun OriginCaption(state: DejaVroomUiState) {
+    val notice = state.locationNotice
+    val address = state.originPlace?.takeIf { state.startsFromCurrentLocation }?.address.orEmpty()
+    if (notice == null && address.isBlank()) return
+    Spacer(Modifier.height(6.dp))
+    Text(
+        notice?.let(::locationNoticeText) ?: address,
+        color = if (notice != null) DejaVroomTheme.colors.warning else DejaVroomTheme.colors.muted,
+        fontSize = 12.sp,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.padding(start = Spacing.m),
+    )
 }
 
 @Composable

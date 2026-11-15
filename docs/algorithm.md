@@ -173,11 +173,12 @@ OSRM 공개 서버의 실제 응답으로 돌린 결과다(2026-11-15). 기본 �
 
 ## Pleos SDK 연결 지점
 
-지금은 외부 데이터로 돌아간다. 각 단계에서 Pleos SDK·API로 바꿀 자리는 다음과 같다.
+출발지는 Pleos NaviHelper로 받는다. 나머지는 아직 외부 데이터로 돌아가며, 각 단계에서 Pleos SDK·API로 바꿀 자리는 다음과 같다. 호출 현황과 확인 범위는 [Pleos SDK 사용 현황](pleos-sdk.md)에 있다.
 
 | 단계 | 지금 | Pleos로 바꿀 것 |
 |---|---|---|
-| 출발지 | 직접 입력 | NaviHelper `getCurrentLocationInfo` |
+| 출발지 | **NaviHelper `getCurrentLocationInfo`** (받지 못하면 직접 입력) | – |
+| 지나온 지점 | 같은 API로 받은 위치를 경로 위에 놓아 판정한다 | 주행 중에는 `onTBTInfo`·도착 이벤트로 실시간 판정 |
 | 목적지·경로 | 직접 입력 + OSRM | NaviHelper `getDestinationInfo`, `requestRoute`. 주행 중에는 `onTBTInfo`가 올 때마다 다시 판정 |
 | 진입 속도 | 경로 엔진의 구간 속도 | 차속(AAOS `PERF_VEHICLE_SPEED`)으로 시점 거리를 실시간 계산 |
 | 꺼내는 순간 | 출발 전 카드뿐 | TBT 남은 거리가 시점 거리와 같아질 때 Pleos TTS로 한 문장. 정차하면 사진 |

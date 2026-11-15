@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Pleos NaviHelper: reads where the car is from the built-in navigation (getCurrentLocationInfo). -->
+    <uses-permission android:name="pleos.car.permission.NAVI_ROUTE" />
     <application
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:label="Déjà Vroom"

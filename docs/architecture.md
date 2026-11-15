@@ -59,6 +59,7 @@ stateDiagram-v2
 
 | 기능 | API | 상태 |
 |---|---|---|
+| 출발지(현재 위치), 지나온 지점 판정 | NaviHelper `getCurrentLocationInfo` | **연동**. 빌드와 단위 테스트까지 확인, Pleos 환경 동작은 확인 필요. [사용 현황](pleos-sdk.md) |
 | 목적지, 경로 상태 | NaviHelper `requestRoute`, `getDestinationInfo`, `getRouteStateInfo` | 문서 확인 |
 | 다음 회전 | NaviHelper `getTBTInfo` / `onTBTInfo` | 문서 확인 |
 | 지나침 비율 | NaviHelper 재탐색 이벤트 | **실측 필요** |
@@ -81,3 +82,4 @@ stateDiagram-v2
 
 - API 키와 Pleos Client Secret은 `secrets.properties`(git 제외)에서 주입한다. 코드·로그·APK에 넣지 않는다.
 - 위치 이력은 기기 안에 두고, 처음 판정과 복기에 필요한 만큼만 저장한다. 속도와 급제동은 기록하지 않는다.
+- 차량의 현재 위치는 저장하지 않는다. 가장 최근 주행 한 건(목적지, 보여 준 지점, 경로 모양)만 기기에 두고, 도착하거나 하루가 지나면 지운다. 전송 범위는 [Pleos SDK 사용 현황](pleos-sdk.md#위치-정보를-다루는-범위)에 있다.

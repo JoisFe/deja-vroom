@@ -3,7 +3,14 @@ pluginManagement {
 }
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories { google(); mavenCentral() }
+    repositories {
+        google()
+        mavenCentral()
+        // Pleos Connect SDKs (NaviHelper). Only the Pleos group is looked up here.
+        maven("https://nexus-playground.pleos.ai/repository/maven-releases/") {
+            content { includeGroup("ai.pleos.playground") }
+        }
+    }
 }
 rootProject.name = "deja-vroom"
 include(":app")

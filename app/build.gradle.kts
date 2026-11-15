@@ -69,6 +69,8 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.webkit)
+    // Pleos Connect SDK: the car's own navigation tells the app where the car is (docs/pleos-sdk.md).
+    implementation(libs.pleos.navi.helper)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
