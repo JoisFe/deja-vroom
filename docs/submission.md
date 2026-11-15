@@ -21,8 +21,8 @@ timeline
 |---|---|---|---|
 | 1 | 접수양식(기획서) DOCX | **필수** | 작성 중 |
 | 2 | 시연 영상 (목업·프로토타입·화면 녹화 인정) | 가산점 | ✅ [media/deja-vroom-demo.mp4](media/deja-vroom-demo.mp4) |
-| 3 | GitHub 저장소 (소스 + release APK) | 가산점 | 이 저장소. 소스·APK 업로드 예정 |
-| 4 | 숏폼 (30초~1분 세로, `#HMG차량용앱개발공모전` 포함 해시태그 2~3개) | 선택 | 미정 |
+| 3 | GitHub 저장소 (소스 + release APK) | 가산점 | ✅ 이 저장소. APK는 [apk/deja_vroom_deja_vroom_release.apk](../apk/deja_vroom_deja_vroom_release.apk) |
+| 4 | 숏폼 (30초\~1분 세로, `#HMG차량용앱개발공모전` 포함 해시태그 2\~3개) | 선택 | 미정 |
 
 APK 단독 제출은 불가하며, 저장소에 소스와 함께 올려야 한다.
 
