@@ -25,6 +25,7 @@ class RouteSearchProblemTest {
     private val dispatcher = StandardTestDispatcher()
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
+
     @After fun tearDown() = Dispatchers.resetMain()
 
     private class FailingRouteRepository(private val failure: Exception) : RouteRepository {
@@ -32,7 +33,8 @@ class RouteSearchProblemTest {
     }
 
     private fun searchFailingWith(failure: Exception): DejaVroomUiState {
-        val vm = DejaVroomViewModel(repository = FailingRouteRepository(failure), placeSearch = FakePlaceSearchRepository())
+        val vm =
+            DejaVroomViewModel(repository = FailingRouteRepository(failure), placeSearch = FakePlaceSearchRepository())
         vm.searchRoute()
         dispatcher.scheduler.advanceUntilIdle()
         return vm.state.value

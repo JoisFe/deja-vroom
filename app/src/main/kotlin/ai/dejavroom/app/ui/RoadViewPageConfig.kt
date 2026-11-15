@@ -18,8 +18,14 @@ import org.json.JSONObject
 // Reviewed OSM junction fixture (debug assets only) for the developer entry point without a route.
 private const val JUNCTION_FIXTURE = "junctions/hannam-daero-demo-record.json"
 
-internal fun buildRoutePreviewConfig(route: RouteSnapshot, candidates: List<BriefingSegment>, selectedIndex: Int): String {
-    require(route.geometryStatus == RouteGeometryStatus.VERIFIED && route.geometry.size >= 2) { "검증된 실제 경로 geometry가 없습니다." }
+internal fun buildRoutePreviewConfig(
+    route: RouteSnapshot,
+    candidates: List<BriefingSegment>,
+    selectedIndex: Int,
+): String {
+    require(route.geometryStatus == RouteGeometryStatus.VERIFIED && route.geometry.size >= 2) {
+        "검증된 실제 경로 geometry가 없습니다."
+    }
     val selected = candidates.getOrNull(selectedIndex) ?: error("선택한 복잡 구간 후보가 없습니다.")
     // The page takes a candidates array; it gets the selected point alone, when that point can be played.
     val eligible = listOf(selected).filter { it.canPlayRoadView }
@@ -29,34 +35,49 @@ internal fun buildRoutePreviewConfig(route: RouteSnapshot, candidates: List<Brie
         eligible.forEach { segment ->
             val coordinate = requireNotNull(segment.coordinate)
             val approach = segment.approach
-            put(JSONObject()
-                // The junction itself: where the page puts its marker.
-                .put("latitude", coordinate.latitude)
-                .put("longitude", coordinate.longitude)
-                // Where the panorama starts and which way it faces: before the junction, along the route.
-                .put("viewLatitude", approach?.coordinate?.latitude ?: coordinate.latitude)
-                .put("viewLongitude", approach?.coordinate?.longitude ?: coordinate.longitude)
-                .put("leadMeters", approach?.leadMeters ?: 0)
-                // Frames of the drive from the viewpoint through the junction; the page plays them in order.
-                .put("drive", JSONArray().apply {
-                    segment.approachDrive.forEach { pose ->
-                        put(JSONObject()
-                            .put("latitude", pose.coordinate.latitude)
-                            .put("longitude", pose.coordinate.longitude)
-                            .put("headingDegrees", pose.headingDegrees)
-                            .put("remainingMeters", pose.remainingMeters))
-                    }
-                })
-                .put("headingDegrees", approach?.headingDegrees ?: segment.headingDegrees)
-                .put("name", segment.name)
-                .put("score", segment.selectionScore ?: 0.0)
-                .put("displayIndex", selectedIndex)
-                .put("evidence", JSONArray(segment.selectionEvidence.take(3)))
-                .put("routeLanes", JSONArray().apply {
-                    segment.routeLanes.forEach { lane ->
-                        put(JSONObject().put("indications", JSONArray(lane.indications)).put("validForRoute", lane.validForRoute))
-                    }
-                }))
+            put(
+                JSONObject()
+                    // The junction itself: where the page puts its marker.
+                    .put("latitude", coordinate.latitude)
+                    .put("longitude", coordinate.longitude)
+                    // Where the panorama starts and which way it faces: before the junction, along the route.
+                    .put("viewLatitude", approach?.coordinate?.latitude ?: coordinate.latitude)
+                    .put("viewLongitude", approach?.coordinate?.longitude ?: coordinate.longitude)
+                    .put("leadMeters", approach?.leadMeters ?: 0)
+                    // Frames of the drive from the viewpoint through the junction; the page plays them in order.
+                    .put(
+                        "drive",
+                        JSONArray().apply {
+                            segment.approachDrive.forEach { pose ->
+                                put(
+                                    JSONObject()
+                                        .put("latitude", pose.coordinate.latitude)
+                                        .put("longitude", pose.coordinate.longitude)
+                                        .put("headingDegrees", pose.headingDegrees)
+                                        .put("remainingMeters", pose.remainingMeters),
+                                )
+                            }
+                        },
+                    )
+                    .put("headingDegrees", approach?.headingDegrees ?: segment.headingDegrees)
+                    .put("name", segment.name)
+                    .put("score", segment.selectionScore ?: 0.0)
+                    .put("displayIndex", selectedIndex)
+                    .put("evidence", JSONArray(segment.selectionEvidence.take(3)))
+                    .put(
+                        "routeLanes",
+                        JSONArray().apply {
+                            segment.routeLanes.forEach { lane ->
+                                put(
+                                    JSONObject().put(
+                                        "indications",
+                                        JSONArray(lane.indications),
+                                    ).put("validForRoute", lane.validForRoute),
+                                )
+                            }
+                        },
+                    ),
+            )
         }
     }
     return JSONObject()
@@ -129,7 +150,10 @@ internal fun buildJunctionPreviewConfig(context: android.content.Context): Strin
     val webRecord = JSONObject()
         .put("manuallyVerified", record.manuallyVerified)
         .put("roadViewCoverageVerified", record.roadViewCoverageVerified)
-        .put("caution", JSONObject().put("latitude", record.cautionPoint.latitude).put("longitude", record.cautionPoint.longitude))
+        .put(
+            "caution",
+            JSONObject().put("latitude", record.cautionPoint.latitude).put("longitude", record.cautionPoint.longitude),
+        )
         .put("keepPath", jsonPath(record.keepPath))
         .put("trapPath", jsonPath(record.trapPath))
 

@@ -41,7 +41,13 @@ internal fun NavigationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, c
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center) {
             Text(NAVIGATION_HEADLINE, color = colors.onSurface, style = type.headlineSmall)
             Spacer(Modifier.height(dimens.spaceL))
-            if (route != null) Text("${route.origin}  →  ${route.destination}  ·  약 ${route.durationMinutes}분 · ${route.distanceKm}km", color = colors.onSurface, style = type.bodyLarge)
+            if (route != null) {
+                Text(
+                    "${route.origin}  →  ${route.destination}  ·  약 ${route.durationMinutes}분 · ${route.distanceKm}km",
+                    color = colors.onSurface,
+                    style = type.bodyLarge,
+                )
+            }
             Spacer(Modifier.height(dimens.spaceL))
             SecondaryButton("목록으로 돌아가기", Modifier.fillMaxWidth(), size = ButtonSize.Medium, onClick = vm::backToSummary)
             Spacer(Modifier.height(dimens.spaceXl))
@@ -51,18 +57,41 @@ internal fun NavigationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, c
         }
         return
     }
-    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(dimens.dp(56)), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxSize(),
+        horizontalArrangement = Arrangement.spacedBy(dimens.dp(56)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f)) {
             Text(NAVIGATION_HEADLINE, color = colors.onSurface, style = type.headline)
             Spacer(Modifier.height(dimens.spaceL))
-            if (route != null) Text("${route.origin}  →  ${route.destination}  ·  약 ${route.durationMinutes}분 · ${route.distanceKm}km", color = colors.onSurface, style = type.bodyLarge)
+            if (route != null) {
+                Text(
+                    "${route.origin}  →  ${route.destination}  ·  약 ${route.durationMinutes}분 · ${route.distanceKm}km",
+                    color = colors.onSurface,
+                    style = type.bodyLarge,
+                )
+            }
             Spacer(Modifier.height(dimens.spaceXl))
-            SecondaryButton("목록으로 돌아가기", Modifier.width(dimens.dp(360)), size = ButtonSize.Medium, onClick = vm::backToSummary)
+            SecondaryButton(
+                "목록으로 돌아가기",
+                Modifier.width(dimens.dp(360)),
+                size = ButtonSize.Medium,
+                onClick = vm::backToSummary,
+            )
         }
         // A route can have more points than fit the window at this row height; the card then scrolls instead of
         // being cut off. The padding leaves room for its shadow inside the scrolling column.
-        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center) {
-            RouteRecap(state.shownSegments, route?.origin, route?.destination, Modifier.fillMaxWidth().padding(vertical = dimens.spaceL))
+        Column(
+            Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            RouteRecap(
+                state.shownSegments,
+                route?.origin,
+                route?.destination,
+                Modifier.fillMaxWidth().padding(vertical = dimens.spaceL),
+            )
         }
     }
 }
@@ -72,7 +101,12 @@ internal fun NavigationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, c
  * what to look for, and the turn arrow. An end without a name gets no row.
  */
 @Composable
-internal fun RouteRecap(segments: List<BriefingSegment>, origin: String?, destination: String?, modifier: Modifier = Modifier) {
+internal fun RouteRecap(
+    segments: List<BriefingSegment>,
+    origin: String?,
+    destination: String?,
+    modifier: Modifier = Modifier,
+) {
     val colors = DejaVroomTheme.colors
     val dimens = DejaVroomTheme.dimens
     val type = DejaVroomTheme.type
@@ -87,14 +121,30 @@ internal fun RouteRecap(segments: List<BriefingSegment>, origin: String?, destin
             Row(
                 Modifier
                     .heightIn(min = dimens.dp(112))
-                    .recapConnector(first = origin == null && index == 0, last = destination == null && index == segments.lastIndex),
+                    .recapConnector(
+                        first = origin == null && index == 0,
+                        last =
+                        destination == null && index == segments.lastIndex,
+                    ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 NumberMarker(index + 1, size = dimens.dp(RECAP_MARKER_SIZE))
                 Spacer(Modifier.width(dimens.dp(RECAP_MARKER_GAP)))
                 Column(Modifier.weight(1f)) {
-                    Text(segment.name, color = colors.onSurface, style = type.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(recapLine(segment), color = colors.onSurfaceVariant, style = type.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        segment.name,
+                        color = colors.onSurface,
+                        style = type.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        recapLine(segment),
+                        color = colors.onSurfaceVariant,
+                        style = type.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
                 Spacer(Modifier.width(dimens.spaceM))
                 DirectionBadge(segment.cue?.direction, Modifier.size(dimens.dp(64)))
@@ -111,13 +161,27 @@ internal fun RouteRecap(segments: List<BriefingSegment>, origin: String?, destin
 private fun RecapEndpoint(text: String, ringColor: Color, first: Boolean, last: Boolean) {
     val colors = DejaVroomTheme.colors
     val dimens = DejaVroomTheme.dimens
-    Row(Modifier.heightIn(min = dimens.dp(80)).recapConnector(first, last), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.heightIn(min = dimens.dp(80)).recapConnector(first, last),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Box(Modifier.width(dimens.dp(RECAP_MARKER_SIZE)), contentAlignment = Alignment.Center) {
             // Filled, so the connector behind it does not show through the ring.
-            Box(Modifier.size(dimens.dp(28)).background(colors.surface, CircleShape).border(dimens.dp(5), ringColor, CircleShape))
+            Box(
+                Modifier.size(
+                    dimens.dp(28),
+                ).background(colors.surface, CircleShape).border(dimens.dp(5), ringColor, CircleShape),
+            )
         }
         Spacer(Modifier.width(dimens.dp(RECAP_MARKER_GAP)))
-        Text(text, Modifier.weight(1f), color = colors.onSurfaceVariant, style = DejaVroomTheme.type.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            text,
+            Modifier.weight(1f),
+            color = colors.onSurfaceVariant,
+            style = DejaVroomTheme.type.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

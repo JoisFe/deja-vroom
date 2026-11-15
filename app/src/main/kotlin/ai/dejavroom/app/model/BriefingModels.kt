@@ -7,8 +7,11 @@ import kotlin.math.hypot
 import kotlin.math.sin
 
 enum class SegmentType(val label: String) {
-    INTERSECTION("복잡한 교차로"), HIGHWAY_JUNCTION("고속도로 분기점"), DESTINATION_ENTRY("목적지 진입"),
-    COMPLEX_TURN("연속 회전 구간"), HISTORICAL_RISK("사고 이력 참고")
+    INTERSECTION("복잡한 교차로"),
+    HIGHWAY_JUNCTION("고속도로 분기점"),
+    DESTINATION_ENTRY("목적지 진입"),
+    COMPLEX_TURN("연속 회전 구간"),
+    HISTORICAL_RISK("사고 이력 참고"),
 }
 
 enum class RouteSource { PLEOS_NAVIGATION, EXTERNAL_ROUTE, CURATED_DEMO }
@@ -41,19 +44,27 @@ data class GeoCoordinate(val latitude: Double, val longitude: Double) {
         val lat1 = Math.toRadians(latitude)
         val lat2 = Math.toRadians(other.latitude)
         val dLon = Math.toRadians(other.longitude - longitude)
-        return (Math.toDegrees(atan2(sin(dLon) * cos(lat2), cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon))) + 360.0) % 360.0
+        return (
+            Math.toDegrees(atan2(sin(dLon) * cos(lat2), cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon))) +
+                360.0
+            ) %
+            360.0
     }
 
     /** The point [meters] away in the compass direction [bearingDegrees]; flat-earth, for lane-sized moves. */
     fun moved(bearingDegrees: Double, meters: Double): GeoCoordinate {
         val bearing = Math.toRadians(bearingDegrees)
+        // A degree of longitude is shorter away from the equator.
+        val parallelRadiusMeters = EARTH_RADIUS_METERS * cos(Math.toRadians(latitude))
         return GeoCoordinate(
             latitude = latitude + Math.toDegrees(meters * cos(bearing) / EARTH_RADIUS_METERS),
-            longitude = longitude + Math.toDegrees(meters * sin(bearing) / (EARTH_RADIUS_METERS * cos(Math.toRadians(latitude)))),
+            longitude = longitude + Math.toDegrees(meters * sin(bearing) / parallelRadiusMeters),
         )
     }
 
-    private companion object { const val EARTH_RADIUS_METERS = 6_371_000.0 }
+    private companion object {
+        const val EARTH_RADIUS_METERS = 6_371_000.0
+    }
 }
 
 data class RouteLane(val indications: List<String>, val validForRoute: Boolean)
@@ -74,7 +85,10 @@ data class RoutePose(val coordinate: GeoCoordinate, val headingDegrees: Double, 
 
 /** Where a view stands relative to the point it previews: still on the way, on it, or beyond it. */
 enum class ApproachPhase {
-    APPROACHING, AT_POINT, PASSED;
+    APPROACHING,
+    AT_POINT,
+    PASSED,
+    ;
 
     companion object {
         /**
@@ -93,7 +107,15 @@ enum class ApproachPhase {
 
 /** Which way the route goes at a point. [degrees] is clockwise from straight ahead. */
 enum class TurnDirection(val degrees: Int) {
-    STRAIGHT(0), SLIGHT_RIGHT(45), RIGHT(90), SHARP_RIGHT(135), UTURN(180), SHARP_LEFT(-135), LEFT(-90), SLIGHT_LEFT(-45);
+    STRAIGHT(0),
+    SLIGHT_RIGHT(45),
+    RIGHT(90),
+    SHARP_RIGHT(135),
+    UTURN(180),
+    SHARP_LEFT(-135),
+    LEFT(-90),
+    SLIGHT_LEFT(-45),
+    ;
 
     val isRight: Boolean get() = degrees in 1..179
     val isLeft: Boolean get() = degrees < 0
@@ -125,7 +147,9 @@ data class ManeuverCue(
     /** The point is the destination itself: reaching it is arriving, not maneuvering. */
     val arrival: Boolean = false,
 ) {
-    init { require(action.isNotBlank()) }
+    init {
+        require(action.isNotBlank())
+    }
 
     /** One line for a card: "오른쪽 진출로 · 표지 양재". */
     val summary: String get() = if (sign.isBlank()) action else "$action · 표지 $sign"
@@ -144,10 +168,15 @@ data class ApproachConditions(
 ) {
     init {
         require(speedMps == null || (speedMps.isFinite() && speedMps >= 0.0))
-        require(previousManeuverGapMeters == null || (previousManeuverGapMeters.isFinite() && previousManeuverGapMeters >= 0.0))
+        require(
+            previousManeuverGapMeters == null ||
+                (previousManeuverGapMeters.isFinite() && previousManeuverGapMeters >= 0.0),
+        )
     }
 
-    companion object { val UNKNOWN = ApproachConditions() }
+    companion object {
+        val UNKNOWN = ApproachConditions()
+    }
 }
 
 data class BriefingSegment(
@@ -256,21 +285,22 @@ data class RouteSegmentCandidate(
     val isArrivalPoint: Boolean get() = approach.arrival
 
     /** Weighted sum of the 0..1 signals; docs/algorithm.md explains each one. */
-    fun scoreWith(weights: RouteScoringWeights): Double =
-        complexity.coerceIn(0.0, 1.0) * weights.complexity +
-            ambiguity.coerceIn(0.0, 1.0) * weights.ambiguity +
-            errorCost.coerceIn(0.0, 1.0) * weights.errorCost +
-            lanePressure.coerceIn(0.0, 1.0) * weights.lanePressure +
-            maneuverDensity.coerceIn(0.0, 1.0) * weights.maneuverDensity +
-            destinationProximity.coerceIn(0.0, 1.0) * weights.destinationProximity +
-            historicIncidentSignal.coerceIn(0.0, 1.0) * weights.historicIncidentSignal
+    fun scoreWith(weights: RouteScoringWeights): Double = complexity.coerceIn(0.0, 1.0) * weights.complexity +
+        ambiguity.coerceIn(0.0, 1.0) * weights.ambiguity +
+        errorCost.coerceIn(0.0, 1.0) * weights.errorCost +
+        lanePressure.coerceIn(0.0, 1.0) * weights.lanePressure +
+        maneuverDensity.coerceIn(0.0, 1.0) * weights.maneuverDensity +
+        destinationProximity.coerceIn(0.0, 1.0) * weights.destinationProximity +
+        historicIncidentSignal.coerceIn(0.0, 1.0) * weights.historicIncidentSignal
 
     /** True when both are the same place, or close enough along the route to be one chain of decisions. */
     fun isNear(other: RouteSegmentCandidate, withinMeters: Double): Boolean =
         abs(routeOffsetMeters - other.routeOffsetMeters) <= withinMeters ||
             coordinate.distanceMetersTo(other.coordinate) <= SAME_PLACE_METERS
 
-    private companion object { const val SAME_PLACE_METERS = 80.0 }
+    private companion object {
+        const val SAME_PLACE_METERS = 80.0
+    }
 }
 
 /**
@@ -288,7 +318,16 @@ data class RouteScoringWeights(
     val historicIncidentSignal: Double = 0.05,
 ) {
     init {
-        val all = listOf(complexity, ambiguity, errorCost, lanePressure, maneuverDensity, destinationProximity, historicIncidentSignal)
+        val all =
+            listOf(
+                complexity,
+                ambiguity,
+                errorCost,
+                lanePressure,
+                maneuverDensity,
+                destinationProximity,
+                historicIncidentSignal,
+            )
         require(all.all { it.isFinite() && it >= 0.0 }) { "weights의 값은 0 이상이어야 한다" }
         require(all.sum() > 0.0) { "weights가 모두 0이면 순위를 매길 수 없다" }
     }

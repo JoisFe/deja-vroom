@@ -13,5 +13,7 @@ class FakeDrivingRestrictionSource(initiallyRestricted: Boolean = false) : Drivi
     private val mutableIsRestricted = MutableStateFlow(initiallyRestricted)
     override val isRestricted: StateFlow<Boolean> = mutableIsRestricted
 
-    fun setRestricted(restricted: Boolean) { mutableIsRestricted.value = restricted }
+    fun setRestricted(restricted: Boolean) {
+        mutableIsRestricted.value = restricted
+    }
 }

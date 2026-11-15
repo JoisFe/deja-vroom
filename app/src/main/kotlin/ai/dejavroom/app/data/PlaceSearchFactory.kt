@@ -6,10 +6,12 @@ enum class PlaceSearchProviderId(val key: String) {
     KAKAO("kakao"),
 
     /** Photon for suggestions and Nominatim for typed text, both on OpenStreetMap data. Needs nothing. */
-    PHOTON("photon");
+    PHOTON("photon"),
+    ;
 
     companion object {
-        fun fromKey(key: String): PlaceSearchProviderId? = entries.firstOrNull { it.key.equals(key.trim(), ignoreCase = true) }
+        fun fromKey(key: String): PlaceSearchProviderId? =
+            entries.firstOrNull { it.key.equals(key.trim(), ignoreCase = true) }
     }
 }
 
@@ -35,13 +37,17 @@ object PlaceSearchFactory {
      * an Android context. A provider that is selected but not set up is not swapped for another one: its
      * questions fail with the setup hint, so the setting always means what it says.
      */
-    fun create(provider: PlaceSearchProviderId, roadView: RoadViewConfig, kakao: (RoadViewEndpoint) -> PlaceSearchRepository): PlaceSearch =
-        when (provider) {
-            PlaceSearchProviderId.KAKAO -> {
-                val search = RoadViewEndpoint.parse(roadView.kakaoBaseUrl, roadView.pageRevision)?.let(kakao)
-                    ?: UnconfiguredPlaceSearchRepository(KakaoPlaceSearchRepository.SETUP_MESSAGE)
-                PlaceSearch(search, PlaceSearchGeocoder(search))
-            }
-            PlaceSearchProviderId.PHOTON -> PlaceSearch(PhotonPlaceSearchRepository(), NominatimDestinationGeocoder)
+    fun create(
+        provider: PlaceSearchProviderId,
+        roadView: RoadViewConfig,
+        kakao: (RoadViewEndpoint) -> PlaceSearchRepository,
+    ): PlaceSearch = when (provider) {
+        PlaceSearchProviderId.KAKAO -> {
+            val search = RoadViewEndpoint.parse(roadView.kakaoBaseUrl, roadView.pageRevision)?.let(kakao)
+                ?: UnconfiguredPlaceSearchRepository(KakaoPlaceSearchRepository.SETUP_MESSAGE)
+            PlaceSearch(search, PlaceSearchGeocoder(search))
         }
+
+        PlaceSearchProviderId.PHOTON -> PlaceSearch(PhotonPlaceSearchRepository(), NominatimDestinationGeocoder)
+    }
 }

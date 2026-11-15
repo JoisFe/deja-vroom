@@ -93,7 +93,19 @@ internal fun PrimaryButton(
     Row(
         modifier
             .height(size.height())
-            .then(if (enabled) Modifier.shadow(dimens.dp(14), CircleShape, clip = false, ambientColor = colors.primary, spotColor = colors.primary) else Modifier)
+            .then(
+                if (enabled) {
+                    Modifier.shadow(
+                        dimens.dp(14),
+                        CircleShape,
+                        clip = false,
+                        ambientColor = colors.primary,
+                        spotColor = colors.primary,
+                    )
+                } else {
+                    Modifier
+                },
+            )
             .clip(CircleShape)
             .then(if (enabled) Modifier.background(colors.primaryBrush) else Modifier.background(colors.surfaceVariant))
             .clickable(enabled = enabled && !loading, role = Role.Button, onClick = onClick)
@@ -105,7 +117,14 @@ internal fun PrimaryButton(
             AppIcon(leadingIcon, tint = content)
             Spacer(Modifier.width(dimens.spaceS))
         }
-        Text(text, Modifier.weight(1f, fill = false), color = content, style = size.textStyle(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            text,
+            Modifier.weight(1f, fill = false),
+            color = content,
+            style = size.textStyle(),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         if (loading) {
             Spacer(Modifier.width(dimens.spaceM))
             CircularProgressIndicator(Modifier.size(dimens.icon), color = content, strokeWidth = dimens.dp(4))
@@ -145,7 +164,14 @@ internal fun SecondaryButton(
             AppIcon(leadingIcon, tint = content)
             Spacer(Modifier.width(dimens.spaceS))
         }
-        Text(text, Modifier.weight(1f, fill = false), color = content, style = size.textStyle(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            text,
+            Modifier.weight(1f, fill = false),
+            color = content,
+            style = size.textStyle(),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         if (trailingIcon != null) {
             Spacer(Modifier.width(dimens.spaceS))
             AppIcon(trailingIcon, tint = content)
@@ -177,7 +203,13 @@ internal fun TextAction(
             AppIcon(icon, tint = content, size = dimens.iconSmall)
             Spacer(Modifier.width(dimens.spaceXs))
         }
-        Text(text, color = content, style = DejaVroomTheme.type.labelMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            text,
+            color = content,
+            style = DejaVroomTheme.type.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -191,7 +223,9 @@ internal fun IconAction(
     onClick: () -> Unit,
 ) {
     Box(
-        modifier.size(DejaVroomTheme.dimens.touchTarget).clip(CircleShape).clickable(role = Role.Button, onClick = onClick),
+        modifier.size(
+            DejaVroomTheme.dimens.touchTarget,
+        ).clip(CircleShape).clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         AppIcon(icon, tint = tint, contentDescription = contentDescription)
@@ -220,7 +254,14 @@ internal fun NumberMarker(
             .then(if (ring) Modifier.border(size * RING_SHARE, ringColor, CircleShape) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
-        Text("$number", color = if (passed) colors.onSurfaceVariant else colors.onMarker, fontSize = digit, lineHeight = 1.em, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+        Text(
+            "$number",
+            color = if (passed) colors.onSurfaceVariant else colors.onMarker,
+            fontSize = digit,
+            lineHeight = 1.em,
+            fontWeight = FontWeight.ExtraBold,
+            maxLines = 1,
+        )
     }
 }
 
@@ -242,7 +283,13 @@ internal fun Chip(
             AppIcon(icon, tint = content, size = dimens.iconSmall)
             Spacer(Modifier.width(dimens.spaceXs))
         }
-        Text(text, color = content, style = DejaVroomTheme.type.labelMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            text,
+            color = content,
+            style = DejaVroomTheme.type.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -252,7 +299,10 @@ internal fun NoticeBanner(text: String, modifier: Modifier = Modifier) {
     val colors = DejaVroomTheme.colors
     val dimens = DejaVroomTheme.dimens
     Row(
-        modifier.background(colors.warningContainer, RoundedCornerShape(dimens.radiusMedium)).padding(horizontal = dimens.spaceL, vertical = dimens.spaceM),
+        modifier.background(
+            colors.warningContainer,
+            RoundedCornerShape(dimens.radiusMedium),
+        ).padding(horizontal = dimens.spaceL, vertical = dimens.spaceM),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AppIcon(DejaVroomIcons.Warning, tint = colors.warning)
@@ -282,7 +332,12 @@ internal fun Modifier.cardSurface(
 
 @Composable
 internal fun Eyebrow(text: String) {
-    Text(text, color = DejaVroomTheme.colors.accent, style = DejaVroomTheme.type.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.09.em), maxLines = 1)
+    Text(
+        text,
+        color = DejaVroomTheme.colors.accent,
+        style = DejaVroomTheme.type.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.09.em),
+        maxLines = 1,
+    )
 }
 
 /**
@@ -290,7 +345,12 @@ internal fun Eyebrow(text: String) {
  * provenance badge goes where [badgeAlignment] says, so the holder can keep it clear of its own labels.
  */
 @Composable
-internal fun RoadScene(modifier: Modifier = Modifier, variant: Int, large: Boolean, badgeAlignment: Alignment = Alignment.TopStart) {
+internal fun RoadScene(
+    modifier: Modifier = Modifier,
+    variant: Int,
+    large: Boolean,
+    badgeAlignment: Alignment = Alignment.TopStart,
+) {
     val dimens = DejaVroomTheme.dimens
     Box(modifier.background(DejaVroomTheme.colors.surfaceVariant)) {
         val illustration = when (variant) {
@@ -307,7 +367,14 @@ internal fun RoadScene(modifier: Modifier = Modifier, variant: Int, large: Boole
         // Keep the provenance badge static over photos so its contrast never depends on the image.
         Text(
             if (large) "AI 생성 데모 · 실제 도로 사진 아님" else "AI 생성 데모",
-            Modifier.align(badgeAlignment).padding(dimens.spaceM).background(PhotoOverlay.scrim, CircleShape).padding(horizontal = dimens.spaceM, vertical = dimens.spaceXs),
+            Modifier.align(
+                badgeAlignment,
+            ).padding(
+                dimens.spaceM,
+            ).background(
+                PhotoOverlay.scrim,
+                CircleShape,
+            ).padding(horizontal = dimens.spaceM, vertical = dimens.spaceXs),
             color = PhotoOverlay.onScrim,
             style = DejaVroomTheme.type.labelSmall.copy(fontWeight = FontWeight.SemiBold),
         )

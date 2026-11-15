@@ -64,14 +64,27 @@ class BriefingSettingsTest {
 
     @Test
     fun `a typo cannot silently change the algorithm`() {
-        val unknownKey = assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("selection:\n  maxCard: 3\n") }
+        val unknownKey =
+            assertThrows(IllegalArgumentException::class.java) {
+                BriefingSettings.fromYaml("selection:\n  maxCard: 3\n")
+            }
         assertTrue(unknownKey.message!!.contains("selection.maxCard"))
-        assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("weights:\n  errorCost: high\n") }
+        assertThrows(IllegalArgumentException::class.java) {
+            BriefingSettings.fromYaml("weights:\n  errorCost: high\n")
+        }
         assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("selection:\n  maxCards: 99\n") }
-        assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("approach:\n  minLeadMeters: 500\n") }
-        assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("approach:\n  driveMaxSteps: 1\n") }
-        assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("approach:\n  laneOffsetMeters: 25\n") }
+        assertThrows(IllegalArgumentException::class.java) {
+            BriefingSettings.fromYaml("approach:\n  minLeadMeters: 500\n")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BriefingSettings.fromYaml("approach:\n  driveMaxSteps: 1\n")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BriefingSettings.fromYaml("approach:\n  laneOffsetMeters: 25\n")
+        }
         // A setting that no longer exists is a typo like any other.
-        assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("approach:\n  drivePastMeters: 60\n") }
+        assertThrows(IllegalArgumentException::class.java) {
+            BriefingSettings.fromYaml("approach:\n  drivePastMeters: 60\n")
+        }
     }
 }

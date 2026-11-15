@@ -9,11 +9,19 @@ import org.junit.Test
 
 class DejaVroomUiStateTest {
     private fun segment(id: String) = BriefingSegment(
-        id = id, type = SegmentType.INTERSECTION, name = id, description = id, guidance = id, distanceFromStartKm = 1.0,
+        id = id,
+        type = SegmentType.INTERSECTION,
+        name = id,
+        description = id,
+        guidance = id,
+        distanceFromStartKm = 1.0,
     )
 
     private val route = RouteSnapshot(
-        origin = "A", destination = "B", durationMinutes = 10, distanceKm = 5,
+        origin = "A",
+        destination = "B",
+        durationMinutes = 10,
+        distanceKm = 5,
         segments = listOf(segment("s1"), segment("s2"), segment("s3")),
     )
 
@@ -26,7 +34,9 @@ class DejaVroomUiStateTest {
     private fun ranked(id: String, rank: Int) = segment(id).copy(selectionRank = rank)
 
     /** Five points in driving order whose importance ranks are 4, 3, 1, 5, 2. */
-    private val rankedRoute = route.copy(segments = listOf(ranked("a", 4), ranked("b", 3), ranked("c", 1), ranked("d", 5), ranked("e", 2)))
+    private val rankedRoute = route.copy(
+        segments = listOf(ranked("a", 4), ranked("b", 3), ranked("c", 1), ranked("d", 5), ranked("e", 2)),
+    )
 
     @Test
     fun `every picked point is shown, in driving order whatever its rank`() {

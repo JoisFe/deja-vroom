@@ -6,7 +6,8 @@ import org.junit.Test
 
 class BriefingSegmentTest {
     private val playable = BriefingSegment(
-        id = "p", type = SegmentType.INTERSECTION, name = "p", description = "p", guidance = "p", distanceFromStartKm = 1.0,
+        id = "p", type = SegmentType.INTERSECTION, name = "p", description = "p", guidance = "p",
+        distanceFromStartKm = 1.0,
         coordinate = GeoCoordinate(37.5, 127.0), headingDegrees = 90.0, routeMatchStatus = RouteMatchStatus.VERIFIED,
     )
 

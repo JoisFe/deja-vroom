@@ -6,9 +6,9 @@ import ai.dejavroom.app.model.GeoCoordinate
 import ai.dejavroom.app.model.Place
 import ai.dejavroom.app.model.PlaceInput
 import ai.dejavroom.app.model.RouteGeometryStatus
+import ai.dejavroom.app.model.RouteLane
 import ai.dejavroom.app.model.RouteSnapshot
 import ai.dejavroom.app.model.RouteSource
-import ai.dejavroom.app.model.RouteLane
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,22 +29,23 @@ class OsmRouteRepository(
 ) : RouteRepository {
     private val analyzer = settings.routeAnalyzer()
 
-    override suspend fun preview(origin: PlaceInput, destination: PlaceInput): RouteSnapshot = withContext(Dispatchers.IO) {
-        // The injected geocoder and router may throw anything; only a typed reason leaves this function.
-        try {
-            previewOrThrow(origin, destination)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (unavailable: PlaceSearchUnavailableException) {
-            throw unavailable
-        } catch (failure: RoutePreviewException) {
-            throw failure
-        } catch (offline: IOException) {
-            throw RoutePreviewException(RoutePreviewFailure.OFFLINE, offline)
-        } catch (failure: Exception) {
-            throw RoutePreviewException(RoutePreviewFailure.UNEXPECTED, failure)
+    override suspend fun preview(origin: PlaceInput, destination: PlaceInput): RouteSnapshot =
+        withContext(Dispatchers.IO) {
+            // The injected geocoder and router may throw anything; only a typed reason leaves this function.
+            try {
+                previewOrThrow(origin, destination)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (unavailable: PlaceSearchUnavailableException) {
+                throw unavailable
+            } catch (failure: RoutePreviewException) {
+                throw failure
+            } catch (offline: IOException) {
+                throw RoutePreviewException(RoutePreviewFailure.OFFLINE, offline)
+            } catch (failure: Exception) {
+                throw RoutePreviewException(RoutePreviewFailure.UNEXPECTED, failure)
+            }
         }
-    }
 
     private suspend fun previewOrThrow(origin: PlaceInput, destination: PlaceInput): RouteSnapshot {
         val originQuery = origin.text.trim().take(120)
@@ -54,7 +55,9 @@ class OsmRouteRepository(
         val originPlace = origin.resolvedPlace?.toGeocoded() ?: geocoder.resolve(originQuery)
         val destinationPlace = destination.resolvedPlace?.toGeocoded() ?: geocoder.resolve(destinationQuery)
         val result = router.route(originPlace.coordinate, destinationPlace.coordinate)
-        val routeId = "osrm-${Integer.toHexString("${originPlace.coordinate}:${destinationPlace.coordinate}".hashCode())}"
+        val routeId = "osrm-${Integer.toHexString(
+            "${originPlace.coordinate}:${destinationPlace.coordinate}".hashCode(),
+        )}"
         val route = RouteSnapshot(
             origin = originPlace.displayName,
             destination = destinationPlace.displayName,
@@ -66,7 +69,10 @@ class OsmRouteRepository(
             geometryStatus = RouteGeometryStatus.VERIFIED,
             geometry = result.geometry,
         )
-        val selected = analyzer.analyze(route, TurnByTurnRoute(result.intersections, settings.maneuver).previewFeatures(routeId))
+        val selected = analyzer.analyze(
+            route,
+            TurnByTurnRoute(result.intersections, settings.maneuver).previewFeatures(routeId),
+        )
         if (selected.isEmpty()) throw RoutePreviewException(RoutePreviewFailure.NOTHING_TO_PREVIEW)
         return route.copy(segments = selected)
     }
@@ -92,7 +98,10 @@ fun interface DrivingRouteClient {
     fun route(origin: GeoCoordinate, destination: GeoCoordinate): DrivingRouteResult
 }
 
-/** Nominatim (OpenStreetMap), one request a second at most as its usage policy asks. Blocking: call it off the main thread. */
+/**
+ * Nominatim (OpenStreetMap), one request a second at most as its usage policy asks. Blocking: call it off
+ * the main thread.
+ */
 internal object NominatimDestinationGeocoder : DestinationGeocoder {
     private val cache = LinkedHashMap<String, GeocodedDestination>(64, .75f, true)
     private var lastRequestAtMillis = 0L
@@ -108,12 +117,16 @@ internal object NominatimDestinationGeocoder : DestinationGeocoder {
         val encoded = URLEncoder.encode(query, Charsets.UTF_8.name())
         val response = requestJson(
             URL("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=kr&q=$encoded"),
-            mapOf("User-Agent" to "DejaVroom-Android/0.1 (low-volume destination route preview)", "Accept-Language" to "ko,en"),
+            mapOf(
+                "User-Agent" to "DejaVroom-Android/0.1 (low-volume destination route preview)",
+                "Accept-Language" to "ko,en",
+            ),
             serviceName = "Nominatim",
         ) as? JSONArray ?: throw RoutePreviewException(RoutePreviewFailure.UNEXPECTED)
         val item = response.optJSONObject(0) ?: throw RoutePreviewException(RoutePreviewFailure.PLACE_NOT_FOUND)
         val coordinate = GeoCoordinate(item.getString("lat").toDouble(), item.getString("lon").toDouble())
-        val result = GeocodedDestination(coordinate, item.optString("display_name").substringBefore(",").ifBlank { query })
+        val result =
+            GeocodedDestination(coordinate, item.optString("display_name").substringBefore(",").ifBlank { query })
         synchronized(cache) {
             cache[key] = result
             while (cache.size > 100) cache.remove(cache.keys.first())
@@ -125,10 +138,16 @@ internal object NominatimDestinationGeocoder : DestinationGeocoder {
 internal object OsrmDrivingRouteClient : DrivingRouteClient {
     override fun route(origin: GeoCoordinate, destination: GeoCoordinate): DrivingRouteResult {
         val coordinates = "${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}"
-        val url = URL("https://router.project-osrm.org/route/v1/driving/$coordinates?steps=true&alternatives=false&geometries=geojson&overview=full")
-        val root = requestJson(url, serviceName = "OSRM") as? JSONObject ?: throw RoutePreviewException(RoutePreviewFailure.UNEXPECTED)
+        val url =
+            URL(
+                "https://router.project-osrm.org/route/v1/driving/$coordinates?steps=true&alternatives=false&geometries=geojson&overview=full",
+            )
+        val root =
+            requestJson(url, serviceName = "OSRM") as? JSONObject
+                ?: throw RoutePreviewException(RoutePreviewFailure.UNEXPECTED)
         if (root.optString("code") != "Ok") throw RoutePreviewException(RoutePreviewFailure.NO_ROUTE)
-        val route = root.optJSONArray("routes")?.optJSONObject(0) ?: throw RoutePreviewException(RoutePreviewFailure.NO_ROUTE)
+        val route =
+            root.optJSONArray("routes")?.optJSONObject(0) ?: throw RoutePreviewException(RoutePreviewFailure.NO_ROUTE)
         val rawCoordinates = route.optJSONObject("geometry")?.optJSONArray("coordinates") ?: JSONArray()
         if (rawCoordinates.length() !in 2..20_000) throw RoutePreviewException(RoutePreviewFailure.UNEXPECTED)
         val geometry = (0 until rawCoordinates.length()).map { index ->
@@ -152,12 +171,16 @@ internal object OsrmDrivingRouteClient : DrivingRouteClient {
                 // Ramps, links, driveways and parking aisles have neither a name nor a route number.
                 val named = name.isNotEmpty() || step.optString("ref").isNotBlank()
                 val exits = step.optString("exits").trim()
-                val signText = step.optString("destinations").trim().ifEmpty { if (exits.isEmpty()) "" else "출구 $exits" }
+                val signText = step.optString("destinations").trim().ifEmpty {
+                    if (exits.isEmpty()) "" else "출구 $exits"
+                }
                 for (intersectionIndex in 0 until intersections.length()) {
                     val intersection = intersections.optJSONObject(intersectionIndex) ?: continue
                     val location = intersection.optJSONArray("location") ?: continue
                     if (location.length() < 2) continue
-                    val coordinate = runCatching { GeoCoordinate(location.getDouble(1), location.getDouble(0)) }.getOrNull() ?: continue
+                    val coordinate =
+                        runCatching { GeoCoordinate(location.getDouble(1), location.getDouble(0)) }.getOrNull()
+                            ?: continue
                     val bearings = intersection.optJSONArray("bearings") ?: JSONArray()
                     val entry = intersection.optJSONArray("entry") ?: JSONArray()
                     val outIndex = intersection.optInt("out", -1)
@@ -177,8 +200,10 @@ internal object OsrmDrivingRouteClient : DrivingRouteClient {
                             .map { bearings.optInt(it) },
                         lanes = parseLanes(intersection.optJSONArray("lanes")),
                         roadNamed = named,
-                        stepDistanceMeters = step.optDouble("distance", 0.0).takeIf { it.isFinite() && it >= 0.0 } ?: 0.0,
-                        stepDurationSeconds = step.optDouble("duration", 0.0).takeIf { it.isFinite() && it >= 0.0 } ?: 0.0,
+                        stepDistanceMeters =
+                        step.optDouble("distance", 0.0).takeIf { it.isFinite() && it >= 0.0 } ?: 0.0,
+                        stepDurationSeconds =
+                        step.optDouble("duration", 0.0).takeIf { it.isFinite() && it >= 0.0 } ?: 0.0,
                         signText = signText,
                     )
                 }
@@ -188,7 +213,9 @@ internal object OsrmDrivingRouteClient : DrivingRouteClient {
         val seenPassThroughs = HashSet<String>()
         return results.filter { observation ->
             observation.isManeuverPoint ||
-                seenPassThroughs.add("${(observation.coordinate.latitude * 100_000).toInt()}:${(observation.coordinate.longitude * 100_000).toInt()}")
+                seenPassThroughs.add(
+                    "${(observation.coordinate.latitude * 100_000).toInt()}:${(observation.coordinate.longitude * 100_000).toInt()}",
+                )
         }
     }
 
@@ -203,7 +230,11 @@ internal object OsrmDrivingRouteClient : DrivingRouteClient {
     }
 }
 
-private fun requestJson(url: URL, headers: Map<String, String> = emptyMap(), serviceName: String = "OpenStreetMap"): Any {
+private fun requestJson(
+    url: URL,
+    headers: Map<String, String> = emptyMap(),
+    serviceName: String = "OpenStreetMap",
+): Any {
     val connection = (url.openConnection() as HttpURLConnection).apply {
         requestMethod = "GET"
         connectTimeout = 8_000
@@ -218,7 +249,10 @@ private fun requestJson(url: URL, headers: Map<String, String> = emptyMap(), ser
         val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
         if (status !in 200..299) {
             // The status stays in the cause for debugging; the screen only learns that the service is down.
-            throw RoutePreviewException(RoutePreviewFailure.SERVICE_UNAVAILABLE, IllegalStateException("$serviceName answered HTTP $status"))
+            throw RoutePreviewException(
+                RoutePreviewFailure.SERVICE_UNAVAILABLE,
+                IllegalStateException("$serviceName answered HTTP $status"),
+            )
         }
         return if (body.trimStart().startsWith("[")) JSONArray(body) else JSONObject(body)
     } finally {

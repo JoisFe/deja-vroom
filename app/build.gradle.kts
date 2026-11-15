@@ -22,13 +22,17 @@ val roadviewProviders = setOf("kakao", "mapillary", "demo")
 /** Changes whenever web/roadview changes; appended to page URLs so WebView and Pages caches never serve an old page. */
 val roadviewPageRevision: String = rootProject.file("web/roadview").walkTopDown()
     .filter { it.isFile }.sortedBy { it.path }
-    .fold(MessageDigest.getInstance("SHA-256")) { digest: MessageDigest, file -> digest.apply { update(file.readBytes()) } }
+    .fold(MessageDigest.getInstance("SHA-256")) { digest: MessageDigest, file ->
+        digest.apply { update(file.readBytes()) }
+    }
     .digest().joinToString("") { "%02x".format(it) }.take(12)
 val roadviewConfigFile = rootProject.file("config/roadview.yml")
 val roadviewProviderOverride = localSetting("roadviewProvider")
 val roadviewProvider: String = roadviewProviderOverride.ifEmpty {
     roadviewConfigFile.takeIf { it.exists() }?.readLines()
-        ?.firstNotNullOfOrNull { Regex("""^provider:\s*["']?([A-Za-z]+)["']?\s*(#.*)?$""").find(it)?.groupValues?.get(1) }
+        ?.firstNotNullOfOrNull { line ->
+            Regex("""^provider:\s*["']?([A-Za-z]+)["']?\s*(#.*)?$""").find(line)?.groupValues?.get(1)
+        }
         .orEmpty()
 }.lowercase()
 require(roadviewProvider in roadviewProviders) {

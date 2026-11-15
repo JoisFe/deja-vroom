@@ -16,8 +16,6 @@ import android.webkit.WebViewClient
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +23,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Place search by Kakao. The questions go to a page of the road view site (web/roadview/places.html),
@@ -47,17 +47,19 @@ class KakaoPlaceSearchRepository(
     override val attribution: String get() = KAKAO_PLACES_ATTRIBUTION
 
     /** Kakao ranks by how well the name matches; where the driver is plays no part and is not sent. */
-    override suspend fun suggest(query: String, bias: GeoCoordinate?): List<Place> = withContext(Dispatchers.Main.immediate) {
-        val text = query.trim().take(MAX_QUERY_LENGTH)
-        if (text.length < MIN_QUERY_LENGTH) return@withContext emptyList()
-        val answer = connected().ask(text)
-        try {
-            withTimeoutOrNull(answerTimeout) { answer.await() } ?: throw PlaceSearchUnavailableException(NO_ANSWER_MESSAGE)
-        } finally {
-            // Whether it arrived, timed out or was typed over, nobody is waiting for this answer now.
-            answer.cancel()
+    override suspend fun suggest(query: String, bias: GeoCoordinate?): List<Place> =
+        withContext(Dispatchers.Main.immediate) {
+            val text = query.trim().take(MAX_QUERY_LENGTH)
+            if (text.length < MIN_QUERY_LENGTH) return@withContext emptyList()
+            val answer = connected().ask(text)
+            try {
+                withTimeoutOrNull(answerTimeout) { answer.await() }
+                    ?: throw PlaceSearchUnavailableException(NO_ANSWER_MESSAGE)
+            } finally {
+                // Whether it arrived, timed out or was typed over, nobody is waiting for this answer now.
+                answer.cancel()
+            }
         }
-    }
 
     override suspend fun prepare() {
         try {
@@ -80,7 +82,8 @@ class KakaoPlaceSearchRepository(
         if (page?.gone == true) release()
         val current = page ?: Page(appContext, site).also { page = it }
         try {
-            withTimeoutOrNull(pageTimeout) { current.ready.await() } ?: throw PlaceSearchUnavailableException(PAGE_SILENT_MESSAGE)
+            withTimeoutOrNull(pageTimeout) { current.ready.await() }
+                ?: throw PlaceSearchUnavailableException(PAGE_SILENT_MESSAGE)
             current
         } catch (unavailable: PlaceSearchUnavailableException) {
             if (page === current) release()
@@ -116,23 +119,37 @@ class KakaoPlaceSearchRepository(
                         setSupportMultipleWindows(false)
                         mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                     }
-                    WebViewCompat.addWebMessageListener(this, ROADVIEW_BRIDGE_NAME, setOf(site.origin)) { _, message, sourceOrigin, isMainFrame, _ ->
-                        if (isMainFrame && sourceOrigin.toString() == site.origin) receive(KakaoPlacesMessage.parse(message.data))
+                    WebViewCompat.addWebMessageListener(
+                        this,
+                        ROADVIEW_BRIDGE_NAME,
+                        setOf(site.origin),
+                    ) { _, message, sourceOrigin, isMainFrame, _ ->
+                        if (isMainFrame && sourceOrigin.toString() == site.origin) {
+                            receive(KakaoPlacesMessage.parse(message.data))
+                        }
                     }
                     webViewClient = object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                             !site.isPlacesPage(request.url.toString())
 
-                        override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                        override fun onReceivedError(
+                            view: WebView,
+                            request: WebResourceRequest,
+                            error: WebResourceError,
+                        ) {
                             if (request.isForMainFrame) fail(PAGE_UNREACHABLE_MESSAGE)
                         }
 
                         /** A site that answers but has no such page (an older copy of it) is just as unreachable. */
-                        override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
+                        override fun onReceivedHttpError(
+                            view: WebView,
+                            request: WebResourceRequest,
+                            errorResponse: WebResourceResponse,
+                        ) {
                             if (request.isForMainFrame) fail(PAGE_UNREACHABLE_MESSAGE)
                         }
 
-                        /** Returning true keeps the app alive when the renderer dies; the dead view is destroyed here. */
+                        /** True keeps the app alive when the renderer dies; the dead view is destroyed here. */
                         override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
                             gone = true
                             fail(PAGE_UNREACHABLE_MESSAGE)
@@ -153,9 +170,17 @@ class KakaoPlaceSearchRepository(
             // An answer nobody waits for any more (timed out, typed over) is forgotten.
             answer.invokeOnCompletion { waiting.remove(id) }
             val view = webView
-            if (view == null) answer.completeExceptionally(PlaceSearchUnavailableException(NO_SECURE_MESSAGING_MESSAGE))
-            else if (gone) answer.completeExceptionally(PlaceSearchUnavailableException(PAGE_UNREACHABLE_MESSAGE))
-            else WebViewCompat.postWebMessage(view, WebMessageCompat(KakaoPlacesMessage.searchRequest(id, query)), Uri.parse(site.origin))
+            if (view == null) {
+                answer.completeExceptionally(PlaceSearchUnavailableException(NO_SECURE_MESSAGING_MESSAGE))
+            } else if (gone) {
+                answer.completeExceptionally(PlaceSearchUnavailableException(PAGE_UNREACHABLE_MESSAGE))
+            } else {
+                WebViewCompat.postWebMessage(
+                    view,
+                    WebMessageCompat(KakaoPlacesMessage.searchRequest(id, query)),
+                    Uri.parse(site.origin),
+                )
+            }
             return answer
         }
 
@@ -172,14 +197,20 @@ class KakaoPlaceSearchRepository(
         private fun receive(message: KakaoPlacesMessage?) {
             when (message) {
                 KakaoPlacesMessage.Ready -> ready.complete(Unit)
+
                 is KakaoPlacesMessage.Results -> waiting[message.id]?.complete(message.places)
-                is KakaoPlacesMessage.SearchFailed -> waiting[message.id]?.completeExceptionally(PlaceSearchUnavailableException(SEARCH_FAILED_MESSAGE))
+
+                is KakaoPlacesMessage.SearchFailed -> waiting[message.id]?.completeExceptionally(
+                    PlaceSearchUnavailableException(SEARCH_FAILED_MESSAGE),
+                )
+
                 is KakaoPlacesMessage.Failed -> fail(
                     when (message.reason) {
                         KakaoPlacesMessage.Reason.KEY_MISSING -> KEY_MISSING_MESSAGE
                         KakaoPlacesMessage.Reason.SDK_NOT_LOADED -> SDK_NOT_LOADED_MESSAGE
                     },
                 )
+
                 null -> Unit
             }
         }

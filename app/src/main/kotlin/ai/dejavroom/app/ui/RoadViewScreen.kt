@@ -65,8 +65,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.seconds
 
 private const val TAG = "DejaVroomRoadview"
 
@@ -95,7 +95,9 @@ internal fun RoadViewScreen(
             BackPill(onBack)
             Spacer(Modifier.width(dimens.spaceM))
             Text(
-                route?.let { "${selectedIndex + 1}/${candidates.size} · ${candidates.getOrNull(selectedIndex)?.name.orEmpty()}" } ?: "고정 OSM fixture 테스트",
+                route?.let {
+                    "${selectedIndex + 1}/${candidates.size} · ${candidates.getOrNull(selectedIndex)?.name.orEmpty()}"
+                } ?: "고정 OSM fixture 테스트",
                 Modifier.weight(1f),
                 color = DejaVroomTheme.colors.onSurfaceVariant,
                 style = DejaVroomTheme.type.bodySmall,
@@ -104,7 +106,11 @@ internal fun RoadViewScreen(
             )
         }
         Box(
-            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(dimens.radiusLarge)).background(PhotoOverlay.placeholder),
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(dimens.radiusLarge))
+                .background(PhotoOverlay.placeholder),
         ) {
             // Everything a point's road view learns lives and dies with that point. Moving on to the next
             // one starts from nothing, whatever the last one had reached or was still waiting for.
@@ -131,16 +137,27 @@ private fun BoxScope.RoadViewPoint(
     var playback by remember { mutableStateOf(RoadViewPlayback()) }
     val problem = when {
         endpoint != null || photo != null -> playback.failure?.let(::roadViewFailureText)
-        view?.content == RoadViewContent.Illustration -> "데모 제공자는 도로 사진을 보여 주지 않습니다 · config/roadview.yml에서 kakao 또는 mapillary를 선택하세요."
+
+        view?.content == RoadViewContent.Illustration ->
+            "데모 제공자는 도로 사진을 보여 주지 않습니다 · config/roadview.yml에서 kakao 또는 mapillary를 선택하세요."
+
         else -> roadViewStatusMessage(lookup)
     }
     when {
         problem != null -> RoadViewProblem(problem, onBack)
+
         photo != null && view != null -> RoadViewPhoto(view, photo, Modifier.fillMaxSize())
+
         endpoint != null -> {
             RoadViewPage(
                 endpoint = endpoint,
-                config = { context -> if (route != null) buildRoutePreviewConfig(route, candidates, selectedIndex) else buildJunctionPreviewConfig(context) },
+                config = { context ->
+                    if (route != null) {
+                        buildRoutePreviewConfig(route, candidates, selectedIndex)
+                    } else {
+                        buildJunctionPreviewConfig(context)
+                    }
+                },
                 onEvent = { playback = playback.after(it) },
                 onFailure = { playback = playback.failed(it) },
             )
@@ -162,8 +179,15 @@ private fun BoxScope.RoadViewPoint(
     if (problem == null && route != null && selected != null && cue != null) {
         // Until the page reports where its photo stands, the view is where the preview was planned to start.
         val remaining = playback.remainingMeters ?: selected.approach?.leadMeters
-        ArrivalFrame(atPoint = ApproachPhase.at(remaining) == ApproachPhase.AT_POINT, modifier = Modifier.matchParentSize())
-        ManeuverBanner(cue = cue, remainingMeters = remaining, modifier = Modifier.align(Alignment.TopCenter).padding(top = DejaVroomTheme.dimens.spaceL))
+        ArrivalFrame(
+            atPoint = ApproachPhase.at(remaining) == ApproachPhase.AT_POINT,
+            modifier = Modifier.matchParentSize(),
+        )
+        ManeuverBanner(
+            cue = cue,
+            remainingMeters = remaining,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = DejaVroomTheme.dimens.spaceL),
+        )
     }
 }
 
@@ -213,7 +237,8 @@ private fun RoadViewPage(
                     override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
                         // Page logs can carry keys and places; they are for a developer's machine only.
                         if (BuildConfig.DEBUG) {
-                            val sanitized = consoleMessage.message().replace(Regex("(?i)(appkey=)[^&\\s]+"), "$1[redacted]")
+                            val sanitized =
+                                consoleMessage.message().replace(Regex("(?i)(appkey=)[^&\\s]+"), "$1[redacted]")
                             Log.d(TAG, sanitized)
                         }
                         return true
@@ -232,9 +257,16 @@ private fun RoadViewPage(
                     if (event == RoadViewPageEvent.Ready) {
                         // The page is up: hand it the route and the point to show.
                         try {
-                            WebViewCompat.postWebMessage(view, WebMessageCompat(currentConfig(view.context)), Uri.parse(endpoint.origin))
+                            WebViewCompat.postWebMessage(
+                                view,
+                                WebMessageCompat(currentConfig(view.context)),
+                                Uri.parse(endpoint.origin),
+                            )
                         } catch (failure: Exception) {
-                            Log.w(TAG, "route not delivered to the page: ${failure.javaClass.simpleName}: ${failure.message}")
+                            Log.w(
+                                TAG,
+                                "route not delivered to the page: ${failure.javaClass.simpleName}: ${failure.message}",
+                            )
                             currentOnFailure(RoadViewFailure.ROUTE_NOT_DELIVERED)
                             return@addWebMessageListener
                         }
@@ -251,9 +283,8 @@ private fun RoadViewPage(
                         }
                     }
 
-                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                        return !endpoint.isRoadViewPage(request.url.toString())
-                    }
+                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                        !endpoint.isRoadViewPage(request.url.toString())
 
                     override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                         if (request.isForMainFrame) currentOnFailure(RoadViewFailure.PAGE_UNREACHABLE)
@@ -287,7 +318,12 @@ private fun BackPill(onBack: () -> Unit) {
     // Shared, so the press shows on the pill and not on the taller area that listens for it.
     val interaction = remember { MutableInteractionSource() }
     Box(
-        Modifier.fillMaxHeight().clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onBack),
+        Modifier.fillMaxHeight().clickable(
+            interactionSource = interaction,
+            indication = null,
+            role = Role.Button,
+            onClick = onBack,
+        ),
         contentAlignment = Alignment.Center,
     ) {
         Row(
@@ -299,7 +335,12 @@ private fun BackPill(onBack: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AppIcon(DejaVroomIcons.ChevronLeft, tint = colors.onSurface)
-            Text("목록", color = colors.onSurface, style = DejaVroomTheme.type.bodySmall.copy(fontWeight = FontWeight.SemiBold), maxLines = 1)
+            Text(
+                "목록",
+                color = colors.onSurface,
+                style = DejaVroomTheme.type.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                maxLines = 1,
+            )
         }
     }
 }
@@ -309,7 +350,11 @@ private fun LoadingNotice(modifier: Modifier = Modifier) {
     val dimens = DejaVroomTheme.dimens
     Text(
         "로드뷰를 불러오는 중…",
-        modifier.padding(dimens.spaceM).clip(RoundedCornerShape(dimens.radiusSmall)).background(PhotoOverlay.scrim).padding(horizontal = dimens.spaceL, vertical = dimens.spaceS),
+        modifier
+            .padding(dimens.spaceM)
+            .clip(RoundedCornerShape(dimens.radiusSmall))
+            .background(PhotoOverlay.scrim)
+            .padding(horizontal = dimens.spaceL, vertical = dimens.spaceS),
         color = PhotoOverlay.onScrim,
         style = DejaVroomTheme.type.labelMedium,
     )
@@ -346,7 +391,13 @@ private fun RoadViewProblem(message: String, onBack: () -> Unit) {
 
 /** Previous and next along the route; after the last point "next" goes back to the list. */
 @Composable
-private fun PointNavigation(selectedIndex: Int, count: Int, onBack: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit) {
+private fun PointNavigation(
+    selectedIndex: Int,
+    count: Int,
+    onBack: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+) {
     val last = selectedIndex >= count - 1
     val colors = DejaVroomTheme.colors
     val type = DejaVroomTheme.type
@@ -356,7 +407,13 @@ private fun PointNavigation(selectedIndex: Int, count: Int, onBack: () -> Unit, 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(dimens.spaceL),
     ) {
-        SecondaryButton("이전 지점", Modifier.weight(1f), enabled = selectedIndex > 0, leadingIcon = DejaVroomIcons.ChevronLeft, onClick = onPrevious)
+        SecondaryButton(
+            "이전 지점",
+            Modifier.weight(1f),
+            enabled = selectedIndex > 0,
+            leadingIcon = DejaVroomIcons.ChevronLeft,
+            onClick = onPrevious,
+        )
         // No fixed width for the count: in the narrow window the buttons need that room for their labels.
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("${selectedIndex + 1} / $count", color = colors.onSurface, style = type.bodyLarge, maxLines = 1)

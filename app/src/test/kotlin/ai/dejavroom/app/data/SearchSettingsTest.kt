@@ -1,10 +1,10 @@
 package ai.dejavroom.app.data
 
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class SearchSettingsTest {
     @Test
@@ -34,19 +34,29 @@ class SearchSettingsTest {
         val defaults = SearchSettings.fromYaml("origin:\n  source: place   # 녹화용\n  place: 판교역\n")
         assertEquals(SearchSettings.OriginSource.PLACE, defaults.originSource)
         assertEquals("판교역", defaults.origin)
-        assertEquals(SearchSettings.OriginSource.CURRENT, SearchSettings.fromYaml("origin:\n  source: Current\n").originSource)
+        assertEquals(
+            SearchSettings.OriginSource.CURRENT,
+            SearchSettings.fromYaml("origin:\n  source: Current\n").originSource,
+        )
     }
 
     @Test
     fun `the place search is chosen by name`() {
         assertEquals(PlaceSearchProviderId.KAKAO, SearchSettings().placeSearch)
-        assertEquals(PlaceSearchProviderId.PHOTON, SearchSettings.fromYaml("placeSearch:\n  provider: photon\n").placeSearch)
-        assertEquals(PlaceSearchProviderId.KAKAO, SearchSettings.fromYaml("placeSearch:\n  provider: kakao   # 로드뷰와 같은 키\n").placeSearch)
+        assertEquals(
+            PlaceSearchProviderId.PHOTON,
+            SearchSettings.fromYaml("placeSearch:\n  provider: photon\n").placeSearch,
+        )
+        assertEquals(
+            PlaceSearchProviderId.KAKAO,
+            SearchSettings.fromYaml("placeSearch:\n  provider: kakao   # 로드뷰와 같은 키\n").placeSearch,
+        )
     }
 
     @Test
     fun `a typo is an error instead of a silent default`() {
-        val unknownKey = assertThrows(IllegalArgumentException::class.java) { SearchSettings.fromYaml("origin:\n  sorce: place\n") }
+        val unknownKey =
+            assertThrows(IllegalArgumentException::class.java) { SearchSettings.fromYaml("origin:\n  sorce: place\n") }
         assertTrue(unknownKey.message!!.contains("origin.sorce"))
         assertThrows(IllegalArgumentException::class.java) { SearchSettings.fromYaml("origin:\n  source: gps\n") }
         assertThrows(IllegalArgumentException::class.java) { SearchSettings.fromYaml("destination:\n  place: \"\"\n") }

@@ -4,10 +4,10 @@ import ai.dejavroom.app.domain.Trip
 import ai.dejavroom.app.domain.TripCheckpoint
 import ai.dejavroom.app.feature.LocationNotice
 
-/** Why the origin could not be set to where the car is, and what the driver can do about it. */
 /** The headline of the screen after "주행 시작": what the list beside it is. */
 internal const val NAVIGATION_HEADLINE = "미리 본 곳을 가는 순서대로 정리했습니다"
 
+/** Why the origin could not be set to where the car is, and what the driver can do about it. */
 internal fun locationNoticeText(notice: LocationNotice): String = when (notice) {
     LocationNotice.NO_NAVIGATION -> "차량 내비게이션에서 현재 위치를 받지 못했습니다. 출발지를 직접 입력해 주세요."
     LocationNotice.NO_ANSWER -> "내비게이션이 현재 위치를 알려 주지 않았습니다. 잠시 뒤 다시 눌러 주세요."
