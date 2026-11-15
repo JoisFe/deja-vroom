@@ -2,8 +2,10 @@ package ai.dejavroom.app.ui
 
 import android.graphics.BitmapFactory
 import android.view.ViewGroup
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.Image
@@ -127,12 +129,21 @@ private fun RoadViewPageThumbnail(content: RoadViewContent.InteractivePage, modi
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = false
                 settings.allowContentAccess = false
+                settings.javaScriptCanOpenWindowsAutomatically = false
+                settings.setSupportMultipleWindows(false)
+                settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                         !content.endpoint.isRoadViewPage(request.url.toString())
 
                     override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                         if (request.isForMainFrame) loadFailed = true
+                    }
+
+                    /** Returning true keeps the app alive; the message replaces the view and onRelease destroys it. */
+                    override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                        loadFailed = true
+                        return true
                     }
                 }
                 loadUrl(url)

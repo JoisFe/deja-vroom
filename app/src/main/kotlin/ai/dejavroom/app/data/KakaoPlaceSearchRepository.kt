@@ -6,6 +6,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -75,6 +76,8 @@ class KakaoPlaceSearchRepository(
 
     /** The page, loaded and ready to take questions. A page that failed is dropped so the next try starts over. */
     private suspend fun connected(): Page = connecting.withLock {
+        // A page whose renderer died never answers again; the next question gets a fresh one.
+        if (page?.gone == true) release()
         val current = page ?: Page(appContext, site).also { page = it }
         try {
             withTimeoutOrNull(pageTimeout) { current.ready.await() } ?: throw PlaceSearchUnavailableException(PAGE_SILENT_MESSAGE)
@@ -92,6 +95,10 @@ class KakaoPlaceSearchRepository(
         private val waiting = mutableMapOf<Int, CompletableDeferred<List<Place>>>()
         private var nextId = 1
         private val webView: WebView?
+
+        /** True once the WebView's renderer died. The view is destroyed then and must not be touched again. */
+        var gone = false
+            private set
 
         init {
             webView = if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) ||
@@ -124,6 +131,14 @@ class KakaoPlaceSearchRepository(
                         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
                             if (request.isForMainFrame) fail(PAGE_UNREACHABLE_MESSAGE)
                         }
+
+                        /** Returning true keeps the app alive when the renderer dies; the dead view is destroyed here. */
+                        override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                            gone = true
+                            fail(PAGE_UNREACHABLE_MESSAGE)
+                            view.destroy()
+                            return true
+                        }
                     }
                     loadUrl(site.placesUrl)
                 }
@@ -139,12 +154,14 @@ class KakaoPlaceSearchRepository(
             answer.invokeOnCompletion { waiting.remove(id) }
             val view = webView
             if (view == null) answer.completeExceptionally(PlaceSearchUnavailableException(NO_SECURE_MESSAGING_MESSAGE))
+            else if (gone) answer.completeExceptionally(PlaceSearchUnavailableException(PAGE_UNREACHABLE_MESSAGE))
             else WebViewCompat.postWebMessage(view, WebMessageCompat(KakaoPlacesMessage.searchRequest(id, query)), Uri.parse(site.origin))
             return answer
         }
 
         fun close() {
             fail(CLOSED_MESSAGE)
+            if (gone) return
             webView?.apply {
                 stopLoading()
                 loadUrl("about:blank")

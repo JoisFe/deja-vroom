@@ -1,5 +1,6 @@
 package ai.dejavroom.app.ui
 
+import ai.dejavroom.app.BuildConfig
 import ai.dejavroom.app.core.designsystem.DejaVroomIcons
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
 import ai.dejavroom.app.core.designsystem.PhotoOverlay
@@ -210,8 +211,11 @@ private fun RoadViewPage(
 
                 webChromeClient = object : WebChromeClient() {
                     override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
-                        val sanitized = consoleMessage.message().replace(Regex("(?i)(appkey=)[^&\\s]+"), "$1[redacted]")
-                        Log.d(TAG, sanitized)
+                        // Page logs can carry keys and places; they are for a developer's machine only.
+                        if (BuildConfig.DEBUG) {
+                            val sanitized = consoleMessage.message().replace(Regex("(?i)(appkey=)[^&\\s]+"), "$1[redacted]")
+                            Log.d(TAG, sanitized)
+                        }
                         return true
                     }
                 }
@@ -221,9 +225,10 @@ private fun RoadViewPage(
                     ROADVIEW_BRIDGE_NAME,
                     setOf(endpoint.origin),
                 ) { view, message, sourceOrigin, isMainFrame, _ ->
-                    Log.d(TAG, "bridge source=$sourceOrigin main=$isMainFrame event=${message.data}")
                     if (!isMainFrame || sourceOrigin.toString() != endpoint.origin) return@addWebMessageListener
                     val event = RoadViewPageEvent.parse(message.data) ?: return@addWebMessageListener
+                    // Only the kind of event: the raw message carries coordinates.
+                    if (BuildConfig.DEBUG) Log.d(TAG, "bridge event=${event::class.simpleName}")
                     if (event == RoadViewPageEvent.Ready) {
                         // The page is up: hand it the route and the point to show.
                         try {
