@@ -142,6 +142,13 @@ internal fun DejaVroomUiState.startingFrom(here: Place): DejaVroomUiState =
 internal val DejaVroomUiState.startsFromCurrentLocation: Boolean
     get() = originPlace?.live == true && originPlace.name == originInput.trim()
 
+/**
+ * "현재 위치" is a label, not text to edit, so the origin field opens empty when it is touched. Left
+ * empty, it goes back to the label; typing anything lets go of the car's position.
+ */
+internal fun DejaVroomUiState.withCarOriginRestored(): DejaVroomUiState =
+    if (originInput.isBlank() && originPlace?.live == true) copy(originInput = originPlace.name) else this
+
 internal fun DejaVroomUiState.selectingBriefingSegment(index: Int): DejaVroomUiState {
     if (isDrivingRestricted) return this
     val segments = shownSegments
@@ -246,13 +253,17 @@ class DejaVroomViewModel(
 
     fun focusField(field: SearchField) {
         if (state.value.isDrivingRestricted) return
-        mutableState.update { it.copy(activeField = field) }
+        mutableState.update { current ->
+            if (field == SearchField.ORIGIN && current.startsFromCurrentLocation) current.copy(originInput = "", activeField = field)
+            else if (field == SearchField.ORIGIN) current.copy(activeField = field)
+            else current.withCarOriginRestored().copy(activeField = field)
+        }
         requestSuggestions(field, state.value.inputOf(field))
     }
 
     fun dismissSuggestions() {
         suggestionQueries.value = null
-        mutableState.update { it.copy(activeField = null, suggestions = SuggestionState()) }
+        mutableState.update { it.withCarOriginRestored().copy(activeField = null, suggestions = SuggestionState()) }
     }
 
     fun selectPlace(place: Place) {
@@ -267,7 +278,7 @@ class DejaVroomViewModel(
         mutableState.update {
             when (field) {
                 SearchField.ORIGIN -> it.copy(originInput = place.name, originPlace = place, locationNotice = null)
-                SearchField.DESTINATION -> it.copy(destinationInput = place.name, destinationPlace = place)
+                SearchField.DESTINATION -> it.withCarOriginRestored().copy(destinationInput = place.name, destinationPlace = place)
             }.copy(activeField = null, suggestions = SuggestionState(), errorMessage = null)
         }
     }
@@ -278,7 +289,7 @@ class DejaVroomViewModel(
         if (state.value.isDrivingRestricted) return
         suggestionQueries.value = null
         originChosen = true
-        mutableState.update { it.swappingFields() }
+        mutableState.update { it.withCarOriginRestored().swappingFields() }
     }
 
     /**
@@ -411,7 +422,7 @@ class DejaVroomViewModel(
 
     /** True when a route was found and its cards are on screen. */
     private suspend fun searchRouteNow(): Boolean {
-        mutableState.update { it.copy(isSearchingRoute = true, errorMessage = null) }
+        mutableState.update { it.withCarOriginRestored().copy(isSearchingRoute = true, errorMessage = null) }
         return try {
             // The car may have moved since its position was read, so a route from it starts with a fresh read.
             if (state.value.startsFromCurrentLocation) (locate() as? Here.At)?.place?.let { here ->

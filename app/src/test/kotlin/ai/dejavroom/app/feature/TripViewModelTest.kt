@@ -15,6 +15,7 @@ import ai.dejavroom.app.model.PlaceInput
 import ai.dejavroom.app.model.RouteGeometryStatus
 import ai.dejavroom.app.model.RouteSnapshot
 import ai.dejavroom.app.model.RouteSource
+import ai.dejavroom.app.model.SearchField
 import ai.dejavroom.app.model.SegmentType
 import androidx.lifecycle.ViewModelStore
 import kotlinx.coroutines.Dispatchers
@@ -151,6 +152,44 @@ class TripViewModelTest {
         // Typing over it lets go of the car's position.
         vm.updateOrigin("서울역")
         assertFalse(vm.state.value.startsFromCurrentLocation)
+    }
+
+    @Test
+    fun `the current location label opens empty for typing and comes back when nothing is typed`() = runTest(dispatcher) {
+        location.next = at(0, "경기 수원시 영통구")
+        val vm = viewModel()
+        vm.onAppForegrounded()
+        advanceUntilIdle()
+
+        // Touching the field: there is nothing to erase before typing or speaking a place.
+        vm.focusField(SearchField.ORIGIN)
+        assertEquals("", vm.state.value.originInput)
+        assertFalse(vm.state.value.startsFromCurrentLocation)
+        // Closing it without typing, or moving on to the destination, puts the label back.
+        vm.dismissSuggestions()
+        assertEquals(Place.CURRENT_LOCATION_NAME, vm.state.value.originInput)
+        assertTrue(vm.state.value.startsFromCurrentLocation)
+        vm.focusField(SearchField.ORIGIN)
+        vm.focusField(SearchField.DESTINATION)
+        assertTrue(vm.state.value.startsFromCurrentLocation)
+
+        // Searching with the field still open starts from the car as well.
+        vm.focusField(SearchField.ORIGIN)
+        vm.searchRoute()
+        advanceUntilIdle()
+        assertEquals(road[0], routes.origins.single().resolvedPlace?.coordinate)
+
+        // Typing lets go of the car's position, and so does clearing the field by hand.
+        vm.editRoute()
+        vm.focusField(SearchField.ORIGIN)
+        vm.updateOrigin("서울역")
+        vm.dismissSuggestions()
+        assertEquals("서울역", vm.state.value.originInput)
+        vm.useCurrentLocation()
+        advanceUntilIdle()
+        vm.clearField(SearchField.ORIGIN)
+        vm.dismissSuggestions()
+        assertEquals("", vm.state.value.originInput)
     }
 
     @Test
