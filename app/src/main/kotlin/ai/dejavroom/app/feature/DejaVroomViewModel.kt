@@ -68,6 +68,8 @@ data class DejaVroomUiState(
     val locationNotice: LocationNotice? = null,
     /** Whose data the place suggestions are; shown under them. */
     val placeSearchAttribution: String = "",
+    /** Why a config file was ignored and the defaults run instead; for the team's own builds, never the driver. */
+    val configProblem: String? = null,
 ) {
     /**
      * The points on screen: every point picked for the route, nearest to the origin first. Cards, their
@@ -169,6 +171,7 @@ class DejaVroomViewModel(
     private val tripStore: TripStore = InMemoryTripStore(),
     private val searchSettings: SearchSettings = SearchSettings(),
     private val nowMillis: () -> Long = System::currentTimeMillis,
+    private val configProblem: String? = null,
 ) : ViewModel() {
     /** A trip that ended (arrived, or left alone for a day) is forgotten instead of being offered again. */
     private val savedTrip: Trip? = tripStore.load()?.takeUnless { it.isOver(nowMillis()) }.also { if (it == null) tripStore.clear() }
@@ -181,6 +184,7 @@ class DejaVroomViewModel(
             trip = savedTrip,
             recentSearches = recentSearchStore.all(),
             placeSearchAttribution = placeSearch.attribution,
+            configProblem = configProblem,
         ),
     )
 

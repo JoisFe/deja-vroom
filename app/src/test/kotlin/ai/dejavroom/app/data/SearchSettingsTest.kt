@@ -17,6 +17,13 @@ class SearchSettingsTest {
     }
 
     @Test
+    fun `the committed config file says what the code defaults say`() {
+        // A broken file falls back to these defaults, so a rehearsal must not behave differently when that happens.
+        val file = listOf("../config/search.yml", "config/search.yml").map(::File).first { it.exists() }
+        assertEquals(SearchSettings(), SearchSettings.fromYaml(file.readText()))
+    }
+
+    @Test
     fun `a missing file or a missing key keeps the defaults`() {
         assertEquals(SearchSettings(), SearchSettings.fromYaml(null))
         assertEquals(SearchSettings(destination = "코엑스"), SearchSettings.fromYaml("destination:\n  place: 코엑스\n"))

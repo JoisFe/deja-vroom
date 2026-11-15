@@ -20,6 +20,13 @@ class BriefingSettingsTest {
     }
 
     @Test
+    fun `the committed config file says what the code defaults say`() {
+        // A broken file falls back to these defaults, so a rehearsal must not behave differently when that happens.
+        val file = listOf("../config/briefing.yml", "config/briefing.yml").map(::File).first { it.exists() }
+        assertEquals(BriefingSettings(), BriefingSettings.fromYaml(file.readText()))
+    }
+
+    @Test
     fun `a missing file or a missing key keeps the defaults`() {
         assertEquals(BriefingSettings(), BriefingSettings.fromYaml(null))
         val partial = BriefingSettings.fromYaml("selection:\n  maxCards: 3\n")

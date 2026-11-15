@@ -149,6 +149,11 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
     val type = DejaVroomTheme.type
     val route = state.route
     val wordmark = type.bodyLarge.copy(fontWeight = FontWeight.Bold)
+    // A rehearsal edit to config/*.yml that broke the file must not go unnoticed; release builds never show it.
+    val configProblem = state.configProblem
+    if (BuildConfig.DEBUG && configProblem != null) {
+        Text(configProblem, Modifier.fillMaxWidth().padding(top = dimens.spaceXs), color = colors.warning, style = type.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
     if (compact) {
         Column(Modifier.fillMaxWidth().padding(vertical = dimens.spaceM)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -247,20 +252,25 @@ private fun roadViewConfig(app: android.app.Application): RoadViewConfig {
     )
 }
 
+/** Settings read from a config file, with [problem] saying why the file was ignored when it was. */
+private data class ConfigRead<T>(val settings: T, val problem: String? = null)
+
 /** config/briefing.yml (asset) → tuning values of the preview algorithm. A broken file falls back to the defaults. */
-private fun briefingSettings(app: android.app.Application): BriefingSettings = runCatching {
+private fun briefingSettings(app: android.app.Application): ConfigRead<BriefingSettings> = runCatching {
     BriefingSettings.fromYaml(app.assets.open(BriefingSettings.ASSET_NAME).bufferedReader().use { it.readText() })
-}.getOrElse { failure ->
-    android.util.Log.w("DejaVroomBriefing", "config/briefing.yml을 읽지 못해 기본값을 쓴다: ${failure.message}")
-    BriefingSettings()
+}.fold(onSuccess = { ConfigRead(it) }) { failure ->
+    val problem = "config/briefing.yml을 읽지 못해 기본값으로 실행한다: ${failure.message}"
+    android.util.Log.w("DejaVroomBriefing", problem)
+    ConfigRead(BriefingSettings(), problem)
 }
 
 /** config/search.yml (asset) → what the search screen starts with. A broken file falls back to the defaults. */
-private fun searchSettings(app: android.app.Application): SearchSettings = runCatching {
+private fun searchSettings(app: android.app.Application): ConfigRead<SearchSettings> = runCatching {
     SearchSettings.fromYaml(app.assets.open(SearchSettings.ASSET_NAME).bufferedReader().use { it.readText() })
-}.getOrElse { failure ->
-    android.util.Log.w("DejaVroomSearch", "config/search.yml을 읽지 못해 기본값을 쓴다: ${failure.message}")
-    SearchSettings()
+}.fold(onSuccess = { ConfigRead(it) }) { failure ->
+    val problem = "config/search.yml을 읽지 못해 기본값으로 실행한다: ${failure.message}"
+    android.util.Log.w("DejaVroomSearch", problem)
+    ConfigRead(SearchSettings(), problem)
 }
 
 /** Stores, the vehicle's navigation and the configs under config/ need the application, so the ViewModel is built with it. */
@@ -269,16 +279,18 @@ private val DejaVroomViewModelFactory = viewModelFactory {
         val app = checkNotNull(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY])
         val roadView = roadViewConfig(app)
         val search = searchSettings(app)
+        val briefing = briefingSettings(app)
         // config/search.yml picks the place search; the Kakao one lives on the same site as the road view.
-        val places = PlaceSearchFactory.create(search.placeSearch, roadView) { site -> KakaoPlaceSearchRepository(app, site) }
+        val places = PlaceSearchFactory.create(search.settings.placeSearch, roadView) { site -> KakaoPlaceSearchRepository(app, site) }
         DejaVroomViewModel(
-            repository = OsmRouteRepository(geocoder = places.geocoder, settings = briefingSettings(app)),
+            repository = OsmRouteRepository(geocoder = places.geocoder, settings = briefing.settings),
             roadViewProvider = RoadViewProviderFactory.create(roadView),
             placeSearch = places.suggestions,
             recentSearchStore = SharedPreferencesRecentSearchStore(app),
             currentLocation = PleosCurrentLocationRepository(app),
             tripStore = SharedPreferencesTripStore(app),
-            searchSettings = search,
+            searchSettings = search.settings,
+            configProblem = listOfNotNull(briefing.problem, search.problem).joinToString(" · ").ifEmpty { null },
         )
     }
 }
