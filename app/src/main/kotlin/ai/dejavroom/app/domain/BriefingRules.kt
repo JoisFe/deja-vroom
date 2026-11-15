@@ -2,10 +2,13 @@ package ai.dejavroom.app.domain
 
 /** How points are picked for a route. Tuned in config/briefing.yml (`selection:`). */
 data class SelectionRules(
-    /** Cards per route, the destination card included. */
-    val maxCards: Int = 5,
-    /** Below this a point is an easy one (a plain right turn, a merge); only the best pick may fall under it. */
+    /**
+     * Every point at or above this score is shown. Below it a point is an easy one (a plain right turn,
+     * a merge) and is left out; only the best pick of a route may fall under it.
+     */
     val minimumScore: Double = 0.2,
+    /** A ceiling for very long routes, the destination card included. The score decides, not this. */
+    val maxCards: Int = 12,
     /** Decisions closer than this along the route share one card. */
     val duplicateDistanceMeters: Double = 350.0,
     /** The surroundings of the origin are skipped: the driver already knows them. */
@@ -16,13 +19,15 @@ data class SelectionRules(
     val nearTieScore: Double = 0.05,
 ) {
     init {
-        require(maxCards in 1..5) { "selection.maxCards는 1~5여야 한다: $maxCards" }
+        require(maxCards in 1..MAX_CARDS_LIMIT) { "selection.maxCards는 1~$MAX_CARDS_LIMIT 이어야 한다: $maxCards" }
         require(minimumScore in 0.0..1.0) { "selection.minimumScore는 0~1이어야 한다: $minimumScore" }
         require(nearTieScore in 0.0..1.0) { "selection.nearTieScore는 0~1이어야 한다: $nearTieScore" }
         require(duplicateDistanceMeters >= 0.0 && departureGuardMeters >= 0.0 && arrivalZoneMeters >= 0.0) {
             "selection의 거리 값은 0 이상이어야 한다"
         }
     }
+
+    private companion object { const val MAX_CARDS_LIMIT = 30 }
 }
 
 /** How a single maneuver is read. Tuned in config/briefing.yml (`maneuver:`). */

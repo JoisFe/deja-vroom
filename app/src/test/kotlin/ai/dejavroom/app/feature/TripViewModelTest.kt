@@ -372,16 +372,6 @@ class TripViewModelTest {
     }
 
     @Test
-    fun `showing more points keeps the trip in step with the screen`() = runTest(dispatcher) {
-        val vm = viewModel()
-        vm.searchRoute()
-        advanceUntilIdle()
-        vm.showSegmentCount(5)
-        assertEquals(vm.state.value.shownSegments.map { it.id }, vm.state.value.trip!!.leg.map { it.id })
-        assertEquals(vm.state.value.trip, trips.load())
-    }
-
-    @Test
     fun `the car is asked once each time the app comes to the front and let go with the screen`() = runTest(dispatcher) {
         val vm = viewModel()
         assertEquals(0, location.askCount)

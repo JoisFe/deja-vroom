@@ -89,6 +89,18 @@ class RouteAnalyzerTest {
     }
 
     @Test
+    fun `every point above the score is shown, however many there are`() {
+        // 6 km with seven junctions 800 m apart that all matter, and one plain turn that does not.
+        val long = (0..120).map { GeoCoordinate(37.50 + it * 0.00045, 127.00) }
+        val worthSeeing = listOf(16, 32, 48, 64, 80, 96, 112).map { junction(it, geometry = long) }
+        val plain = junction(40, complexity = 0.3, errorCost = 0.0, geometry = long)
+        val segments = RouteAnalyzer().analyze(route(long), worthSeeing + plain)
+        assertEquals(listOf("j16", "j32", "j48", "j64", "j80", "j96", "j112"), segments.map { it.id })
+        // The ceiling only matters when a route would flood the screen.
+        assertEquals(3, RouteAnalyzer(selection = SelectionRules(maxCards = 3)).analyze(route(long), worthSeeing).size)
+    }
+
+    @Test
     fun `the destination card always has a place next to the best junction`() {
         val analyzer = RouteAnalyzer(selection = SelectionRules(maxCards = 2))
         val segments = analyzer.analyze(route(), listOf(exit(10), junction(20), junction(30, complexity = 0.9), arrival()))

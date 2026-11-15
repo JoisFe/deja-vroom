@@ -48,9 +48,7 @@ data class DejaVroomUiState(
     val originInput: String = "",
     val destinationInput: String = "",
     val route: RouteSnapshot? = null,
-    /** How many points the driver asked to see. */
-    val displayCount: Int = DEFAULT_DISPLAY_COUNT,
-    /** Position in [shownSegments], not in the full route. */
+    /** Position in [shownSegments]. */
     val segmentIndex: Int = 0,
     val screen: DejaVroomScreen = DejaVroomScreen.DESTINATION,
     val voiceEnabled: Boolean = true,
@@ -72,11 +70,11 @@ data class DejaVroomUiState(
     val locationNotice: LocationNotice? = null,
 ) {
     /**
-     * The points on screen: the [displayCount] most important ones, nearest to the origin first. Cards,
-     * their numbers and the previous/next buttons all walk this one list, so "2 / 3" means the same everywhere.
+     * The points on screen: every point picked for the route, nearest to the origin first. Cards, their
+     * numbers and the previous/next buttons all walk this one list, so "2 / 6" means the same everywhere.
      */
     val shownSegments: List<BriefingSegment>
-        get() = route?.mostImportantSegments(displayCount).orEmpty()
+        get() = route?.segments.orEmpty()
 
     /** Ids of the points on screen that are already behind the car. */
     val passedSegmentIds: Set<String>
@@ -89,11 +87,6 @@ data class DejaVroomUiState(
     /** The trip the search screen can pick up again: under way, and going where the destination field says. */
     val resumableTrip: Trip?
         get() = trip?.takeIf { !it.arrived && it.destination.name == destinationInput.trim() }
-
-    companion object {
-        const val DEFAULT_DISPLAY_COUNT = 3
-        val DISPLAY_COUNT_CHOICES = listOf(3, 5)
-    }
 }
 
 enum class SuggestionStatus { IDLE, LOADING, RESULTS, EMPTY, ERROR }
@@ -473,11 +466,10 @@ class DejaVroomViewModel(
      */
     private fun tripFor(route: RouteSnapshot, searched: DejaVroomUiState): Trip? {
         val end = route.geometry.lastOrNull()?.takeIf { route.geometry.size >= 2 } ?: return null
-        val shown = route.mostImportantSegments(searched.displayCount)
         val here = searched.originPlace?.takeIf { searched.startsFromCurrentLocation }?.coordinate
         val underWay = searched.trip?.takeIf { here != null && !it.isOver(nowMillis()) && it.isGoingTo(end) }
-        return underWay?.continuedWith(route.geometry, shown)
-            ?: Trip.startedWith(Place(route.destination, coordinate = end), route.geometry, shown, nowMillis())
+        return underWay?.continuedWith(route.geometry, route.segments)
+            ?: Trip.startedWith(Place(route.destination, coordinate = end), route.geometry, route.segments, nowMillis())
     }
 
     fun startBriefing() {
@@ -497,17 +489,6 @@ class DejaVroomViewModel(
         if (index !in state.value.shownSegments.indices) return
         speechController.stop()
         transition { it.copy(screen = DejaVroomScreen.ROADVIEW_TEST, segmentIndex = index) }
-    }
-
-    /** Shows the [count] most important points. The list changes, so the position starts over. */
-    fun showSegmentCount(count: Int) {
-        if (count !in DejaVroomUiState.DISPLAY_COUNT_CHOICES) return
-        mutableState.update { current ->
-            val resized = current.copy(displayCount = count, segmentIndex = 0)
-            // The trip remembers the points that were on screen, so it follows what is shown.
-            resized.copy(trip = current.trip?.takeIf { current.route != null }?.showing(resized.shownSegments) ?: current.trip)
-        }
-        state.value.trip?.let(tripStore::save)
     }
 
     fun openSelectedRoadView() = openSegmentRoadView(state.value.segmentIndex)

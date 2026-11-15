@@ -45,6 +45,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -80,6 +84,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
+import kotlin.math.ceil
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -94,14 +99,12 @@ internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, comp
     val openFromStart = { vm.openSegmentRoadView(state.nextSegmentIndex) }
     if (compact) {
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("미리 볼 곳 ${segments.size}곳 · 가는 순서", Modifier.weight(1f), color = DejaVroomTheme.colors.white, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                CandidateCountSelector(state.displayCount, vm::showSegmentCount)
-            }
+            Text("미리 볼 곳 ${segments.size}곳 · 가는 순서", color = DejaVroomTheme.colors.white, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             PassedStrip(state, vm::replanFromCurrentLocation, Modifier.padding(top = 8.dp))
             Spacer(Modifier.height(8.dp))
-            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                segments.forEachIndexed { index, segment ->
+            // Lazy, so only the cards on screen hold a road view of their own.
+            LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                itemsIndexed(segments, key = { _, segment -> segment.id }) { index, segment ->
                     SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = true, modifier = Modifier.fillMaxWidth().height(260.dp), passed = segment.id in passedIds, next = index == nextIndex, onClick = { vm.openSegmentRoadView(index) })
                 }
             }
@@ -122,20 +125,29 @@ internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, comp
                 Spacer(Modifier.height(5.dp))
                 Text("${segments.size}곳을 골랐습니다. 사진은 분기점에 닿기 전 지점에서 찍힌 모습입니다.", color = DejaVroomTheme.colors.muted, fontSize = 14.sp)
             }
-            CandidateCountSelector(state.displayCount, vm::showSegmentCount)
         }
         PassedStrip(state, vm::replanFromCurrentLocation, Modifier.padding(top = 8.dp))
         Spacer(Modifier.height(if (state.trip?.passed.isNullOrEmpty()) 21.dp else 9.dp))
-        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-            segments.forEachIndexed { index, segment ->
-                SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = false, modifier = Modifier.weight(1f), passed = segment.id in passedIds, next = index == nextIndex, onClick = { vm.openSegmentRoadView(index) })
+        val cards = rememberLazyListState()
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            // Cards that fit share the row. More than that scroll sideways, with the next one peeking in
+            // so it is plain there are more; only the cards on screen hold a road view of their own.
+            val fitting = ((maxWidth + CardGap) / (MinCardWidth + CardGap)).toInt().coerceAtLeast(1)
+            val across = if (segments.size <= fitting) segments.size.coerceAtLeast(1).toFloat() else fitting - CARD_PEEK
+            val cardWidth = (maxWidth - CardGap * (ceil(across).toInt() - 1)) / across
+            LazyRow(Modifier.fillMaxSize(), state = cards, horizontalArrangement = Arrangement.spacedBy(CardGap)) {
+                itemsIndexed(segments, key = { _, segment -> segment.id }) { index, segment ->
+                    SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = false, modifier = Modifier.width(cardWidth).fillParentMaxHeight(), passed = segment.id in passedIds, next = index == nextIndex, onClick = { vm.openSegmentRoadView(index) })
+                }
             }
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth().height(66.dp), verticalAlignment = Alignment.CenterVertically) {
             SecondaryButton(startLabel, Modifier.width(240.dp), onClick = openFromStart)
             Spacer(Modifier.weight(1f))
-            Text("●   ●   ●", color = DejaVroomTheme.colors.blue, fontSize = 13.sp)
+            if (cards.canScrollForward || cards.canScrollBackward) {
+                Text("옆으로 넘기면 ${segments.size}곳을 모두 볼 수 있습니다", color = DejaVroomTheme.colors.muted, fontSize = 13.sp)
+            }
             Spacer(Modifier.weight(1f))
             PrimaryButton("주행 시작", "›", Modifier.width(250.dp), vm::startNavigation)
         }
@@ -172,16 +184,9 @@ private fun PassedStrip(state: DejaVroomUiState, onReplan: () -> Unit, modifier:
     }
 }
 
-@Composable
-internal fun CandidateCountSelector(selectedCount: Int, onSelect: (Int) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        DejaVroomUiState.DISPLAY_COUNT_CHOICES.forEach { count ->
-            TextButton(onClick = { onSelect(count) }) {
-                Text("${count}개", color = if (selectedCount == count) DejaVroomTheme.colors.blueLight else DejaVroomTheme.colors.muted, fontWeight = if (selectedCount == count) FontWeight.Bold else FontWeight.Normal)
-            }
-        }
-    }
-}
+private val CardGap = 13.dp
+private val MinCardWidth = 230.dp
+private const val CARD_PEEK = 0.4f
 
 /**
  * [passed] dims a point the car has already gone by (it can still be opened); [next] marks the first

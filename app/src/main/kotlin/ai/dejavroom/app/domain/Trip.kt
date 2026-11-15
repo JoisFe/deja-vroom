@@ -84,9 +84,6 @@ data class Trip(
         return copy(leg = leg, route = thinned, passedBefore = behind, progressMeters = 0.0)
     }
 
-    /** The same leg with another set of points on screen: the driver asked to see more, or fewer. */
-    fun showing(shown: List<BriefingSegment>): Trip = copy(leg = checkpointsOn(route, shown))
-
     companion object {
         /** Beyond this the car is past a point, not just level with it or misplaced by the positioning. */
         private const val PASSED_MARGIN_METERS = 30.0

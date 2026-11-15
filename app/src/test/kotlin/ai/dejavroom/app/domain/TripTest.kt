@@ -107,15 +107,6 @@ class TripTest {
     }
 
     @Test
-    fun `showing more or fewer points keeps the progress`() {
-        val later = trip.advancedTo(north[24])
-        val more = later.showing(listOf(point("a", 10), point("m", 15), point("b", 20), point("n", 28), point("c", 30)))
-        assertEquals(listOf("a", "m", "b"), more.passed.map { it.id })
-        assertEquals(listOf("n", "c"), more.upcoming.map { it.id })
-        assertEquals(listOf("a"), later.showing(listOf(point("a", 10), point("c", 30))).passed.map { it.id })
-    }
-
-    @Test
     fun `the same destination is the same place give or take a road width`() {
         assertTrue(trip.isGoingTo(beside(40, 100.0)))
         assertFalse(trip.isGoingTo(north[20]))

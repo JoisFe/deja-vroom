@@ -57,18 +57,17 @@ class DejaVroomUiStateTest {
     private val rankedRoute = route.copy(segments = listOf(ranked("a", 4), ranked("b", 3), ranked("c", 1), ranked("d", 5), ranked("e", 2)))
 
     @Test
-    fun `the shown points are always in driving order whatever their rank`() {
-        assertEquals(listOf("b", "c", "e"), DejaVroomUiState(route = rankedRoute).shownSegments.map { it.id })
-        assertEquals(listOf("a", "b", "c", "d", "e"), DejaVroomUiState(route = rankedRoute, displayCount = 5).shownSegments.map { it.id })
+    fun `every picked point is shown, in driving order whatever its rank`() {
+        assertEquals(listOf("a", "b", "c", "d", "e"), DejaVroomUiState(route = rankedRoute).shownSegments.map { it.id })
     }
 
     @Test
     fun `positions count the shown points so numbers never skip`() {
-        // In the three-point view the cards are 1/3, 2/3, 3/3; stepping forward from the second reaches the third.
-        val state = DejaVroomUiState(route = rankedRoute, screen = DejaVroomScreen.BRIEFING, segmentIndex = 1)
-        assertEquals("c", state.shownSegments[state.segmentIndex].id)
+        // The cards are 1/5 … 5/5; stepping forward from the fourth reaches the fifth, and then the end.
+        val state = DejaVroomUiState(route = rankedRoute, screen = DejaVroomScreen.BRIEFING, segmentIndex = 3)
+        assertEquals("d", state.shownSegments[state.segmentIndex].id)
         val next = state.advancingBriefing()
-        assertEquals(2, next.segmentIndex)
+        assertEquals(4, next.segmentIndex)
         assertEquals("e", next.shownSegments[next.segmentIndex].id)
         assertEquals(DejaVroomScreen.COMPLETE, next.advancingBriefing().screen)
     }

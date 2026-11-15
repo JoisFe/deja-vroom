@@ -14,7 +14,8 @@ class BriefingSettingsTest {
     fun `the committed config file is valid`() {
         val file = listOf("../config/briefing.yml", "config/briefing.yml").map(::File).first { it.exists() }
         val settings = BriefingSettings.fromYaml(file.readText())
-        assertTrue(settings.selection.maxCards in 1..5)
+        assertTrue(settings.selection.maxCards in 1..30)
+        assertTrue(settings.selection.minimumScore in 0.0..1.0)
         assertTrue(settings.approach.minLeadMeters <= settings.approach.highwayMinLeadMeters)
     }
 
@@ -57,7 +58,7 @@ class BriefingSettingsTest {
         val unknownKey = assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("selection:\n  maxCard: 3\n") }
         assertTrue(unknownKey.message!!.contains("selection.maxCard"))
         assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("weights:\n  errorCost: high\n") }
-        assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("selection:\n  maxCards: 9\n") }
+        assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("selection:\n  maxCards: 99\n") }
         assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("approach:\n  minLeadMeters: 500\n") }
         // A drive needs a hop to the junction and a hop away from it.
         assertThrows(IllegalArgumentException::class.java) { BriefingSettings.fromYaml("approach:\n  driveMaxSteps: 1\n") }
