@@ -1,6 +1,6 @@
 # APK
 
-- 파일: `데자부름_데자부름_release.apk`
+- 파일: `deja_vroom_deja_vroom_release.apk`
 - 기준 소스: `f28c18b`의 앱 코드 (origin/main)
 - release 빌드이며 팀의 별도 키로 서명했습니다.
 - 로드뷰 및 장소 검색 페이지: `https://deja-vroom-roadview.vercel.app/roadview/`
