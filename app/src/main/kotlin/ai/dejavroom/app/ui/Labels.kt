@@ -7,7 +7,6 @@ import ai.dejavroom.app.core.designsystem.dejaVroomColors
 import ai.dejavroom.app.data.RoadViewLookupResult
 import ai.dejavroom.app.data.RoutePreviewFailure
 import ai.dejavroom.app.feature.DejaVroomScreen
-import ai.dejavroom.app.feature.DejaVroomUiState
 import ai.dejavroom.app.feature.DejaVroomViewModel
 import ai.dejavroom.app.feature.SearchProblem
 import ai.dejavroom.app.model.ApproachPhase
