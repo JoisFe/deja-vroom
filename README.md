@@ -29,7 +29,20 @@ Pleos Connect(Android Automotive) 차량 앱 · 현대자동차그룹 차량용 
 | 2:13 | 첫 장면의 갈림길을 다시 만나는 장면 |
 | 2:26 | 2차 심사까지 개발할 주행 중 안내(화면 시안)와 그다음 계획 |
 
-도로 영상과 효과음은 Wikimedia Commons의 CC0·퍼블릭 도메인 자료다([출처](scripts/demo-video/README.md#영상효과음-라이선스)). 영상을 다시 만드는 방법은 [scripts/demo-video](scripts/demo-video/README.md)에 있다.
+도로 영상과 효과음은 출처 표기 의무가 없는 Wikimedia Commons의 CC0·퍼블릭 도메인 자료다.
+
+<details>
+<summary>사용한 자료</summary>
+
+| 자료 | 라이선스 | 쓴 곳 |
+|---|---|---|
+| [Interchange 8 Pohjantie Oulu 20260307.webm](https://commons.wikimedia.org/wiki/File:Interchange_8_Pohjantie_Oulu_20260307.webm) | CC0 | 인트로 첫 장면 (항공 촬영 인터체인지) |
+| [Great Eastern Highway and Roe Highway interchange.ogv](https://commons.wikimedia.org/wiki/File:Great_Eastern_Highway_and_Roe_Highway_interchange.ogv) | CC0 | 첫 장면 도로, 마무리의 같은 출구 표지 |
+| [Distracted Driving Spot (1018169).webm](https://commons.wikimedia.org/wiki/File:Distracted_Driving_Spot_(1018169).webm) | Public domain | 첫 장면 운전자 실내 |
+| [Dashcam Recording (urban).ogv](https://commons.wikimedia.org/wiki/File:Dashcam_Recording_(urban).ogv) | CC0 | 인트로 도심 주행 |
+| [Car Horn.wav](https://commons.wikimedia.org/wiki/File:Car_Horn.wav) | CC0 | 첫 장면 뒤차 경적 |
+
+</details>
 
 ## 이름
 
