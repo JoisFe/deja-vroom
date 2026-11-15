@@ -23,7 +23,7 @@ class PlaceSearch(val suggestions: PlaceSearchRepository, val geocoder: Destinat
 class PlaceSearchGeocoder(private val search: PlaceSearchRepository) : DestinationGeocoder {
     override suspend fun resolve(query: String): GeocodedDestination {
         val best = search.suggest(query).firstOrNull { it.coordinate != null }
-            ?: error("장소를 찾지 못했습니다. 출발지와 목적지를 구체적으로 입력해 주세요.")
+            ?: throw RoutePreviewException(RoutePreviewFailure.PLACE_NOT_FOUND)
         return GeocodedDestination(requireNotNull(best.coordinate), best.name)
     }
 }

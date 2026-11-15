@@ -29,7 +29,7 @@ class PlaceSearchFactoryTest {
         assertEquals(GeocodedDestination(GeoCoordinate(37.4979, 127.0276), "강남역 2호선"), search.geocoder.resolve("강남역"))
         assertEquals(listOf("강남역"), kakaoStub.queries)
         val nothing = runCatching { search.geocoder.resolve("없는곳") }.exceptionOrNull()
-        assertTrue(nothing!!.message!!.contains("장소를 찾지 못했습니다"))
+        assertEquals(RoutePreviewFailure.PLACE_NOT_FOUND, (nothing as RoutePreviewException).reason)
     }
 
     @Test

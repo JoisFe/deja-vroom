@@ -5,9 +5,11 @@ import ai.dejavroom.app.R
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
 import ai.dejavroom.app.core.designsystem.dejaVroomColors
 import ai.dejavroom.app.data.RoadViewLookupResult
+import ai.dejavroom.app.data.RoutePreviewFailure
 import ai.dejavroom.app.feature.DejaVroomScreen
 import ai.dejavroom.app.feature.DejaVroomUiState
 import ai.dejavroom.app.feature.DejaVroomViewModel
+import ai.dejavroom.app.feature.SearchProblem
 import ai.dejavroom.app.model.ApproachPhase
 import ai.dejavroom.app.model.BriefingSegment
 import ai.dejavroom.app.model.ManeuverCue
@@ -76,6 +78,24 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+
+/** Why the route search did not end in cards, in the driver's words: never a service name or an error code. */
+internal fun searchProblemText(problem: SearchProblem): String = when (problem) {
+    is SearchProblem.RouteFailed -> routeFailureText(problem.reason)
+    // The setup hint says what to fix; without one, the driver is asked for a clearer place.
+    is SearchProblem.PlaceSearchUnavailable -> problem.hint?.takeIf { it.isNotBlank() } ?: routeFailureText(RoutePreviewFailure.PLACE_NOT_FOUND)
+}
+
+private fun routeFailureText(reason: RoutePreviewFailure): String = when (reason) {
+    RoutePreviewFailure.MISSING_ORIGIN -> "출발지를 입력하세요."
+    RoutePreviewFailure.MISSING_DESTINATION -> "목적지를 입력하세요."
+    RoutePreviewFailure.PLACE_NOT_FOUND -> "장소를 찾지 못했습니다. 출발지와 목적지를 구체적으로 입력해 주세요."
+    RoutePreviewFailure.NO_ROUTE -> "목적지까지 가는 길을 찾지 못했습니다."
+    RoutePreviewFailure.NOTHING_TO_PREVIEW -> "이 경로에서 미리 볼 지점을 찾지 못했습니다. 다른 목적지를 입력해 주세요."
+    RoutePreviewFailure.OFFLINE -> "인터넷에 연결되지 않았습니다. 연결을 확인한 뒤 다시 시도해 주세요."
+    RoutePreviewFailure.SERVICE_UNAVAILABLE -> "지금은 경로를 불러올 수 없습니다. 잠시 뒤 다시 시도해 주세요."
+    RoutePreviewFailure.UNEXPECTED -> "경로를 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요."
+}
 
 internal fun voiceLabel(state: DejaVroomUiState): String = when {
     !state.voiceEnabled -> "음성 안내 OFF"

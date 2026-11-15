@@ -6,6 +6,8 @@ import ai.dejavroom.app.data.FakePlaceSearchRepository
 import ai.dejavroom.app.data.InMemoryRecentSearchStore
 import ai.dejavroom.app.data.InMemoryTripStore
 import ai.dejavroom.app.data.PlaceSearchRepository
+import ai.dejavroom.app.data.RoutePreviewException
+import ai.dejavroom.app.data.RoutePreviewFailure
 import ai.dejavroom.app.data.RouteRepository
 import ai.dejavroom.app.data.SearchSettings
 import ai.dejavroom.app.data.UnconfiguredPlaceSearchRepository
@@ -55,7 +57,7 @@ class TripViewModelTest {
         override suspend fun preview(origin: String, destination: String) = error("string overload not expected")
         override suspend fun preview(origin: PlaceInput, destination: PlaceInput): RouteSnapshot {
             origins += origin
-            if (failNext) error("경로를 찾지 못했습니다.")
+            if (failNext) throw RoutePreviewException(RoutePreviewFailure.NO_ROUTE)
             val from = origin.resolvedPlace?.coordinate?.let { start -> road.indexOfFirst { it.latitude >= start.latitude } } ?: 0
             val to = if (destination.text.trim() == "코엑스") 32 else 40
             val ahead = listOf(10, 20, 30).filter { it > from + 1 && it < to }
@@ -378,7 +380,7 @@ class TripViewModelTest {
         vm.replanFromCurrentLocation()
         advanceUntilIdle()
         assertEquals(DejaVroomScreen.DESTINATION, vm.state.value.screen)
-        assertEquals("경로를 찾지 못했습니다.", vm.state.value.errorMessage)
+        assertEquals(SearchProblem.RouteFailed(RoutePreviewFailure.NO_ROUTE), vm.state.value.searchProblem)
         assertFalse(vm.state.value.isSearchingRoute)
     }
 

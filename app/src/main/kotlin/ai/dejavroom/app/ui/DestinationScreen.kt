@@ -173,9 +173,9 @@ internal fun DestinationForm(state: DejaVroomUiState, actions: DestinationAction
             }
         }
 
-        if (state.errorMessage != null) {
+        state.searchProblem?.let { problem ->
             Spacer(Modifier.height(dimens.spaceS))
-            Text(state.errorMessage, color = colors.error, style = type.labelMedium)
+            Text(searchProblemText(problem), color = colors.error, style = type.labelMedium)
         }
 
         if (state.activeField == null) {

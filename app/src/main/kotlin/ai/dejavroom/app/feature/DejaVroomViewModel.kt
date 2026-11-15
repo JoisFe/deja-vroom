@@ -23,6 +23,8 @@ import ai.dejavroom.app.data.RoadViewTarget
 import ai.dejavroom.app.data.RoadViewUnavailableReason
 import ai.dejavroom.app.model.BriefingSegment
 import ai.dejavroom.app.model.GeoCoordinate
+import ai.dejavroom.app.data.RoutePreviewException
+import ai.dejavroom.app.data.RoutePreviewFailure
 import ai.dejavroom.app.data.RouteRepository
 import ai.dejavroom.app.model.RouteSnapshot
 import ai.dejavroom.app.model.Place
@@ -54,7 +56,8 @@ data class DejaVroomUiState(
     val screen: DejaVroomScreen = DejaVroomScreen.DESTINATION,
     val voiceEnabled: Boolean = true,
     val voiceOutputAvailable: Boolean = false,
-    val errorMessage: String? = null,
+    /** Why the last route search did not end in cards; cleared by the next edit or search. */
+    val searchProblem: SearchProblem? = null,
     val roadViewLookups: Map<String, RoadViewLookupResult> = emptyMap(),
     val roadViewIndices: Map<String, Int> = emptyMap(),
     val isDrivingRestricted: Boolean = false,
@@ -108,6 +111,14 @@ enum class LocationNotice {
     }
 }
 
+/** Why the last route search did not end in cards. */
+sealed interface SearchProblem {
+    data class RouteFailed(val reason: RoutePreviewFailure) : SearchProblem
+
+    /** The place search that was asked to resolve typed text cannot answer; [hint] says what to set up. */
+    data class PlaceSearchUnavailable(val hint: String?) : SearchProblem
+}
+
 /** Suggestions for one field. Previous [items] stay visible while loading so the list does not jump. */
 data class SuggestionState(
     val field: SearchField? = null,
@@ -124,17 +135,17 @@ internal fun DejaVroomUiState.inputOf(field: SearchField) =
 /** Back to the search screen with both inputs kept, so the user can tweak one field and search again. */
 internal fun DejaVroomUiState.editingRoute(): DejaVroomUiState =
     if (isDrivingRestricted) this
-    else copy(screen = DejaVroomScreen.DESTINATION, activeField = null, suggestions = SuggestionState(), errorMessage = null)
+    else copy(screen = DejaVroomScreen.DESTINATION, activeField = null, suggestions = SuggestionState(), searchProblem = null)
 
 internal fun DejaVroomUiState.swappingFields(): DejaVroomUiState = copy(
     originInput = destinationInput, destinationInput = originInput,
     originPlace = destinationPlace, destinationPlace = originPlace,
-    suggestions = SuggestionState(), errorMessage = null, locationNotice = null,
+    suggestions = SuggestionState(), searchProblem = null, locationNotice = null,
 )
 
 /** The origin field showing where the car is. */
 internal fun DejaVroomUiState.startingFrom(here: Place): DejaVroomUiState =
-    copy(originInput = here.name, originPlace = here, locationNotice = null, errorMessage = null)
+    copy(originInput = here.name, originPlace = here, locationNotice = null, searchProblem = null)
 
 /** True while the origin field still shows the car's position as it was read. */
 internal val DejaVroomUiState.startsFromCurrentLocation: Boolean
@@ -247,7 +258,7 @@ class DejaVroomViewModel(
             when (field) {
                 SearchField.ORIGIN -> it.copy(originInput = text, originPlace = null, locationNotice = null)
                 SearchField.DESTINATION -> it.copy(destinationInput = text, destinationPlace = null)
-            }.copy(activeField = field, errorMessage = null)
+            }.copy(activeField = field, searchProblem = null)
         }
         requestSuggestions(field, text)
     }
@@ -280,7 +291,7 @@ class DejaVroomViewModel(
             when (field) {
                 SearchField.ORIGIN -> it.copy(originInput = place.name, originPlace = place, locationNotice = null)
                 SearchField.DESTINATION -> it.withCarOriginRestored().copy(destinationInput = place.name, destinationPlace = place)
-            }.copy(activeField = null, suggestions = SuggestionState(), errorMessage = null)
+            }.copy(activeField = null, suggestions = SuggestionState(), searchProblem = null)
         }
     }
 
@@ -425,7 +436,7 @@ class DejaVroomViewModel(
 
     /** True when a route was found and its cards are on screen. */
     private suspend fun searchRouteNow(): Boolean {
-        mutableState.update { it.withCarOriginRestored().copy(isSearchingRoute = true, errorMessage = null) }
+        mutableState.update { it.withCarOriginRestored().copy(isSearchingRoute = true, searchProblem = null) }
         return try {
             // The car may have moved since its position was read, so a route from it starts with a fresh read.
             if (state.value.startsFromCurrentLocation) (locate() as? Here.At)?.place?.let { here ->
@@ -463,10 +474,19 @@ class DejaVroomViewModel(
             true
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (failure: Exception) {
-            mutableState.update { it.copy(isSearchingRoute = false, errorMessage = failure.message ?: "실제 경로와 교차로를 분석하지 못했습니다.") }
-            false
+        } catch (failure: RoutePreviewException) {
+            failedWith(SearchProblem.RouteFailed(failure.reason))
+        } catch (unavailable: PlaceSearchUnavailableException) {
+            failedWith(SearchProblem.PlaceSearchUnavailable(unavailable.message))
+        } catch (_: Exception) {
+            // Whatever else went wrong, its text is not for the driver.
+            failedWith(SearchProblem.RouteFailed(RoutePreviewFailure.UNEXPECTED))
         }
+    }
+
+    private fun failedWith(problem: SearchProblem): Boolean {
+        mutableState.update { it.copy(isSearchingRoute = false, searchProblem = problem) }
+        return false
     }
 
     /**

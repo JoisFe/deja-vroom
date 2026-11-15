@@ -12,7 +12,11 @@ import ai.dejavroom.app.model.SegmentType
 interface RouteRepository {
     suspend fun preview(origin: String, destination: String): RouteSnapshot
 
-    /** Uses a place picked from suggestions when available, so the route does not re-geocode it. */
+    /**
+     * Uses a place picked from suggestions when available, so the route does not re-geocode it.
+     * Throws [RoutePreviewException] for everything that goes wrong, except [PlaceSearchUnavailableException]
+     * (the place search's setup hint) and cancellation.
+     */
     suspend fun preview(origin: PlaceInput, destination: PlaceInput): RouteSnapshot =
         preview(origin.text, destination.text)
 }
