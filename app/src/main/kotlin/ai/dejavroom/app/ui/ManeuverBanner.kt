@@ -1,5 +1,7 @@
 package ai.dejavroom.app.ui
 
+import ai.dejavroom.app.core.designsystem.DejaVroomTheme
+import ai.dejavroom.app.core.designsystem.PhotoOverlay
 import ai.dejavroom.app.model.ApproachPhase
 import ai.dejavroom.app.model.ManeuverCue
 import androidx.compose.animation.core.Spring
@@ -23,24 +25,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
-private val ArrivalColor = Color(0xFFFF8A1F)
-private val BannerCalmColor = Color(0xEB0B1730)
 private const val ARRIVAL_FADE_MS = 280
 private const val ARRIVAL_GROWTH = 0.18f
 
 /** Reaching the point lights up the whole road view, not just the banner. */
 @Composable
 internal fun ArrivalFrame(atPoint: Boolean, modifier: Modifier = Modifier) {
+    val dimens = DejaVroomTheme.dimens
+    val arrivalColor = DejaVroomTheme.colors.marker
     val glow by animateFloatAsState(if (atPoint) 1f else 0f, tween(ARRIVAL_FADE_MS), label = "arrival-frame")
-    if (glow > 0f) Box(modifier.border(6.dp, ArrivalColor.copy(alpha = glow), RoundedCornerShape(16.dp)))
+    // The corners are those of the photo box the frame is drawn on.
+    if (glow > 0f) Box(modifier.border(dimens.dp(8), arrivalColor.copy(alpha = glow), RoundedCornerShape(dimens.radiusLarge)))
 }
 
 /**
@@ -50,6 +50,12 @@ internal fun ArrivalFrame(atPoint: Boolean, modifier: Modifier = Modifier) {
  */
 @Composable
 internal fun ManeuverBanner(cue: ManeuverCue, remainingMeters: Int?, modifier: Modifier = Modifier) {
+    val type = DejaVroomTheme.type
+    val dimens = DejaVroomTheme.dimens
+    // On the way the banner wears the fixed colors of a label over a photo; on the point, the marker orange.
+    val arrivalColor = DejaVroomTheme.colors.marker
+    // Dark on the orange: white on it does not reach the 4.5:1 contrast.
+    val onArrivalColor = DejaVroomTheme.colors.onMarker
     val atPoint = ApproachPhase.at(remainingMeters) == ApproachPhase.AT_POINT
     // 0 on the way and once past, 1 on the point.
     val emphasis by animateFloatAsState(
@@ -68,18 +74,18 @@ internal fun ManeuverBanner(cue: ManeuverCue, remainingMeters: Int?, modifier: M
                 scaleX = scale
                 scaleY = scale
             }
-            .clip(RoundedCornerShape(22.dp))
-            .background(lerp(BannerCalmColor, ArrivalColor, tint))
-            .padding(start = 10.dp, end = 20.dp, top = 8.dp, bottom = 8.dp),
+            .clip(CircleShape)
+            .background(lerp(PhotoOverlay.scrim, arrivalColor, tint))
+            .padding(start = dimens.spaceS, end = dimens.spaceXl, top = dimens.dp(10), bottom = dimens.dp(10)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(54.dp).background(lerp(Color(0xFF1F6BFF), Color.White, tint), CircleShape), contentAlignment = Alignment.Center) {
-            DirectionArrow(cue.direction, Modifier.size(34.dp), lerp(Color.White, ArrivalColor, tint))
+        Box(Modifier.size(dimens.dp(68)).background(lerp(PhotoOverlay.badge, onArrivalColor, tint), CircleShape), contentAlignment = Alignment.Center) {
+            DirectionArrow(cue.direction, Modifier.size(dimens.dp(40)), lerp(PhotoOverlay.onScrim, arrivalColor, tint))
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(dimens.spaceM))
         Column {
-            Text(bannerTitle(cue, remainingMeters), color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            if (cue.sign.isNotBlank()) Text("표지 ${cue.sign}", color = lerp(Color(0xFFCFE0FF), Color.White, tint), fontSize = 15.sp, maxLines = 1)
+            Text(bannerTitle(cue, remainingMeters), color = lerp(PhotoOverlay.onScrim, onArrivalColor, tint), style = type.bodyLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+            if (cue.sign.isNotBlank()) Text("표지 ${cue.sign}", color = lerp(PhotoOverlay.onScrimVariant, onArrivalColor, tint), style = type.labelMedium, maxLines = 1)
         }
     }
 }
