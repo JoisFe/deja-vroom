@@ -179,7 +179,7 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
             if (route != null) {
                 Spacer(Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("${route.origin}  ›  ${route.destination}     약 ${route.durationMinutes}분 · ${route.distanceKm}km · ${routeSourceLabel(route.source)}", Modifier.weight(1f), color = DejaVroomTheme.colors.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${route.origin}  ›  ${route.destination}     약 ${route.durationMinutes}분 · ${route.distanceKm}km", Modifier.weight(1f), color = DejaVroomTheme.colors.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (state.screen != DejaVroomScreen.DESTINATION) EditRouteButton(vm::editRoute)
                 }
             } else if (BuildConfig.DEBUG) {
@@ -214,7 +214,7 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
             Spacer(Modifier.width(16.dp))
             Text("⌑", color = DejaVroomTheme.colors.blue, fontSize = 18.sp)
             Spacer(Modifier.width(7.dp))
-            Text("약 ${route.durationMinutes}분 · ${route.distanceKm}km · ${routeSourceLabel(route.source)}", color = DejaVroomTheme.colors.white, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text("약 ${route.durationMinutes}분 · ${route.distanceKm}km", color = DejaVroomTheme.colors.white, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             if (state.screen != DejaVroomScreen.DESTINATION) {
                 Spacer(Modifier.width(12.dp))
                 EditRouteButton(vm::editRoute)

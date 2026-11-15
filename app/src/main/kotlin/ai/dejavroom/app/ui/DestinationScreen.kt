@@ -444,7 +444,8 @@ internal fun RouteAnalysisPreview(modifier: Modifier = Modifier) {
 
 @Composable
 internal fun RouteDataAttribution() {
-    Text("경로·도로 그래프: OpenStreetMap / OSRM 개발 서비스 · 추천 검색어: Photon · 복잡도는 차로·현재 위험도 의미가 아닙니다.", color = DejaVroomTheme.colors.dim, fontSize = 11.sp, lineHeight = 14.sp)
+    // The one line the map data's licence asks for; which services compute the route is not the driver's concern.
+    Text("지도 데이터 © OpenStreetMap contributors", color = DejaVroomTheme.colors.dim, fontSize = 11.sp, lineHeight = 14.sp)
 }
 
 @Composable

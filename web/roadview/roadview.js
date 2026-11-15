@@ -337,7 +337,7 @@
     overlay.setMap(roadview);
     routeOverlays.push(overlay);
     // The app shows the maneuver, the distance and the sign in its own banner over this page.
-    document.getElementById("attribution").textContent = "Kakao Maps · © OpenStreetMap contributors · ODbL 1.0 · OSRM";
+    document.getElementById("attribution").textContent = "Kakao Maps · © OpenStreetMap contributors";
     send(`route-candidate-selected:${config.selectedCandidateIndex}`);
   }
 
