@@ -1,0 +1,11 @@
+# 검색 화면이 처음 열릴 때의 출발지와 목적지.
+# 고치고 다시 빌드하면 적용된다. 설명: docs/pleos-sdk.md
+
+origin:
+  # current = 차량의 현재 위치를 출발지로 쓴다(Pleos NaviHelper). 받지 못하면 아래 place를 쓴다
+  # place   = 항상 아래 place를 쓴다. 시연 녹화처럼 출발지를 고정할 때 쓴다
+  source: current
+  place: 수원시 영통구
+
+destination:
+  place: 강남역

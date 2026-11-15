@@ -4,11 +4,16 @@ import ai.dejavroom.app.BuildConfig
 import ai.dejavroom.app.data.RoadViewConfig
 import ai.dejavroom.app.data.BriefingSettings
 import ai.dejavroom.app.data.OsmRouteRepository
+import ai.dejavroom.app.data.PleosCurrentLocationRepository
+import ai.dejavroom.app.data.SearchDefaults
+import ai.dejavroom.app.data.SharedPreferencesTripStore
 import ai.dejavroom.app.data.RoadViewProviderFactory
 import ai.dejavroom.app.R
 import ai.dejavroom.app.data.SharedPreferencesRecentSearchStore
 import androidx.compose.foundation.layout.heightIn
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
@@ -89,6 +94,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 internal fun DejaVroomApp(darkTheme: Boolean, vm: DejaVroomViewModel = viewModel(factory = DejaVroomViewModelFactory)) {
     val state by vm.state.collectAsStateWithLifecycle()
+    // Every time the app comes to the front (first start, or again at a rest area) it asks where the car is.
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { vm.onAppForegrounded() }
     DejaVroomTheme(darkTheme) {
         Surface(Modifier.fillMaxSize(), color = DejaVroomTheme.colors.background) {
             if (state.isDrivingRestricted) {
@@ -252,6 +259,7 @@ private fun DejaVroomViewModel.destinationActions() = DestinationActions(
     onFocus = ::focusField,
     onClear = ::clearField,
     onSwap = ::swapFields,
+    onUseCurrentLocation = ::useCurrentLocation,
     onSelectPlace = { field, place -> selectPlace(field, place) },
     onRemoveRecent = ::removeRecent,
     onClearRecents = ::clearRecents,
@@ -279,7 +287,15 @@ private fun briefingSettings(app: android.app.Application): BriefingSettings = r
     BriefingSettings()
 }
 
-/** Recent searches and the configs under config/ need the application, so the ViewModel is built with it. */
+/** config/search.yml (asset) → what the search screen starts with. A broken file falls back to the defaults. */
+private fun searchDefaults(app: android.app.Application): SearchDefaults = runCatching {
+    SearchDefaults.fromYaml(app.assets.open(SearchDefaults.ASSET_NAME).bufferedReader().use { it.readText() })
+}.getOrElse { failure ->
+    android.util.Log.w("DejaVroomSearch", "config/search.yml을 읽지 못해 기본값을 쓴다: ${failure.message}")
+    SearchDefaults()
+}
+
+/** Stores, the vehicle's navigation and the configs under config/ need the application, so the ViewModel is built with it. */
 private val DejaVroomViewModelFactory = viewModelFactory {
     initializer {
         val app = checkNotNull(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY])
@@ -287,6 +303,9 @@ private val DejaVroomViewModelFactory = viewModelFactory {
             repository = OsmRouteRepository(settings = briefingSettings(app)),
             roadViewProvider = RoadViewProviderFactory.create(roadViewConfig(app)),
             recentSearchStore = SharedPreferencesRecentSearchStore(app),
+            currentLocation = PleosCurrentLocationRepository(app),
+            tripStore = SharedPreferencesTripStore(app),
+            searchDefaults = searchDefaults(app),
         )
     }
 }

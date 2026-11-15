@@ -6,6 +6,7 @@ activityCompose = "1.10.0"
 lifecycle = "2.8.7"
 core = "1.15.0"
 webkit = "1.18.0"
+pleosNaviHelper = "3.0.5"
 junit = "4.13.2"
 coroutinesTest = "1.8.1"
 orgJson = "20240303"
@@ -15,6 +16,7 @@ espresso = "3.6.1"
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core" }
 androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "webkit" }
+pleos-navi-helper = { module = "ai.pleos.playground:NaviHelper", version.ref = "pleosNaviHelper" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }

@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -61,6 +62,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -85,21 +87,27 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, compact: Boolean) {
     val route = state.route ?: return
     val segments = state.shownSegments
+    // What the trip says is already behind the car; the first point after those is the next one to meet.
+    val passedIds = state.passedSegmentIds
+    val nextIndex = state.nextSegmentIndex.takeIf { state.trip?.passed?.isNotEmpty() == true && segments.getOrNull(it)?.id !in passedIds }
+    val startLabel = if (nextIndex != null && nextIndex > 0) "다음 지점부터 보기" else "처음부터 보기"
+    val openFromStart = { vm.openSegmentRoadView(state.nextSegmentIndex) }
     if (compact) {
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("미리 볼 곳 ${segments.size}곳 · 가는 순서", Modifier.weight(1f), color = DejaVroomTheme.colors.white, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 CandidateCountSelector(state.displayCount, vm::showSegmentCount)
             }
+            PassedStrip(state, vm::replanFromCurrentLocation, Modifier.padding(top = 8.dp))
             Spacer(Modifier.height(8.dp))
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 segments.forEachIndexed { index, segment ->
-                    SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = true, modifier = Modifier.fillMaxWidth().height(260.dp), onClick = { vm.openSegmentRoadView(index) })
+                    SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = true, modifier = Modifier.fillMaxWidth().height(260.dp), passed = segment.id in passedIds, next = index == nextIndex, onClick = { vm.openSegmentRoadView(index) })
                 }
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth().height(54.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton("처음부터 보기", Modifier.weight(1f), onClick = { vm.openSegmentRoadView(0) })
+                SecondaryButton(startLabel, Modifier.weight(1f), onClick = openFromStart)
                 PrimaryButton("주행 시작", "›", Modifier.weight(1f), vm::startNavigation)
             }
         }
@@ -116,19 +124,50 @@ internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, comp
             }
             CandidateCountSelector(state.displayCount, vm::showSegmentCount)
         }
-        Spacer(Modifier.height(21.dp))
+        PassedStrip(state, vm::replanFromCurrentLocation, Modifier.padding(top = 8.dp))
+        Spacer(Modifier.height(if (state.trip?.passed.isNullOrEmpty()) 21.dp else 9.dp))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(13.dp)) {
             segments.forEachIndexed { index, segment ->
-                SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = false, modifier = Modifier.weight(1f), onClick = { vm.openSegmentRoadView(index) })
+                SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = false, modifier = Modifier.weight(1f), passed = segment.id in passedIds, next = index == nextIndex, onClick = { vm.openSegmentRoadView(index) })
             }
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth().height(66.dp), verticalAlignment = Alignment.CenterVertically) {
-            SecondaryButton("처음부터 보기", Modifier.width(240.dp), onClick = { vm.openSegmentRoadView(0) })
+            SecondaryButton(startLabel, Modifier.width(240.dp), onClick = openFromStart)
             Spacer(Modifier.weight(1f))
             Text("●   ●   ●", color = DejaVroomTheme.colors.blue, fontSize = 13.sp)
             Spacer(Modifier.weight(1f))
             PrimaryButton("주행 시작", "›", Modifier.width(250.dp), vm::startNavigation)
+        }
+    }
+}
+
+/**
+ * What is already behind the car on this trip, in one line. Once the car has moved along the cards on
+ * screen, the rest of the way can be planned again from where it is now.
+ */
+@Composable
+private fun PassedStrip(state: DejaVroomUiState, onReplan: () -> Unit, modifier: Modifier = Modifier) {
+    val passed = state.trip?.passed.orEmpty()
+    if (passed.isEmpty()) return
+    val working = state.isLocating || state.isSearchingRoute
+    Row(
+        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(14.dp)).background(DejaVroomTheme.colors.panel).padding(start = 14.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("✓", color = DejaVroomTheme.colors.green, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.width(9.dp))
+        Text(passedLine(passed), Modifier.weight(1f), color = DejaVroomTheme.colors.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (state.passedSegmentIds.isNotEmpty()) {
+            TextButton(onClick = onReplan, enabled = !working, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(
+                    if (working) "다시 찾는 중…" else "현재 위치에서 다시 찾기",
+                    color = if (working) DejaVroomTheme.colors.muted else DejaVroomTheme.colors.blue,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }
@@ -144,14 +183,33 @@ internal fun CandidateCountSelector(selectedCount: Int, onSelect: (Int) -> Unit)
     }
 }
 
+/**
+ * [passed] dims a point the car has already gone by (it can still be opened); [next] marks the first
+ * one still ahead, so a driver coming back to the app sees where they are in the list.
+ */
 @Composable
-internal fun SegmentCard(number: Int, total: Int, segment: BriefingSegment, lookup: RoadViewLookupResult?, compact: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun SegmentCard(
+    number: Int,
+    total: Int,
+    segment: BriefingSegment,
+    lookup: RoadViewLookupResult?,
+    compact: Boolean,
+    modifier: Modifier = Modifier,
+    passed: Boolean = false,
+    next: Boolean = false,
+    onClick: () -> Unit,
+) {
     val tint = when (number) { 2 -> DejaVroomTheme.colors.violet; 3 -> DejaVroomTheme.colors.teal; else -> DejaVroomTheme.colors.blue }
-    Column(modifier.clip(RoundedCornerShape(22.dp)).background(DejaVroomTheme.colors.panel).border(1.dp, DejaVroomTheme.colors.stroke.copy(alpha = .8f), RoundedCornerShape(22.dp)).clickable(onClick = onClick)) {
+    val chipTint = if (passed) DejaVroomTheme.colors.muted else tint
+    Column(modifier.alpha(if (passed) .5f else 1f).clip(RoundedCornerShape(22.dp)).background(DejaVroomTheme.colors.panel).border(1.dp, DejaVroomTheme.colors.stroke.copy(alpha = .8f), RoundedCornerShape(22.dp)).clickable(onClick = onClick)) {
         Row(Modifier.fillMaxWidth().height(50.dp).padding(horizontal = 13.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("$number / $total", color = DejaVroomTheme.colors.white, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            if (next) {
+                Spacer(Modifier.width(8.dp))
+                Text("다음", Modifier.background(DejaVroomTheme.colors.blue, CircleShape).padding(horizontal = 9.dp, vertical = 4.dp), color = DejaVroomTheme.colors.onPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
             Spacer(Modifier.weight(1f))
-            Text(segment.type.label, Modifier.background(tint.copy(alpha = .10f), CircleShape).padding(horizontal = 11.dp, vertical = 7.dp), color = tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(if (passed) "✓ 지나옴" else segment.type.label, Modifier.background(chipTint.copy(alpha = .10f), CircleShape).padding(horizontal = 11.dp, vertical = 7.dp), color = chipTint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Box(Modifier.fillMaxWidth().height(if (compact) 140.dp else 300.dp)) {
             RoadViewThumbnail(lookup, compact, Modifier.fillMaxSize())

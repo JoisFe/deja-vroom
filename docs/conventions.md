@@ -23,7 +23,7 @@
 | 주행 중 화면은 `CarUxRestrictions`를 따른다 | 주행 중 키보드·영상 금지 |
 | 코루틴은 `viewModelScope` / 주입한 `CoroutineDispatcher` | `GlobalScope` 금지 |
 | 도메인 판단은 도메인 타입의 행동으로 둔다 (Rich domain model) | `observation.assess()`, `candidate.scoreWith(weights)` |
-| 시연하며 바꿀 값은 규칙 객체로 묶어 주입하고 `config/*.yml`에서 읽는다. 정의에 가까운 값만 상수로 둔다 | `SelectionRules`, `ApproachPolicy` ← `config/briefing.yml` |
+| 시연하며 바꿀 값은 규칙 객체로 묶어 주입하고 `config/*.yml`에서 읽는다. 정의에 가까운 값만 상수로 둔다 | `SelectionRules`, `ApproachPolicy` ← `config/briefing.yml`, `SearchDefaults` ← `config/search.yml` |
 
 ## 패키지
 
