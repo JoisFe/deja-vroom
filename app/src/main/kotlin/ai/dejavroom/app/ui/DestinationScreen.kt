@@ -1,7 +1,6 @@
 package ai.dejavroom.app.ui
 
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
-import ai.dejavroom.app.data.PHOTON_ATTRIBUTION
 import ai.dejavroom.app.feature.DejaVroomUiState
 import ai.dejavroom.app.feature.SuggestionStatus
 import ai.dejavroom.app.feature.inputOf
@@ -317,7 +316,7 @@ private fun SuggestionPanel(state: DejaVroomUiState, actions: DestinationActions
                     query.length < 2 -> "두 글자 이상 입력하면 추천 검색어가 나옵니다"
                     suggestions?.status == SuggestionStatus.LOADING -> "추천 검색어 찾는 중…"
                     suggestions?.status == SuggestionStatus.EMPTY -> "추천 결과가 없습니다. 입력한 그대로 검색할 수 있습니다"
-                    suggestions?.status == SuggestionStatus.ERROR -> "추천 검색어를 불러오지 못했습니다. 입력한 그대로 검색할 수 있습니다"
+                    suggestions?.status == SuggestionStatus.ERROR -> suggestions.problem ?: "추천 검색어를 불러오지 못했습니다. 입력한 그대로 검색할 수 있습니다"
                     else -> "추천 검색어"
                 },
                 color = if (suggestions?.status == SuggestionStatus.ERROR) DejaVroomTheme.colors.error else DejaVroomTheme.colors.muted,
@@ -334,8 +333,8 @@ private fun SuggestionPanel(state: DejaVroomUiState, actions: DestinationActions
                 onClick = { actions.onSelectPlace(field, place) },
             )
         }
-        if (suggestions?.items.orEmpty().isNotEmpty()) {
-            Text(PHOTON_ATTRIBUTION, color = DejaVroomTheme.colors.dim, fontSize = 10.sp, modifier = Modifier.padding(horizontal = Spacing.m, vertical = 4.dp))
+        if (suggestions?.items.orEmpty().isNotEmpty() && state.placeSearchAttribution.isNotBlank()) {
+            Text(state.placeSearchAttribution, color = DejaVroomTheme.colors.dim, fontSize = 10.sp, modifier = Modifier.padding(horizontal = Spacing.m, vertical = 4.dp))
         }
     }
 }

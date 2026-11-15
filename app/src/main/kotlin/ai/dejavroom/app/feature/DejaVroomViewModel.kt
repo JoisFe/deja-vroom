@@ -7,7 +7,7 @@ import ai.dejavroom.app.data.CurrentLocationRepository
 import ai.dejavroom.app.data.InMemoryTripStore
 import ai.dejavroom.app.data.NoCurrentLocationRepository
 import ai.dejavroom.app.data.OsmRouteRepository
-import ai.dejavroom.app.data.SearchDefaults
+import ai.dejavroom.app.data.SearchSettings
 import ai.dejavroom.app.data.TripStore
 import ai.dejavroom.app.domain.Trip
 import ai.dejavroom.app.model.ServiceArea
@@ -31,6 +31,7 @@ import ai.dejavroom.app.model.SearchField
 import ai.dejavroom.app.data.InMemoryRecentSearchStore
 import ai.dejavroom.app.data.PhotonPlaceSearchRepository
 import ai.dejavroom.app.data.PlaceSearchRepository
+import ai.dejavroom.app.data.PlaceSearchUnavailableException
 import ai.dejavroom.app.data.RecentSearchStore
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
@@ -68,6 +69,8 @@ data class DejaVroomUiState(
     val isLocating: Boolean = false,
     /** Why the origin could not be set to where the car is; shown until the next attempt. */
     val locationNotice: LocationNotice? = null,
+    /** Whose data the place suggestions are; shown under them. */
+    val placeSearchAttribution: String = "",
 ) {
     /**
      * The points on screen: every point picked for the route, nearest to the origin first. Cards, their
@@ -111,6 +114,8 @@ data class SuggestionState(
     val query: String = "",
     val status: SuggestionStatus = SuggestionStatus.IDLE,
     val items: List<Place> = emptyList(),
+    /** With [SuggestionStatus.ERROR]: what the place search said is wrong, when it said anything. */
+    val problem: String? = null,
 )
 
 internal fun DejaVroomUiState.inputOf(field: SearchField) =
@@ -187,7 +192,7 @@ class DejaVroomViewModel(
     private val suggestionDebounceMillis: Long = 300,
     private val currentLocation: CurrentLocationRepository = NoCurrentLocationRepository,
     private val tripStore: TripStore = InMemoryTripStore(),
-    private val searchDefaults: SearchDefaults = SearchDefaults(),
+    private val searchSettings: SearchSettings = SearchSettings(),
     private val nowMillis: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
     private val speechController = BriefingSpeechController(speechOutput)
@@ -196,13 +201,14 @@ class DejaVroomViewModel(
     private val savedTrip: Trip? = tripStore.load()?.takeUnless { it.isOver(nowMillis()) }.also { if (it == null) tripStore.clear() }
     private val mutableState = MutableStateFlow(
         DejaVroomUiState(
-            originInput = searchDefaults.origin,
+            originInput = searchSettings.origin,
             // A trip still under way comes back with its destination already filled in.
-            destinationInput = savedTrip?.destination?.name ?: searchDefaults.destination,
+            destinationInput = savedTrip?.destination?.name ?: searchSettings.destination,
             destinationPlace = savedTrip?.destination,
             trip = savedTrip,
             voiceOutputAvailable = speechOutput.outputAvailable,
             recentSearches = recentSearchStore.all(),
+            placeSearchAttribution = placeSearch.attribution,
         ),
     )
 
@@ -219,6 +225,8 @@ class DejaVroomViewModel(
                 .distinctUntilChanged()
                 .collectLatest { request -> loadSuggestions(request) }
         }
+        // A place search that needs a moment to come up starts now, not at the first letter typed.
+        viewModelScope.launch { placeSearch.prepare() }
         viewModelScope.launch {
             restrictionSource.isRestricted.collect { restricted ->
                 mutableState.update { it.copy(isDrivingRestricted = restricted) }
@@ -297,7 +305,7 @@ class DejaVroomViewModel(
             advanceTrip(here)
             mutableState.update { current ->
                 val follows = current.startsFromCurrentLocation ||
-                    (searchDefaults.originSource == SearchDefaults.OriginSource.CURRENT && !originChosen)
+                    (searchSettings.originSource == SearchSettings.OriginSource.CURRENT && !originChosen)
                 val busy = current.isDrivingRestricted || current.isSearchingRoute || current.activeField == SearchField.ORIGIN
                 if (follows && !busy) current.startingFrom(here) else current
             }
@@ -399,6 +407,8 @@ class DejaVroomViewModel(
             SuggestionState(field, query, if (places.isEmpty()) SuggestionStatus.EMPTY else SuggestionStatus.RESULTS, places)
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (unavailable: PlaceSearchUnavailableException) {
+            SuggestionState(field, query, SuggestionStatus.ERROR, problem = unavailable.message)
         } catch (_: Exception) {
             SuggestionState(field, query, SuggestionStatus.ERROR)
         }
@@ -626,6 +636,7 @@ class DejaVroomViewModel(
     override fun onCleared() {
         speechController.stop()
         currentLocation.release()
+        placeSearch.release()
         super.onCleared()
     }
 }

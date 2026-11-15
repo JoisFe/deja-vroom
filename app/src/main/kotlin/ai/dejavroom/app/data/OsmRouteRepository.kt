@@ -61,8 +61,9 @@ data class GeocodedDestination(val coordinate: GeoCoordinate, val displayName: S
 
 private fun Place.toGeocoded() = GeocodedDestination(requireNotNull(coordinate), name)
 
+/** Turns typed text into one place. */
 fun interface DestinationGeocoder {
-    fun resolve(query: String): GeocodedDestination
+    suspend fun resolve(query: String): GeocodedDestination
 }
 
 data class DrivingRouteResult(
@@ -76,11 +77,12 @@ fun interface DrivingRouteClient {
     fun route(origin: GeoCoordinate, destination: GeoCoordinate): DrivingRouteResult
 }
 
-private object NominatimDestinationGeocoder : DestinationGeocoder {
+/** Nominatim (OpenStreetMap), one request a second at most as its usage policy asks. Blocking: call it off the main thread. */
+internal object NominatimDestinationGeocoder : DestinationGeocoder {
     private val cache = LinkedHashMap<String, GeocodedDestination>(64, .75f, true)
     private var lastRequestAtMillis = 0L
 
-    override fun resolve(query: String): GeocodedDestination {
+    override suspend fun resolve(query: String): GeocodedDestination {
         val key = query.lowercase(Locale.ROOT).replace(Regex("\\s+"), " ").trim()
         synchronized(cache) { cache[key]?.let { return it } }
         synchronized(this) {

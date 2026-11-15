@@ -10,17 +10,49 @@ import java.net.URL
 import java.net.URLEncoder
 
 const val PHOTON_ATTRIBUTION = "© OpenStreetMap contributors (Photon)"
+const val KAKAO_PLACES_ATTRIBUTION = "장소 정보 © Kakao"
 
-/** Search-as-you-type place suggestions. Nominatim is not used here: its usage policy forbids autocomplete. */
+/**
+ * Search-as-you-type place suggestions. Which service answers is chosen in config/search.yml
+ * (`placeSearch.provider`); see [PlaceSearchFactory] and docs/place-search-setup.md.
+ */
 interface PlaceSearchRepository {
+    /** Whose data the suggestions are; shown under them. */
+    val attribution: String get() = ""
+
+    /**
+     * Places matching [query], best first. [bias] says roughly where the driver is, for services that rank
+     * nearby places higher. Throws [PlaceSearchUnavailableException] when the service is not set up or
+     * cannot be reached, with a message that says what to do.
+     */
     suspend fun suggest(query: String, bias: GeoCoordinate? = null): List<Place>
+
+    /** Gets ready ahead of the first question, where that takes time. Never throws. */
+    suspend fun prepare() = Unit
+
+    /** Lets go of whatever [prepare] or [suggest] set up. */
+    fun release() = Unit
 }
 
-/** Photon (komoot) geocoder, built for autocomplete over OpenStreetMap data. Limited to the Korean peninsula. */
+/** The place search cannot answer at all, as opposed to finding nothing. The message is for the screen. */
+class PlaceSearchUnavailableException(message: String) : Exception(message)
+
+/** Stands in for a provider that is selected but not set up yet: every question gets the setup hint. */
+class UnconfiguredPlaceSearchRepository(private val setupMessage: String) : PlaceSearchRepository {
+    override suspend fun suggest(query: String, bias: GeoCoordinate?): List<Place> = throw PlaceSearchUnavailableException(setupMessage)
+}
+
+/**
+ * Photon (komoot) geocoder, built for autocomplete over OpenStreetMap data. Limited to the Korean
+ * peninsula. Needs no key, but knows few Korean shops and recent buildings. Nominatim is not used for
+ * suggestions: its usage policy forbids autocomplete.
+ */
 class PhotonPlaceSearchRepository(
     private val baseUrl: String = "https://photon.komoot.io/api/",
     private val limit: Int = 6,
 ) : PlaceSearchRepository {
+    override val attribution: String get() = PHOTON_ATTRIBUTION
+
     override suspend fun suggest(query: String, bias: GeoCoordinate?): List<Place> = withContext(Dispatchers.IO) {
         val q = query.trim().take(80)
         if (q.length < 2) return@withContext emptyList()
