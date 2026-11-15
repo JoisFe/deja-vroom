@@ -18,28 +18,28 @@ Base: Kotlin coding conventions (kotlinlang.org), Android Kotlin style guide, Co
 
 ## Coroutines and Flow
 - Launch in `viewModelScope`/`lifecycleScope` only; never `GlobalScope` or `runBlocking` in app code.
-- Inject `CoroutineDispatcher`s (`@IoDispatcher`); don't hardcode `Dispatchers.IO` inside classes that need tests.
+- Pass `CoroutineDispatcher`s as constructor parameters (no Hilt, so no `@IoDispatcher` qualifier); don't hardcode `Dispatchers.IO` inside classes that need tests.
 - Main-safe APIs: a `suspend fun` must be safe to call from the main thread (switch context inside).
 - Expose `StateFlow`/`Flow` read-only; keep `MutableStateFlow` private (`_uiState` + `uiState`).
 - Collect in UI with `collectAsStateWithLifecycle()`.
 - Don't swallow `CancellationException`; when using `runCatching` around suspend calls, rethrow it.
 
 ## Architecture
-- Package by feature: `feature/<name>/`, plus `core/` and `data/`. A feature never imports another feature's internals.
+- Package by layer: `ui/`, `feature/`, `domain/`, `data/`, `model/`, plus `core/designsystem/`. Dependencies point one way: `ui` → `feature` → `data`/`domain` → `model`; `domain` has no Android imports.
 - UI → ViewModel → Repository interface. Only `data/**/Pleos*` files import `ai.pleos.playground.*`; only `core/car` imports `android.car.*`.
 - ViewModels hold no `Context`, `View`, or `Activity` references.
-- Every repository interface has a `Fake*` implementation under test (and the `demo` flavor).
+- Every repository interface has a `Fake*` implementation, used in tests and to show the app without a car. There is no `demo` flavor.
 
 ## Compose
 - `XxxRoute` (stateful) + `XxxScreen(state, onAction, modifier)` (stateless). `modifier: Modifier = Modifier` is the first optional parameter.
 - No business logic, I/O, or repository access in composables. Side effects only via `LaunchedEffect`/`DisposableEffect` with correct keys.
-- No hardcoded strings, colors, or dimensions: `stringResource`, `MaterialTheme` tokens from `PleosTheme`. Korean string resources (English only if time allows).
+- User-facing text (Korean) goes in pure label functions in `ui/` (`Labels.kt`, `TripLabels.kt`) with unit tests, not in string resources. Colors and dimensions come from the theme (`DejaVroomTheme` in `core/designsystem`), not hardcoded.
 - Each screen has `@Preview`s for its main states, including driving-restricted.
 
 ## Tests
 - Unit tests for every ViewModel and repository mapping; names in backticks describing behavior: `` `shows error when permission denied` ``.
-- Use fakes over mocks for our own interfaces; `runTest` + Turbine for flows.
+- Use fakes over mocks for our own interfaces; test with `runTest` and assert on `state.value` (Turbine is not used).
 
 ## Comments and commits
 - KDoc on public types and non-obvious functions; comments explain why, not what. No commented-out code.
-- Commit messages in English, imperative mood.
+- Commit messages, PR titles and bodies in Korean.

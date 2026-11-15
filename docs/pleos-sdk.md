@@ -6,7 +6,7 @@
 
 | SDK | API | 쓰는 곳 | 권한 |
 |---|---|---|---|
-| NaviHelper 3.0.5 | `initialize(onConnected, onFailed)` → `addListener` → `getCurrentLocationInfo()` → `onCurrentLocationInfo` | 출발지를 차량의 현재 위치로 채운다. 가던 길에 앱을 다시 열면 지나온 지점을 가린다 | `pleos.car.permission.NAVI_ROUTE` |
+| NaviHelper 3.0.5 | `initialize(onConnected, onFailed)` → `addListener` → `getCurrentLocationInfo()` → `onCurrentLocationInfo` | 출발지를 차량의 현재 위치로 채운다. 가던 길에 앱을 다시 열면 지나온 지점을 흐리게 표시한다 | `pleos.car.permission.NAVI_ROUTE` |
 
 호출 코드는 `data/PleosCurrentLocationRepository.kt` 한 곳에 있다. 화면과 ViewModel은 `CurrentLocationRepository` 인터페이스만 쓴다.
 
@@ -23,18 +23,29 @@ NaviHelper는 Pleos Playground에서 신청 없이 쓸 수 있는 SDK로 안내�
 
 ## 현재 위치를 쓰는 순간
 
+그림은 위치를 읽는 대표적인 두 순간(앱을 열 때, 출발지가 현재 위치인 채로 "복잡 구간 분석"을 누를 때)이다. 나머지 순간은 아래 표에 있다. 초록 구간은 Pleos SDK 호출이고, 파랑 구간은 앱 처리다.
+
 ```mermaid
 sequenceDiagram
-    participant U as 운전자
-    participant A as 앱
-    participant N as NaviHelper
-    U->>A: 앱을 연다 (출발 전, 또는 휴게소에서 다시)
-    A->>N: getCurrentLocationInfo()
-    N-->>A: onCurrentLocationInfo(위도, 경도, 주소)
-    A->>A: 출발지 = 현재 위치, 가던 길이면 지나온 지점 표시
-    U->>A: 복잡 구간 분석
-    A->>N: getCurrentLocationInfo() (그사이 차가 움직였을 수 있다)
-    A->>A: 현재 위치 → 목적지 경로에서 볼 곳을 다시 고른다
+    autonumber
+    actor driver as 운전자
+    participant app as 앱
+    participant navi as NaviHelper
+    driver->>app: 앱을 연다 (출발 전, 또는 휴게소에서 다시)
+    rect rgba(26, 127, 55, 0.14)
+        app->>navi: getCurrentLocationInfo()
+        navi-->>app: onCurrentLocationInfo(위도, 경도, 주소)
+    end
+    rect rgba(31, 111, 235, 0.14)
+        app->>app: 출발지 = 현재 위치, 가던 길이면 지나온 지점 표시
+    end
+    driver->>app: 복잡 구간 분석
+    rect rgba(26, 127, 55, 0.14)
+        app->>navi: getCurrentLocationInfo() (그사이 차가 움직였을 수 있다)
+    end
+    rect rgba(31, 111, 235, 0.14)
+        app->>app: 현재 위치 → 목적지 경로에서 볼 곳을 다시 고른다
+    end
 ```
 
 | 순간 | 앱 동작 |
@@ -75,8 +86,8 @@ sequenceDiagram
 
 | 항목 | 내용 |
 |---|---|
-| 기기에 저장 | 주행 한 건: 목적지 이름과 좌표, 보여 준 지점의 이름과 좌표, 경로 모양(최대 2,000점), 경로 위 진행 거리. `SharedPreferences`에 두고 서버로 보내지 않는다 |
-| 저장하지 않음 | 현재 위치 자체. 진행 거리를 계산하는 데만 쓴다 |
+| 기기에 저장 | 주행 한 건: 목적지 이름과 좌표, 보여 준 지점의 이름과 좌표, 경로 모양(최대 2,000점), 경로 위 진행 거리. 경로 모양은 출발지 근처에서 시작한다. `SharedPreferences`에 두고 서버로 보내지 않는다 |
+| 저장하지 않음 | 위치 이력. 현재 위치는 진행 거리를 계산하는 데만 쓰고 따로 기록하지 않는다 |
 | 경로 서버로 전송 | 운전자가 "복잡 구간 분석"을 누르면 출발지 좌표(현재 위치)가 경로 서버(OSRM)로 간다. 출발지를 직접 입력했을 때 그 좌표가 가는 것과 같은 요청이다 |
 | 장소 검색 서버로 전송 | Kakao 장소 검색(기본)에는 현재 위치를 보내지 않는다. Photon으로 바꾸면 약 10 km 단위로 뭉갠 좌표만 보낸다. 가까운 장소를 먼저 보여 주는 데만 쓴다 |
 | 로그 | 현재 위치를 읽는 코드는 좌표와 주소를 로그에 남기지 않는다 |

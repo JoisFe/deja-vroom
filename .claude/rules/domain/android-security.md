@@ -21,7 +21,7 @@ Sources: Pleos app security guide (official Pleos docs), Android security best p
 - Every `<activity|service|receiver|provider>` declares `android:exported`; `false` unless another app must start it (launcher activity, Gleo-targeted components).
 - Explicit intents for internal communication; sensitive broadcasts use an explicit package/component or a permission.
 - `PendingIntent` with `FLAG_IMMUTABLE` unless mutability is required.
-- No WebView in the contest app. If one becomes necessary, apply the Pleos security guide's WebView items first.
+- WebView only for the road view page and the Kakao place search page. JavaScript bridge only through an origin-restricted `WebMessageListener` (never `addJavascriptInterface`); `allowFileAccess` and `allowContentAccess` off; navigation limited to the configured site (`RoadViewEndpoint`); remote debugging only in debug builds.
 
 ## Permissions and privacy
 - Declare only the `pleos.car.permission.*` and Android permissions the app actually uses; request dangerous ones (location, mic) at the moment of use with a reason shown.

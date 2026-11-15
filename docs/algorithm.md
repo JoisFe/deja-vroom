@@ -12,17 +12,30 @@
 
 ## 흐름
 
+경로 엔진의 응답이 위에서 아래로 흘러 카드가 된다. 주황은 외부 서비스, 보라는 `domain`의 순수 계산이고, 점선은 걸러 내는 갈래다.
+
 ```mermaid
-flowchart LR
-    A["경로 엔진 steps<br/>(OSRM)"] --> B["경로 맥락 부여<br/>진입 속도 · 고속도로 · 직전 조작"]
-    B --> C{"미리 볼 가치가 있나"}
-    C -->|"직진 통과 · 출발지 주변<br/>진입로 안"| X[제외]
-    C -->|조작 지점| D["점수<br/>난이도 · 모호함 · 오류 비용 · 차로"]
-    C -->|도착 직전| T["목적지 카드"]
-    D --> E["선정<br/>쉬운 지점 제외 · 350 m 묶음"]
-    E --> F["시점 계산<br/>속도 × 12초 앞"]
+flowchart TB
+    A("경로 엔진 steps<br/>OSRM 응답"):::ext
+    B("경로 맥락 부여<br/>진입 속도 · 고속도로<br/>직전 조작"):::domain
+    C{"미리 볼 가치가 있나"}:::domain
+    X("제외<br/>보여 주지 않는다"):::plan
+    D("점수<br/>난이도 · 모호함<br/>오류 비용 · 차로"):::domain
+    T("목적지 카드<br/>도착 직전"):::domain
+    E("선정<br/>쉬운 지점 제외 · 350 m 묶음"):::domain
+    F("시점 계산<br/>속도 × 12초 앞"):::domain
+    G("가는 순서로 정렬"):::domain
+    A --> B --> C
+    C -.->|"직진 통과 · 출발지 주변<br/>진입로 안"| X
+    C -->|"조작 지점"| D
+    C -->|"도착 직전"| T
+    D --> E --> F
     T --> F
-    F --> G["가는 순서로 정렬"]
+    F --> G
+
+    classDef ext fill:#bf5b04,stroke:#953800,color:#ffffff
+    classDef domain fill:#8250df,stroke:#6639ba,color:#ffffff
+    classDef plan fill:none,stroke:#8b949e,stroke-dasharray:5 4
 ```
 
 ## 제외 규칙

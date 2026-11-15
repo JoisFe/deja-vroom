@@ -2,15 +2,24 @@
 
 이 저장소에서 Claude Code가 따르는 규칙, 스킬, 에이전트다. 진입점은 [`CLAUDE.md`](../CLAUDE.md), 흐름은 [개발 흐름](../docs/workflow.md)에 있다.
 
+`tasks.md`에서 시작해 위에서 아래로 흐르고, 점선은 실패했을 때 되돌아가는 길이다. 파랑은 하네스 단계, 회색은 입력 파일, 주황은 GitHub, 점선 칸은 실패할 때만 쓰는 에이전트다.
+
 ```mermaid
-flowchart LR
-    T["tasks.md"] --> NF["/new-feature"]
-    NF --> DEV["pleos-app-developer"]
-    DEV --> V["/verify<br/>(test-runner)"]
-    V -->|실패| BF["build-fixer"] --> V
-    V -->|통과| EV["app-evaluator<br/>에뮬레이터"]
-    EV -->|FAIL| DEV
-    EV -->|PASS| RV["/review<br/>(code-reviewer)"] --> PR["PR"]
+flowchart TB
+    T["tasks.md"]:::config --> NF("/new-feature"):::app
+    NF --> DEV("pleos-app-developer"):::app
+    DEV --> V("/verify<br/>test-runner"):::app
+    V -.->|"실패"| BF("build-fixer"):::plan
+    BF -.-> V
+    V -->|"통과"| EV("app-evaluator<br/>에뮬레이터"):::app
+    EV -.->|"FAIL"| DEV
+    EV -->|"PASS"| RV("/review<br/>code-reviewer"):::app
+    RV --> PR("PR"):::ext
+
+    classDef app fill:#1f6feb,stroke:#1158c7,color:#ffffff
+    classDef ext fill:#bf5b04,stroke:#953800,color:#ffffff
+    classDef config fill:#57606a,stroke:#424a53,color:#ffffff
+    classDef plan fill:none,stroke:#8b949e,stroke-dasharray:5 4
 ```
 
 ## 에이전트 (`agents/`)

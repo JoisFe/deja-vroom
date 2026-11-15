@@ -14,9 +14,9 @@
 - 차량 제어(set) API는 아직 "준비 중"일 수 있으므로 핵심 시연 흐름은 읽기 위주로 설계하고, 제어는 선택 기능으로 둔다.
 
 ### III. 표준 아키텍처
-- Kotlin + Jetpack Compose, ViewModel + 불변 `UiState`(StateFlow), Repository, Hilt. 단일 모듈, domain 계층 없음.
-- Pleos SDK는 `data/**/Pleos*` Repository 안에서만 호출하고 콜백은 `suspend`/`Flow`로 감싼다.
-- 모든 Repository 인터페이스에는 `Fake*` 구현이 있어 `demo` 빌드에서 차량 신호 없이도 시연할 수 있어야 한다.
+- Kotlin + Jetpack Compose, ViewModel + 불변 `UiState`(StateFlow), Repository. 단일 모듈이고, 객체는 Hilt 없이 직접 만들어 생성자로 넘긴다.
+- 도메인 로직은 순수 Kotlin `domain` 계층에 둔다. Pleos SDK는 `data/**/Pleos*` Repository 안에서만 호출하고 콜백은 `suspend`/`Flow`로 감싼다.
+- 모든 Repository 인터페이스에는 `Fake*` 구현이 있어 차량 신호 없이도 시연하고 테스트할 수 있어야 한다.
 
 ### IV. 검증된 완료 (협상 불가)
 - "완료"는 `/verify`(빌드·테스트) 통과 **그리고** 평가 에이전트(`app-evaluator`)가 에뮬레이터에서 스펙의 성공 기준을 확인한 상태다. 코드를 읽고 완료라고 선언하지 않는다.
@@ -50,4 +50,4 @@
 - 이 헌법은 스펙·계획 단계의 점검 기준이다. 상세 규칙과 충돌하면 `.claude/rules/`가 우선하고, 이 문서를 고친다.
 - 개정은 팀 합의 후 버전과 날짜를 올린다.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-24 | **Last Amended**: 2026-10-24
+**Version**: 1.1.0 | **Ratified**: 2026-10-24 | **Last Amended**: 2026-11-15
