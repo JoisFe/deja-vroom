@@ -21,9 +21,8 @@ private const val JUNCTION_FIXTURE = "junctions/hannam-daero-demo-record.json"
 internal fun buildRoutePreviewConfig(route: RouteSnapshot, candidates: List<BriefingSegment>, selectedIndex: Int): String {
     require(route.geometryStatus == RouteGeometryStatus.VERIFIED && route.geometry.size >= 2) { "검증된 실제 경로 geometry가 없습니다." }
     val selected = candidates.getOrNull(selectedIndex) ?: error("선택한 복잡 구간 후보가 없습니다.")
-    val eligible = listOf(selected).filter { segment ->
-        segment.coordinate != null && segment.headingDegrees != null && segment.routeMatchStatus.name == "VERIFIED"
-    }
+    // The page takes a candidates array; it gets the selected point alone, when that point can be played.
+    val eligible = listOf(selected).filter { it.canPlayRoadView }
     require(eligible.isNotEmpty()) { "선택한 구간이 route matcher 검증을 통과하지 못했습니다." }
     val first = eligible.first()
     val candidatesJson = JSONArray().apply {

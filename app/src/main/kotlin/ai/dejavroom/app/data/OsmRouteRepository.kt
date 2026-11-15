@@ -19,6 +19,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /** Route preview. Free text is geocoded once with Nominatim; picked suggestions skip geocoding. */
 class OsmRouteRepository(
@@ -57,8 +58,8 @@ class OsmRouteRepository(
         val route = RouteSnapshot(
             origin = originPlace.displayName,
             destination = destinationPlace.displayName,
-            durationMinutes = (result.durationSeconds / 60.0).toInt().coerceAtLeast(1),
-            distanceKm = (result.distanceMeters / 1000.0).toInt().coerceAtLeast(1),
+            durationMinutes = (result.durationSeconds / 60.0).roundToInt().coerceAtLeast(1),
+            distanceKm = (result.distanceMeters / 1000.0).roundToInt().coerceAtLeast(1),
             segments = emptyList(),
             routeId = routeId,
             source = RouteSource.EXTERNAL_ROUTE,

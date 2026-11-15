@@ -188,6 +188,13 @@ data class BriefingSegment(
     /** Which way its road view faces: along the route at the viewpoint. */
     val previewHeadingDegrees: Double? get() = approach?.headingDegrees ?: headingDegrees
 
+    /**
+     * The road view page can play this point: it knows where the point is and which way the route runs
+     * there, and the point was matched to the route.
+     */
+    val canPlayRoadView: Boolean
+        get() = coordinate != null && headingDegrees != null && routeMatchStatus == RouteMatchStatus.VERIFIED
+
     /** A photo overlay requires verified maneuver data, route matching, and provider permission. */
     val canShowSpecificGuidance: Boolean
         get() = laneGuidanceVerified &&
