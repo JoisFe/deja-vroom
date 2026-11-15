@@ -60,15 +60,32 @@ class CardTextTest {
     @Test
     fun `the preview distance is rounded and only mentioned when it is a real distance`() {
         assertEquals("140m", leadLabel(144))
+        assertEquals("150m", leadLabel(147))
         assertEquals("300m", leadLabel(300))
+        assertEquals("20m", leadLabel(19))
         assertNull(leadLabel(12))
+        assertNull(leadLabel(-40))
         assertNull(leadLabel(null))
     }
 
     @Test
-    fun `the banner over the road view leads with the distance and the action`() {
+    fun `the banner over the road view counts down to the point`() {
         assertEquals("300m 앞 · 오른쪽 진출로", bannerTitle(exit, 300))
+        assertEquals("20m 앞 · 오른쪽 진출로", bannerTitle(exit, 19))
         assertEquals("오른쪽 진출로", bannerTitle(exit, null))
+    }
+
+    @Test
+    fun `reaching the point is announced, and so is having passed it`() {
+        listOf(15, 0, -15).forEach { assertEquals("바로 여기 · 오른쪽 진출로", bannerTitle(exit, it)) }
+        assertEquals("지나옴 · 오른쪽 진출로", bannerTitle(exit, -20))
+    }
+
+    @Test
+    fun `a destination is arrived at rather than acted on`() {
+        val destination = ManeuverCue(TurnDirection.RIGHT, "목적지는 오른쪽", arrival = true)
+        assertEquals("도착 80m 전 · 목적지는 오른쪽", bannerTitle(destination, 80))
+        assertEquals("도착 · 목적지는 오른쪽", bannerTitle(destination, 0))
     }
 
     @Test

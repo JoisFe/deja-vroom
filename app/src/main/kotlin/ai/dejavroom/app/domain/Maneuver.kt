@@ -234,9 +234,9 @@ data class ManeuverObservation(
             else -> null
         }
         val arrivalCue = when {
-            direction?.isRight == true -> ManeuverCue(TurnDirection.RIGHT, "목적지는 오른쪽")
-            direction?.isLeft == true -> ManeuverCue(TurnDirection.LEFT, "목적지는 왼쪽")
-            else -> ManeuverCue(TurnDirection.STRAIGHT, "도착 지점")
+            direction?.isRight == true -> ManeuverCue(TurnDirection.RIGHT, "목적지는 오른쪽", arrival = true)
+            direction?.isLeft == true -> ManeuverCue(TurnDirection.LEFT, "목적지는 왼쪽", arrival = true)
+            else -> ManeuverCue(TurnDirection.STRAIGHT, "목적지 앞", arrival = true)
         }
         return RouteMapFeature(
             id = id,

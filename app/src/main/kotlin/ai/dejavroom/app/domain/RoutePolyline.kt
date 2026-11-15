@@ -54,24 +54,38 @@ class RoutePolyline(private val points: List<GeoCoordinate>) {
     }
 
     /**
-     * The drive from [leadMeters] before [offsetMeters] to [pastMeters] after it, as evenly spaced poses
-     * about [stepMeters] apart. A long approach is thinned to [maxSteps] hops so it still plays quickly.
+     * The drive from [leadMeters] before [offsetMeters] to [pastMeters] after it, as poses about
+     * [stepMeters] apart. One pose always stands exactly on the point, because reaching it is the moment
+     * the whole drive is for. A long approach is thinned to [maxSteps] hops so it still plays quickly.
      */
     fun driveThrough(offsetMeters: Double, leadMeters: Double, pastMeters: Double, stepMeters: Double, maxSteps: Int): List<RoutePose> {
-        require(stepMeters > 0.0 && maxSteps >= 1)
+        require(stepMeters > 0.0 && maxSteps >= 2)
         val target = offsetMeters.coerceIn(0.0, lengthMeters)
-        val from = (target - leadMeters).coerceIn(0.0, target)
-        val to = (target + pastMeters).coerceIn(target, lengthMeters)
-        val distance = to - from
-        if (distance < 1.0) return emptyList()
-        val hops = ceil(distance / stepMeters).toInt().coerceIn(1, maxSteps)
-        return (0..hops).map { hop ->
-            val at = from + distance * hop / hops
-            RoutePose(pointAt(at), headingAt(at, DRIVE_HEADING_SPAN_METERS), (target - at).roundToInt())
+        val before = target - (target - leadMeters).coerceIn(0.0, target)
+        val after = (target + pastMeters).coerceIn(target, lengthMeters) - target
+        if (before + after < 1.0) return emptyList()
+        var hopsBefore = hopsToCover(before, stepMeters)
+        var hopsAfter = hopsToCover(after, stepMeters)
+        if (hopsBefore + hopsAfter > maxSteps) {
+            // Thin both sides in proportion to their length, keeping at least one hop wherever there is road.
+            val minBefore = if (hopsBefore == 0) 0 else 1
+            hopsAfter = if (hopsAfter == 0) 0 else (maxSteps * after / (before + after)).roundToInt().coerceIn(1, maxSteps - minBefore)
+            hopsBefore = if (hopsBefore == 0) 0 else maxSteps - hopsAfter
         }
+        val offsets = buildList {
+            for (hop in 0 until hopsBefore) add(target - before + before * hop / hopsBefore)
+            add(target)
+            for (hop in 1..hopsAfter) add(target + after * hop / hopsAfter)
+        }
+        return offsets.map { at -> RoutePose(pointAt(at), headingAt(at, DRIVE_HEADING_SPAN_METERS), (target - at).roundToInt()) }
     }
 
+    /** Hops of at most [stepMeters] that cover [meters]. Rounding noise in the distance never adds a hop. */
+    private fun hopsToCover(meters: Double, stepMeters: Double): Int =
+        if (meters < 1.0) 0 else ceil((meters - DISTANCE_NOISE_METERS) / stepMeters).toInt().coerceAtLeast(1)
+
     private companion object {
+        const val DISTANCE_NOISE_METERS = 0.01
         const val DRIVE_HEADING_SPAN_METERS = 20.0
         const val MIN_HEADING_SPAN_METERS = 5.0
         const val MAX_HEADING_SPAN_METERS = 30.0

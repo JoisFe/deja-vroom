@@ -59,7 +59,28 @@ data class ApproachViewpoint(val coordinate: GeoCoordinate, val headingDegrees: 
  * One frame of the drive toward a point: where the car is, which way it faces, and how far the point still
  * is. [remainingMeters] is negative once the car has passed it.
  */
-data class RoutePose(val coordinate: GeoCoordinate, val headingDegrees: Double, val remainingMeters: Int)
+data class RoutePose(val coordinate: GeoCoordinate, val headingDegrees: Double, val remainingMeters: Int) {
+    val phase: ApproachPhase get() = ApproachPhase.at(remainingMeters)
+}
+
+/** Where a view stands relative to the point it previews: still on the way, on it, or beyond it. */
+enum class ApproachPhase {
+    APPROACHING, AT_POINT, PASSED;
+
+    companion object {
+        /**
+         * [remainingMeters] is the distance still to go, negative once the point is behind. A few car
+         * lengths either side count as standing on the point; an unknown distance is still on the way.
+         */
+        fun at(remainingMeters: Int?): ApproachPhase = when {
+            remainingMeters == null || remainingMeters > AT_POINT_RADIUS_METERS -> APPROACHING
+            remainingMeters >= -AT_POINT_RADIUS_METERS -> AT_POINT
+            else -> PASSED
+        }
+
+        private const val AT_POINT_RADIUS_METERS = 15
+    }
+}
 
 /** Which way the route goes at a point. [degrees] is clockwise from straight ahead. */
 enum class TurnDirection(val degrees: Int) {
@@ -88,7 +109,13 @@ enum class TurnDirection(val degrees: Int) {
  * What to do at a point: the direction as an arrow, the action in a driver's words, and the sign to follow
  * when map data records one. The direction is the computed route's own maneuver, never a lane number.
  */
-data class ManeuverCue(val direction: TurnDirection, val action: String, val sign: String = "") {
+data class ManeuverCue(
+    val direction: TurnDirection,
+    val action: String,
+    val sign: String = "",
+    /** The point is the destination itself: reaching it is arriving, not maneuvering. */
+    val arrival: Boolean = false,
+) {
     init { require(action.isNotBlank()) }
 
     /** One line for a card: "오른쪽 진출로 · 표지 양재". */

@@ -1,5 +1,6 @@
 package ai.dejavroom.app.domain
 
+import ai.dejavroom.app.model.ApproachPhase
 import ai.dejavroom.app.model.GeoCoordinate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -61,16 +62,39 @@ class RoutePolylineTest {
     }
 
     @Test
+    fun `one frame of the drive stands exactly on the junction`() {
+        // Distances that do not divide into the step: the frames spread out, the junction frame stays.
+        val drive = route.driveThrough(corner, leadMeters = 144.0, pastMeters = 55.0, stepMeters = 20.0, maxSteps = 30)
+        val onJunction = drive.single { it.remainingMeters == 0 }
+        assertEquals(0.0, onJunction.coordinate.distanceMetersTo(north.last()), 0.5)
+        // With the default step it is also the only frame that counts as being there.
+        assertEquals(listOf(onJunction), drive.filter { it.phase == ApproachPhase.AT_POINT })
+        assertEquals(ApproachPhase.APPROACHING, drive.first().phase)
+        assertEquals(ApproachPhase.PASSED, drive.last().phase)
+    }
+
+    @Test
     fun `a long approach is thinned so the drive still plays quickly`() {
         val drive = RoutePolyline(north).driveThrough(900.0, leadMeters = 350.0, pastMeters = 60.0, stepMeters = 20.0, maxSteps = 10)
+        // 10 hops, 11 frames: the approach gives up frames, the junction and the way out keep theirs.
         assertEquals(11, drive.size)
         assertEquals(350, drive.first().remainingMeters)
+        assertEquals(1, drive.count { it.remainingMeters == 0 })
+        assertEquals(-60, drive.last().remainingMeters)
+    }
+
+    @Test
+    fun `a view within a few car lengths of the point counts as standing on it`() {
+        assertEquals(ApproachPhase.APPROACHING, ApproachPhase.at(16))
+        listOf(15, 0, -15).forEach { assertEquals(ApproachPhase.AT_POINT, ApproachPhase.at(it)) }
+        assertEquals(ApproachPhase.PASSED, ApproachPhase.at(-16))
+        // Without a distance nothing has been reached yet.
+        assertEquals(ApproachPhase.APPROACHING, ApproachPhase.at(null))
     }
 
     @Test
     fun `the drive to an arrival point stops at the end of the route`() {
         val drive = route.driveThrough(route.lengthMeters, leadMeters = 80.0, pastMeters = 0.0, stepMeters = 20.0, maxSteps = 10)
-        assertEquals(0, drive.last().remainingMeters)
-        assertEquals(80, drive.first().remainingMeters)
+        assertEquals(listOf(80, 60, 40, 20, 0), drive.map { it.remainingMeters })
     }
 }
