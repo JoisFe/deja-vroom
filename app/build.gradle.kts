@@ -36,6 +36,15 @@ require(roadviewProvider in roadviewProviders) {
         "local.properties의 roadviewProvider로 덮어쓸 수도 있다. docs/roadview-setup.md 참고"
 }
 
+// Release signing (apk/README.md). keystore.properties is git-ignored and lives in the project root; without it,
+// or with any of its four keys missing, the release APK is left unsigned and the build still passes.
+val keystoreProperties = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+}
+val releaseSigning: Map<String, String>? = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    .associateWith { keystoreProperties.getProperty(it)?.trim().orEmpty() }
+    .takeIf { values -> values.values.all { it.isNotEmpty() } }
+
 android {
     namespace = "ai.dejavroom.app"
     compileSdk = 35
@@ -50,10 +59,31 @@ android {
         buildConfigField("String", "ROADVIEW_PROVIDER_OVERRIDE", buildConfigString(roadviewProviderOverride))
         buildConfigField("String", "ROADVIEW_BASE_URL_OVERRIDE", buildConfigString(localSetting("roadviewBaseUrl")))
         buildConfigField("String", "ROADVIEW_PAGE_REVISION", buildConfigString(roadviewPageRevision))
-        buildConfigField("String", "MAPILLARY_CLIENT_TOKEN", buildConfigString(localSetting("mapillaryClientToken")))
+        // Only a Mapillary build reads the token, so no other build carries it.
+        val mapillaryClientToken = if (roadviewProvider == "mapillary") localSetting("mapillaryClientToken") else ""
+        buildConfigField("String", "MAPILLARY_CLIENT_TOKEN", buildConfigString(mapillaryClientToken))
         // The "로드뷰 점검" entry in the header opens the road view without a route. It is off in every build,
         // including the debug build the demo video is recorded from; developerEntry=true in local.properties turns it on.
         buildConfigField("boolean", "DEVELOPER_ENTRY", (localSetting("developerEntry") == "true").toString())
+    }
+
+    signingConfigs {
+        releaseSigning?.let { keys ->
+            create("release") {
+                storeFile = rootProject.file(keys.getValue("storeFile"))
+                storePassword = keys.getValue("storePassword")
+                keyAlias = keys.getValue("keyAlias")
+                keyPassword = keys.getValue("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // R8 stays off until a minified release build has been checked on the Pleos emulator.
+            isMinifyEnabled = false
+            if (releaseSigning != null) signingConfig = signingConfigs.getByName("release")
+        }
     }
 
     buildFeatures {
