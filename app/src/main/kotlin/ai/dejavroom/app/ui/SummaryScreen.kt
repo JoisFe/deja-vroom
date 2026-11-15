@@ -1,42 +1,19 @@
 package ai.dejavroom.app.ui
 
-import android.webkit.WebResourceError
-import android.webkit.WebResourceRequest
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import ai.dejavroom.app.BuildConfig
-import ai.dejavroom.app.R
+import ai.dejavroom.app.core.designsystem.DejaVroomIcons
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
-import ai.dejavroom.app.core.designsystem.dejaVroomColors
+import ai.dejavroom.app.core.designsystem.PhotoOverlay
 import ai.dejavroom.app.data.RoadViewLookupResult
-import ai.dejavroom.app.feature.DejaVroomScreen
 import ai.dejavroom.app.feature.DejaVroomUiState
 import ai.dejavroom.app.feature.DejaVroomViewModel
 import ai.dejavroom.app.model.BriefingSegment
-import ai.dejavroom.app.model.RoadViewContentOrigin
-import ai.dejavroom.app.model.RouteMatchStatus
-import ai.dejavroom.app.model.RouteSource
-import ai.dejavroom.app.model.SegmentSelectionSource
-import ai.dejavroom.app.model.SegmentType
-import android.os.Bundle
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -44,49 +21,19 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.view.WindowCompat
 import kotlin.math.ceil
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, compact: Boolean) {
@@ -97,59 +44,60 @@ internal fun SummaryScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, comp
     val nextIndex = state.nextSegmentIndex.takeIf { state.trip?.passed?.isNotEmpty() == true && segments.getOrNull(it)?.id !in passedIds }
     val startLabel = if (nextIndex != null && nextIndex > 0) "다음 지점부터 보기" else "처음부터 보기"
     val openFromStart = { vm.openSegmentRoadView(state.nextSegmentIndex) }
+    val colors = DejaVroomTheme.colors
+    val dimens = DejaVroomTheme.dimens
+    val type = DejaVroomTheme.type
+    // The strip of passed places shows only on a trip in progress; spacing by arrangement leaves no gap for it otherwise.
     if (compact) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
-            Text("미리 볼 곳 ${segments.size}곳 · 가는 순서", color = DejaVroomTheme.colors.white, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            PassedStrip(state, vm::replanFromCurrentLocation, Modifier.padding(top = 8.dp))
-            Spacer(Modifier.height(8.dp))
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(dimens.spaceM)) {
+            Text("미리 볼 곳 ${segments.size}곳 · 가는 순서", color = colors.onSurface, style = type.titleSmall)
+            PassedStrip(state, vm::replanFromCurrentLocation)
             // Lazy, so only the cards on screen hold a road view of their own.
-            LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(dimens.spaceM)) {
                 itemsIndexed(segments, key = { _, segment -> segment.id }) { index, segment ->
-                    SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = true, modifier = Modifier.fillMaxWidth().height(260.dp), passed = segment.id in passedIds, next = index == nextIndex, onClick = { vm.openSegmentRoadView(index) })
+                    SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = true, modifier = Modifier.fillMaxWidth().height(dimens.dp(520)), passed = segment.id in passedIds, next = index == nextIndex, onClick = { vm.openSegmentRoadView(index) })
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth().height(54.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton(startLabel, Modifier.weight(1f), onClick = openFromStart)
-                PrimaryButton("주행 시작", "›", Modifier.weight(1f), vm::startNavigation)
+            Row(Modifier.fillMaxWidth().height(dimens.buttonMedium), horizontalArrangement = Arrangement.spacedBy(dimens.spaceS)) {
+                SecondaryButton(startLabel, Modifier.weight(1f), size = ButtonSize.Medium, onClick = openFromStart)
+                PrimaryButton("주행 시작", Modifier.weight(1f), trailingIcon = DejaVroomIcons.ChevronRight, size = ButtonSize.Medium, onClick = vm::startNavigation)
             }
         }
         return
     }
-    Column(Modifier.fillMaxSize().padding(start = 16.dp, end = 14.dp, top = 12.dp, bottom = 6.dp)) {
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(dimens.spaceL)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("✦", color = DejaVroomTheme.colors.blue, fontSize = 30.sp)
-            Spacer(Modifier.width(15.dp))
+            AppIcon(DejaVroomIcons.Sparkle, tint = colors.accent, size = dimens.dp(56))
+            Spacer(Modifier.width(dimens.spaceM))
             Column(Modifier.weight(1f)) {
-                Text("헷갈리기 쉬운 곳을\n가는 순서대로 미리 보세요.", color = DejaVroomTheme.colors.white, fontSize = 25.sp, lineHeight = 31.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(5.dp))
-                Text("${segments.size}곳을 골랐습니다. 사진은 분기점에 닿기 전 지점에서 찍힌 모습입니다.", color = DejaVroomTheme.colors.muted, fontSize = 14.sp)
+                Text("헷갈리기 쉬운 곳을\n가는 순서대로 미리 보세요.", color = colors.onSurface, style = type.titleLarge)
+                Text("${segments.size}곳을 골랐습니다. 사진은 분기점에 닿기 전 지점에서 찍힌 모습입니다.", color = colors.onSurfaceVariant, style = type.bodySmall)
             }
         }
-        PassedStrip(state, vm::replanFromCurrentLocation, Modifier.padding(top = 8.dp))
-        Spacer(Modifier.height(if (state.trip?.passed.isNullOrEmpty()) 21.dp else 9.dp))
+        PassedStrip(state, vm::replanFromCurrentLocation)
         val cards = rememberLazyListState()
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             // Cards that fit share the row. More than that scroll sideways, with the next one peeking in
             // so it is plain there are more; only the cards on screen hold a road view of their own.
-            val fitting = ((maxWidth + CardGap) / (MinCardWidth + CardGap)).toInt().coerceAtLeast(1)
+            val cardGap = dimens.spaceL
+            val minCardWidth = dimens.dp(420)
+            val fitting = ((maxWidth + cardGap) / (minCardWidth + cardGap)).toInt().coerceAtLeast(1)
             val across = if (segments.size <= fitting) segments.size.coerceAtLeast(1).toFloat() else fitting - CARD_PEEK
-            val cardWidth = (maxWidth - CardGap * (ceil(across).toInt() - 1)) / across
-            LazyRow(Modifier.fillMaxSize(), state = cards, horizontalArrangement = Arrangement.spacedBy(CardGap)) {
+            val cardWidth = (maxWidth - cardGap * (ceil(across).toInt() - 1)) / across
+            LazyRow(Modifier.fillMaxSize(), state = cards, horizontalArrangement = Arrangement.spacedBy(cardGap)) {
                 itemsIndexed(segments, key = { _, segment -> segment.id }) { index, segment ->
                     SegmentCard(index + 1, segments.size, segment, state.roadViewLookups[segment.id], compact = false, modifier = Modifier.width(cardWidth).fillParentMaxHeight(), passed = segment.id in passedIds, next = index == nextIndex, onClick = { vm.openSegmentRoadView(index) })
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth().height(66.dp), verticalAlignment = Alignment.CenterVertically) {
-            SecondaryButton(startLabel, Modifier.width(240.dp), onClick = openFromStart)
-            Spacer(Modifier.weight(1f))
-            if (cards.canScrollForward || cards.canScrollBackward) {
-                Text("옆으로 넘기면 ${segments.size}곳을 모두 볼 수 있습니다", color = DejaVroomTheme.colors.muted, fontSize = 13.sp)
+        Row(Modifier.fillMaxWidth().height(dimens.buttonLarge), verticalAlignment = Alignment.CenterVertically) {
+            SecondaryButton(startLabel, Modifier.width(dimens.dp(360)), onClick = openFromStart)
+            Box(Modifier.weight(1f).padding(horizontal = dimens.spaceM), contentAlignment = Alignment.Center) {
+                if (cards.canScrollForward || cards.canScrollBackward) {
+                    Text("옆으로 넘기면 ${segments.size}곳을 모두 볼 수 있습니다", color = colors.onSurfaceVariant, style = type.labelMedium, textAlign = TextAlign.Center)
+                }
             }
-            Spacer(Modifier.weight(1f))
-            PrimaryButton("주행 시작", "›", Modifier.width(250.dp), vm::startNavigation)
+            PrimaryButton("주행 시작", Modifier.width(dimens.dp(440)), trailingIcon = DejaVroomIcons.ChevronRight, onClick = vm::startNavigation)
         }
     }
 }
@@ -163,29 +111,25 @@ private fun PassedStrip(state: DejaVroomUiState, onReplan: () -> Unit, modifier:
     val passed = state.trip?.passed.orEmpty()
     if (passed.isEmpty()) return
     val working = state.isLocating || state.isSearchingRoute
+    val colors = DejaVroomTheme.colors
+    val dimens = DejaVroomTheme.dimens
     Row(
-        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(14.dp)).background(DejaVroomTheme.colors.panel).padding(start = 14.dp, end = 4.dp),
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = dimens.touchTarget)
+            .cardSurface(RoundedCornerShape(dimens.radiusMedium), elevated = false)
+            .padding(start = dimens.spaceL, end = dimens.spaceS),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("✓", color = DejaVroomTheme.colors.green, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.width(9.dp))
-        Text(passedLine(passed), Modifier.weight(1f), color = DejaVroomTheme.colors.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        AppIcon(DejaVroomIcons.Check, tint = colors.success)
+        Spacer(Modifier.width(dimens.spaceS))
+        Text(passedLine(passed), Modifier.weight(1f), color = colors.onSurfaceVariant, style = DejaVroomTheme.type.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (state.passedSegmentIds.isNotEmpty()) {
-            TextButton(onClick = onReplan, enabled = !working, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(
-                    if (working) "다시 찾는 중…" else "현재 위치에서 다시 찾기",
-                    color = if (working) DejaVroomTheme.colors.muted else DejaVroomTheme.colors.blue,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                )
-            }
+            TextAction(if (working) "다시 찾는 중…" else "현재 위치에서 다시 찾기", enabled = !working, onClick = onReplan)
         }
     }
 }
 
-private val CardGap = 13.dp
-private val MinCardWidth = 230.dp
 private const val CARD_PEEK = 0.4f
 
 /**
@@ -204,34 +148,46 @@ internal fun SegmentCard(
     next: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val tint = when (number) { 2 -> DejaVroomTheme.colors.violet; 3 -> DejaVroomTheme.colors.teal; else -> DejaVroomTheme.colors.blue }
-    val chipTint = if (passed) DejaVroomTheme.colors.muted else tint
-    Column(modifier.alpha(if (passed) .5f else 1f).clip(RoundedCornerShape(22.dp)).background(DejaVroomTheme.colors.panel).border(1.dp, DejaVroomTheme.colors.stroke.copy(alpha = .8f), RoundedCornerShape(22.dp)).clickable(onClick = onClick)) {
-        Row(Modifier.fillMaxWidth().height(50.dp).padding(horizontal = 13.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("$number / $total", color = DejaVroomTheme.colors.white, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-            if (next) {
-                Spacer(Modifier.width(8.dp))
-                Text("다음", Modifier.background(DejaVroomTheme.colors.blue, CircleShape).padding(horizontal = 9.dp, vertical = 4.dp), color = DejaVroomTheme.colors.onPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            }
-            Spacer(Modifier.weight(1f))
-            Text(if (passed) "✓ 지나옴" else segment.type.label, Modifier.background(chipTint.copy(alpha = .10f), CircleShape).padding(horizontal = 11.dp, vertical = 7.dp), color = chipTint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        Box(Modifier.fillMaxWidth().height(if (compact) 140.dp else 300.dp)) {
+    val colors = DejaVroomTheme.colors
+    val dimens = DejaVroomTheme.dimens
+    val type = DejaVroomTheme.type
+    val overlayInset = dimens.dp(20)
+    Column(modifier.alpha(if (passed) .5f else 1f).cardSurface().clickable(onClick = onClick)) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
             RoadViewThumbnail(lookup, compact, Modifier.fillMaxSize())
             Box(Modifier.fillMaxSize().clickable(onClick = onClick))
-        }
-        Row(Modifier.fillMaxWidth().height(68.dp).background(DejaVroomTheme.colors.panelRaised).padding(horizontal = 13.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-            DirectionBadge(segment.cue?.direction, Modifier.size(38.dp))
-            Spacer(Modifier.width(11.dp))
-            Column(Modifier.weight(1f)) {
-                Text(segment.name, color = DejaVroomTheme.colors.white, fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(cardSubtitle(segment), color = DejaVroomTheme.colors.muted, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // Both top corners share one row, so on a narrow card the chip on the right shortens instead of
+            // running under the number.
+            Row(
+                Modifier.align(Alignment.TopStart).fillMaxWidth().padding(overlayInset),
+                horizontalArrangement = Arrangement.spacedBy(dimens.spaceS),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                NumberMarker(number, ring = true, passed = passed)
+                if (next) Chip("다음", container = colors.primary, content = colors.onPrimary)
+                Spacer(Modifier.weight(1f))
+                if (passed) {
+                    Chip("지나옴", container = PhotoOverlay.chip, content = PhotoOverlay.onChip, icon = DejaVroomIcons.Check)
+                } else {
+                    Chip(segment.type.label, container = PhotoOverlay.chip, content = PhotoOverlay.onChip)
+                }
             }
-            // The photo is taken this far before the point, so the driver sees it coming.
+            // The photo is taken this far before the point, so the driver sees it coming. The distance says
+            // where the photo stands, which is why it sits on the photo. It is lifted off the bottom edge
+            // because the photo provider writes its own credit there, and that must stay readable.
             leadLabel(segment.approach?.leadMeters)?.let { lead ->
-                Spacer(Modifier.width(8.dp))
-                Text("$lead 전", Modifier.background(DejaVroomTheme.colors.blue.copy(alpha = .12f), CircleShape).padding(horizontal = 9.dp, vertical = 5.dp), color = DejaVroomTheme.colors.blueLight, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Chip("$lead 전", Modifier.align(Alignment.BottomStart).padding(start = overlayInset, bottom = dimens.dp(64)), container = PhotoOverlay.chip, content = PhotoOverlay.onChipAccent)
             }
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = dimens.dp(24), vertical = dimens.dp(22)), verticalAlignment = Alignment.CenterVertically) {
+            DirectionBadge(segment.cue?.direction, Modifier.size(dimens.touchTarget))
+            Spacer(Modifier.width(dimens.spaceM))
+            Column(Modifier.weight(1f)) {
+                Text(segment.name, color = colors.onSurface, style = type.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(cardSubtitle(segment), color = colors.onSurfaceVariant, style = type.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.width(dimens.spaceS))
+            Text("$number / $total", color = colors.onSurfaceVariant, style = type.labelMedium, maxLines = 1)
         }
     }
 }

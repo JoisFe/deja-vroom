@@ -1,6 +1,8 @@
 package ai.dejavroom.app.ui
 
+import ai.dejavroom.app.core.designsystem.DejaVroomIcons
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
+import ai.dejavroom.app.core.designsystem.PhotoOverlay
 import ai.dejavroom.app.data.ROADVIEW_BRIDGE_NAME
 import ai.dejavroom.app.data.RoadViewContent
 import ai.dejavroom.app.data.RoadViewEndpoint
@@ -22,21 +24,26 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,9 +55,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
@@ -75,22 +84,26 @@ internal fun RoadViewScreen(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().padding(8.dp)) {
+    val dimens = DejaVroomTheme.dimens
+    // The shell pads the content area, so the screen adds no outer padding of its own.
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(dimens.spaceM)) {
         Row(
-            Modifier.fillMaxWidth().height(48.dp),
+            Modifier.fillMaxWidth().height(dimens.touchTarget),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onBack) { Text("‹  목록", color = DejaVroomTheme.colors.white) }
+            BackPill(onBack)
+            Spacer(Modifier.width(dimens.spaceM))
             Text(
                 route?.let { "${selectedIndex + 1}/${candidates.size} · ${candidates.getOrNull(selectedIndex)?.name.orEmpty()}" } ?: "고정 OSM fixture 테스트",
                 Modifier.weight(1f),
-                color = DejaVroomTheme.colors.muted,
-                fontSize = 12.sp,
+                color = DejaVroomTheme.colors.onSurfaceVariant,
+                style = DejaVroomTheme.type.bodySmall,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         Box(
-            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF17202D)),
+            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(dimens.radiusLarge)).background(PhotoOverlay.placeholder),
         ) {
             // Everything a point's road view learns lives and dies with that point. Moving on to the next
             // one starts from nothing, whatever the last one had reached or was still waiting for.
@@ -149,7 +162,7 @@ private fun BoxScope.RoadViewPoint(
         // Until the page reports where its photo stands, the view is where the preview was planned to start.
         val remaining = playback.remainingMeters ?: selected.approach?.leadMeters
         ArrivalFrame(atPoint = ApproachPhase.at(remaining) == ApproachPhase.AT_POINT, modifier = Modifier.matchParentSize())
-        ManeuverBanner(cue = cue, remainingMeters = remaining, modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
+        ManeuverBanner(cue = cue, remainingMeters = remaining, modifier = Modifier.align(Alignment.TopCenter).padding(top = DejaVroomTheme.dimens.spaceL))
     }
 }
 
@@ -177,7 +190,7 @@ private fun RoadViewPage(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
-                setBackgroundColor(android.graphics.Color.rgb(23, 32, 45))
+                setBackgroundColor(PhotoOverlay.placeholder.toArgb())
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
@@ -258,39 +271,71 @@ private fun RoadViewPage(
     )
 }
 
+/**
+ * Back to the list. The pill is drawn at the small button height, and the row around it takes the touch
+ * as well, so the finger gets the full touch target.
+ */
 @Composable
-private fun LoadingNotice(modifier: Modifier = Modifier) {
-    Text(
-        "로드뷰를 불러오는 중…",
-        modifier.padding(12.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xE6111B33)).padding(horizontal = 14.dp, vertical = 9.dp),
-        color = Color.White,
-        fontSize = 14.sp,
-    )
+private fun BackPill(onBack: () -> Unit) {
+    val colors = DejaVroomTheme.colors
+    val dimens = DejaVroomTheme.dimens
+    // Shared, so the press shows on the pill and not on the taller area that listens for it.
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        Modifier.fillMaxHeight().clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onBack),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            Modifier
+                .height(dimens.buttonSmall)
+                .cardSurface(CircleShape, elevated = false)
+                .indication(interaction, LocalIndication.current)
+                .padding(start = dimens.spaceM, end = dimens.spaceL),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AppIcon(DejaVroomIcons.ChevronLeft, tint = colors.onSurface)
+            Text("목록", color = colors.onSurface, style = DejaVroomTheme.type.bodySmall.copy(fontWeight = FontWeight.SemiBold), maxLines = 1)
+        }
+    }
 }
 
 @Composable
+private fun LoadingNotice(modifier: Modifier = Modifier) {
+    val dimens = DejaVroomTheme.dimens
+    Text(
+        "로드뷰를 불러오는 중…",
+        modifier.padding(dimens.spaceM).clip(RoundedCornerShape(dimens.radiusSmall)).background(PhotoOverlay.scrim).padding(horizontal = dimens.spaceL, vertical = dimens.spaceS),
+        color = PhotoOverlay.onScrim,
+        style = DejaVroomTheme.type.labelMedium,
+    )
+}
+
+/** Drawn on the dark placeholder of the photo box, so its colors do not follow the theme either. */
+@Composable
 private fun RoadViewProblem(message: String, onBack: () -> Unit) {
+    val type = DejaVroomTheme.type
+    val dimens = DejaVroomTheme.dimens
     Column(
-        Modifier.fillMaxSize().padding(32.dp),
+        Modifier.fillMaxSize().padding(dimens.spaceXxl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("로드뷰를 표시할 수 없습니다", color = Color.White, fontSize = 22.sp)
+        Text("로드뷰를 표시할 수 없습니다", color = PhotoOverlay.onScrim, style = type.titleMedium, textAlign = TextAlign.Center)
         Text(
             message,
-            Modifier.padding(top = 12.dp),
-            color = Color(0xFFCED7E5),
-            fontSize = 15.sp,
+            Modifier.padding(top = dimens.spaceL),
+            color = PhotoOverlay.onScrimVariant,
+            style = type.bodySmall,
+            textAlign = TextAlign.Center,
         )
         Text(
             "목록으로 돌아가 다른 지점은 계속 볼 수 있습니다.",
-            Modifier.padding(top = 8.dp),
-            color = Color(0xFF9EACC0),
-            fontSize = 13.sp,
+            Modifier.padding(top = dimens.spaceM),
+            color = PhotoOverlay.onScrimVariant,
+            style = type.labelMedium,
+            textAlign = TextAlign.Center,
         )
-        TextButton(onClick = onBack, modifier = Modifier.padding(top = 20.dp)) {
-            Text("목록으로 돌아가기", color = Color(0xFF8AB4FF))
-        }
+        TextAction("목록으로 돌아가기", Modifier.padding(top = dimens.dp(40)), color = PhotoOverlay.onScrim, onClick = onBack)
     }
 }
 
@@ -298,35 +343,25 @@ private fun RoadViewProblem(message: String, onBack: () -> Unit) {
 @Composable
 private fun PointNavigation(selectedIndex: Int, count: Int, onBack: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit) {
     val last = selectedIndex >= count - 1
+    val colors = DejaVroomTheme.colors
+    val type = DejaVroomTheme.type
+    val dimens = DejaVroomTheme.dimens
     Row(
-        Modifier.fillMaxWidth().padding(top = 8.dp).height(60.dp)
-            .clip(RoundedCornerShape(16.dp)).background(DejaVroomTheme.colors.panel)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+        Modifier.fillMaxWidth().height(dimens.buttonLarge),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(dimens.spaceL),
     ) {
-        Button(
-            onClick = onPrevious,
-            enabled = selectedIndex > 0,
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF26364A),
-                disabledContainerColor = Color(0xFF202A37),
-                disabledContentColor = Color(0xFF65758A),
-            ),
-        ) {
-            Text("‹  이전 지점")
-        }
+        SecondaryButton("이전 지점", Modifier.weight(1f), enabled = selectedIndex > 0, leadingIcon = DejaVroomIcons.ChevronLeft, onClick = onPrevious)
+        // No fixed width for the count: in the narrow window the buttons need that room for their labels.
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("${selectedIndex + 1} / $count", color = DejaVroomTheme.colors.white, fontSize = 15.sp)
-            Text("가는 순서", color = DejaVroomTheme.colors.muted, fontSize = 10.sp)
+            Text("${selectedIndex + 1} / $count", color = colors.onSurface, style = type.bodyLarge, maxLines = 1)
+            Text("가는 순서", color = colors.onSurfaceVariant, style = type.labelSmall, maxLines = 1)
         }
-        Button(
+        PrimaryButton(
+            if (last) "목록으로" else "다음 지점",
+            Modifier.weight(1.25f),
+            trailingIcon = if (last) null else DejaVroomIcons.ChevronRight,
             onClick = if (last) onBack else onNext,
-            modifier = Modifier.weight(1.25f),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1555C9)),
-        ) {
-            Text(if (last) "목록으로" else "다음 지점  ›")
-        }
+        )
     }
 }

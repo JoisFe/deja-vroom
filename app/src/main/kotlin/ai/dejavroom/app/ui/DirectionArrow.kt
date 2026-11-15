@@ -1,6 +1,7 @@
 package ai.dejavroom.app.ui
 
 import ai.dejavroom.app.core.designsystem.DejaVroomTheme
+import ai.dejavroom.app.core.designsystem.PhotoOverlay
 import ai.dejavroom.app.model.TurnDirection
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -24,9 +25,10 @@ import kotlin.math.sin
 /**
  * A turn arrow drawn as a path, so it looks the same whatever fonts the head unit has: a stem coming up
  * from the bottom that bends toward [direction] and ends in an arrowhead. A U-turn loops back on the left.
+ * The default [color] is for the dark banner over a road photo, where the arrow is drawn on its own.
  */
 @Composable
-internal fun DirectionArrow(direction: TurnDirection, modifier: Modifier = Modifier, color: Color = Color.White) {
+internal fun DirectionArrow(direction: TurnDirection, modifier: Modifier = Modifier, color: Color = PhotoOverlay.onScrim) {
     Canvas(modifier.semantics { contentDescription = directionDescription(direction) }) {
         val shape = arrowShape(direction)
         val stroke = Stroke(width = size.minDimension * STROKE_SHARE, cap = StrokeCap.Round, join = StrokeJoin.Round)
@@ -60,11 +62,12 @@ internal fun DirectionArrow(direction: TurnDirection, modifier: Modifier = Modif
 /** The arrow in a tinted circle, sized by [modifier]. Points without a known direction get a plain dot. */
 @Composable
 internal fun DirectionBadge(direction: TurnDirection?, modifier: Modifier = Modifier) {
-    Box(modifier.background(DejaVroomTheme.colors.blue.copy(alpha = .14f), CircleShape), contentAlignment = Alignment.Center) {
+    val colors = DejaVroomTheme.colors
+    Box(modifier.background(colors.selectedSurface, CircleShape), contentAlignment = Alignment.Center) {
         if (direction != null) {
-            DirectionArrow(direction, Modifier.fillMaxSize(ARROW_SHARE_IN_BADGE), DejaVroomTheme.colors.blueLight)
+            DirectionArrow(direction, Modifier.fillMaxSize(ARROW_SHARE_IN_BADGE), colors.accent)
         } else {
-            Box(Modifier.fillMaxSize(DOT_SHARE_IN_BADGE).background(DejaVroomTheme.colors.blueLight, CircleShape))
+            Box(Modifier.fillMaxSize(DOT_SHARE_IN_BADGE).background(colors.accent, CircleShape))
         }
     }
 }
