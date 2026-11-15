@@ -16,26 +16,43 @@ Déjà Vroom은 초행길 예습을 "출발 전에 전부 보기"에서 "**차�
 
 ## 해법: 고르고, 꺼내고, 줄인다
 
+이 흐름은 목표 설계(2차 단계)다. 파란 칸만 지금 구현돼 있고, 그 내용은 [볼 곳 선정 알고리즘](algorithm.md)에 있다. 줄인 결과(익숙해진 곳)는 다음 주행의 점수로 돌아간다.
+
 ```mermaid
 flowchart LR
-    subgraph 고른다
-        A1[주행 이력] --> S[볼 곳 점수]
-        A2[오류 비용] --> S
-        A3[운전자들이 헤맨 지점] --> S
+    subgraph pick["고른다"]
+        direction TB
+        history("주행 이력"):::plan
+        cost("오류 비용"):::now
+        lost("운전자들이 헤맨 지점"):::plan
+        score("볼 곳 점수"):::now
+        history & cost & lost --> score
     end
-    subgraph 꺼낸다
-        S --> B1[1 km 전 한 문장]
-        S --> B2[정차 중 사진 1장]
-        S --> B3[도착 60초 전 입구]
+    subgraph show["꺼낸다"]
+        direction TB
+        say("1 km 전<br/>한 문장"):::plan
+        photo("정차 중<br/>사진 1장"):::plan
+        entrance("도착 60초 전<br/>입구"):::plan
+        say ~~~ photo ~~~ entrance
     end
-    subgraph 줄인다
-        B1 & B2 & B3 --> C1["복기: 망설인 시간"]
-        C1 --> C2[익숙해진 곳은 안내 생략]
-        C2 -.-> S
+    subgraph cut["줄인다"]
+        direction TB
+        recap("복기<br/>망설인 시간"):::plan
+        skip("익숙해진 곳은<br/>안내 생략"):::plan
+        recap --> skip
     end
+    pick --> show --> cut
+
+    classDef now fill:#1f6feb,stroke:#1158c7,color:#ffffff
+    classDef plan fill:none,stroke:#8b949e,stroke-dasharray:5 4
+    style pick fill:none,stroke:#8b949e
+    style show fill:none,stroke:#8b949e
+    style cut fill:none,stroke:#8b949e
 ```
 
 ## 볼 곳 선정 규칙
+
+목표 설계(2차 단계)다. 지금 구현은 [볼 곳 선정 알고리즘](algorithm.md)에 있다.
 
 경로의 지점마다 점수를 매긴다.
 
@@ -58,6 +75,8 @@ flowchart LR
 | 익숙함 | 두 번 연속 망설임 없이(지시등 → 변경 5초 이내) 통과하면 그 지점은 0 | 복기 데이터 |
 
 ### 상한
+
+목표 설계(2차 단계)다. 지금 구현은 [볼 곳 선정 알고리즘](algorithm.md)에 있다.
 
 안내가 많으면 운전자가 듣지 않는다.
 

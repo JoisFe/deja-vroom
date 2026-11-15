@@ -2,17 +2,27 @@
 
 **무엇을, 왜**는 GitHub Spec Kit이 정하고, **어떻게, 언제 완료인지**는 Claude Code 하네스가 정한다.
 
+위 줄이 스펙, 아래 줄이 구현이다. `tasks.md`가 둘을 잇고, 평가가 실패하면 구현으로 돌아간다. 모든 단계는 하네스 명령이나 에이전트라 파랑으로 같다.
+
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph Spec["Spec Kit (한국어 템플릿)"]
-        S1["/speckit-specify"] --> S2["/speckit-clarify"] --> S3["/speckit-plan"] --> S4["/speckit-tasks"] --> S5["/speckit-analyze"]
+        direction LR
+        S1("/speckit-specify"):::app --> S2("/speckit-clarify"):::app --> S3("/speckit-plan"):::app --> S4("/speckit-tasks"):::app --> S5("/speckit-analyze"):::app
     end
     subgraph Build["Claude Code 하네스"]
-        B1["/new-feature<br/>브랜치 생성"] --> B2["pleos-app-developer<br/>구현"] --> B3["/verify<br/>빌드·테스트"] --> B4["app-evaluator<br/>에뮬레이터 확인"] --> B5["/speckit-converge"] --> B6["/review → PR"]
+        direction LR
+        B1("/new-feature<br/>브랜치 생성"):::app --> B2("pleos-app-developer<br/>구현"):::app --> B3("/verify<br/>빌드·테스트"):::app --> B4("app-evaluator<br/>에뮬레이터 확인"):::app --> B5("/speckit-converge"):::app --> B6("/review → PR"):::app
+        B4 -.->|"FAIL: 수정 항목"| B2
     end
-    S5 -->|tasks.md| B1
-    B4 -->|FAIL: 수정 항목| B2
+    Spec -->|"tasks.md"| Build
+
+    classDef app fill:#1f6feb,stroke:#1158c7,color:#ffffff
+    style Spec fill:none,stroke:#8b949e
+    style Build fill:none,stroke:#8b949e
 ```
+
+현재 `main`에는 `specs/` 디렉터리가 없다. 프로토타입은 스펙 문서 없이 만들었고, 아래 스펙 단계는 아직 적용한 적이 없다.
 
 | 단계 | 명령 · 에이전트 | 산출물 |
 |---|---|---|

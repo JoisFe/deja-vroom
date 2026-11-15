@@ -8,17 +8,17 @@
 |---|---|
 | 코드, 식별자 | 영어 |
 | 커밋 메시지, PR 제목·본문, 문서, 스펙(`specs/**`), Discussions | 한국어 |
-| 앱 화면 문구 | 한국어 (`strings.xml`, 하드코딩 금지) |
+| 앱 화면 문구 | 한국어. `ui/*Labels.kt`의 함수에 두고 단위 테스트로 고정한다 (Composable 안에 문장을 새로 쓰지 않는다) |
 
 ## Kotlin · Compose
 
 | 규칙 | 예 |
 |---|---|
-| 화면 상태는 불변 `data class UiState` 하나, `StateFlow`로 노출 | `val uiState: StateFlow<BriefingUiState>` |
-| Composable은 상태를 받고 이벤트를 올린다 (state hoisting) | `BriefingCard(state, onNext = vm::next)` |
+| 화면 상태는 불변 `data class UiState` 하나, `StateFlow`로 노출 | `val state: StateFlow<DejaVroomUiState>` |
+| Composable은 상태를 받고 이벤트를 올린다 (state hoisting) | `DestinationScreen(state, actions)` |
 | Pleos SDK는 `data/**/Pleos*Repository` 안에서만 호출 | UI·ViewModel에서 SDK import 금지 |
 | SDK 콜백은 한 번만 `suspend` / `callbackFlow`로 감싼다 | `fun turnSignal(): Flow<TurnSignal>` |
-| 모든 Repository 인터페이스에 `Fake*` 구현 | `FakeNaviRepository` (Demo·테스트) |
+| 모든 Repository 인터페이스에 `Fake*` 구현 | `FakeCurrentLocationRepository` (테스트) |
 | SDK 호출 전 지원 여부(capability) 확인, 미지원 시 UI 비활성화 | – |
 | 주행 중 화면은 `CarUxRestrictions`를 따른다 | 주행 중 키보드·영상 금지 |
 | 코루틴은 `viewModelScope` / 주입한 `CoroutineDispatcher` | `GlobalScope` 금지 |
@@ -44,11 +44,12 @@ Spotless가 ktlint로 Kotlin 파일(`app/src/**/*.kt`, `*.gradle.kts`)을 정리
 
 ```text
 ai.dejavroom.app/
-  ui/         Compose 화면, 테마(Pleos 디자인 토큰)
+  ui/         Compose 화면, 화면 문구 함수
   feature/    화면별 ViewModel + UiState
   domain/     경로 해석과 선정 정책 (순수 Kotlin, Android 의존 없음)
   data/       Repository 인터페이스, 외부 서비스·Pleos* 구현, Fake* 구현, 설정 읽기
   model/      도메인 타입. 값만 담지 않고 자기 판단을 메서드로 가진다
+  core/designsystem/  테마와 디자인 토큰 (색, 글자 단계, 치수, 아이콘)
 ```
 
 ## Rich domain model
@@ -67,14 +68,16 @@ ai.dejavroom.app/
 
 ## 브랜치 · 커밋 · PR
 
+작업은 `main`에서 브랜치를 따서 커밋하고, 리뷰를 거친 PR로만 `main`에 합친다.
+
 ```mermaid
 gitGraph
-    commit id: "main"
+    commit id: "기존 main"
     branch feature/12-place-scorer
-    commit id: "Add place scorer"
-    commit id: "Add scorer tests"
+    commit id: "볼 곳 점수 추가"
+    commit id: "점수 테스트 추가"
     checkout main
-    merge feature/12-place-scorer id: "PR #12 (review)"
+    merge feature/12-place-scorer id: "PR #12 리뷰 후 병합"
 ```
 
 | 항목 | 규칙 |
@@ -87,7 +90,7 @@ gitGraph
 
 ## 보안
 
-- 비밀 값(Pleos Client ID/Secret, API 키, 서명 키)은 `secrets.properties` / `.env`에 두고 커밋하지 않는다.
+- 비밀 값(Pleos Client ID/Secret, API 키, 서명 키)은 git에서 제외한 파일(`local.properties`, `keystore.properties`)에 두고 커밋하지 않는다.
 - 위치·VIN·음성은 기능에 필요한 만큼만 쓰고 로그에 남기지 않는다.
 - SDK 콜백과 외부 API 응답은 경계에서 검증한다(null, 범위). 실패 시 안전한 쪽(안내 생략)으로 처리한다.
 

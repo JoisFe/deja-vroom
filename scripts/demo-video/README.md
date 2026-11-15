@@ -2,9 +2,13 @@
 
 에뮬레이터 화면 녹화에 한국어 설명 음성과 자막을 입혀 `out/deja-vroom-demo.mp4`를 만든다. UI가 바뀌면 같은 명령으로 다시 만든다.
 
+세 단계를 차례로 거쳐 영상이 만들어진다. 세 단계 모두 이 폴더의 스크립트라 같은 파랑이다.
+
 ```mermaid
 flowchart LR
-    R["record.sh<br/>설치 · 화면 조작 · 녹화"] --> N["narrate.sh<br/>say 음성 + 자막(.srt)"] --> M["build.sh<br/>ffmpeg 합성"]
+    R("record.sh<br/>설치 · 화면 조작 · 녹화"):::app --> N("narrate.sh<br/>say 음성 + 자막(.srt)"):::app --> M("build.sh<br/>ffmpeg 합성"):::app
+
+    classDef app fill:#1f6feb,stroke:#1158c7,color:#ffffff
 ```
 
 ## 준비

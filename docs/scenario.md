@@ -12,24 +12,35 @@
 
 ## 일곱 장면
 
+일곱 장면은 모두 목표 시나리오이고, 지금 있는 것은 출발 전 미리보기(장면 01의 화면)뿐이다. 파랑 구간이 그 미리보기에 해당하며, 지금은 점수 기준 이상인 곳을 모두 보여 준다(2곳 제한은 목표다). 기어 신호도 아직 읽지 않는다. 장면 02~07은 차량 신호를 쓰는 목표이며 아직 구현하지 않아 색을 칠하지 않았다.
+
 ```mermaid
 sequenceDiagram
     autonumber
-    participant D as 운전자
+    actor D as 운전자
     participant C as 차 (신호)
     participant A as Déjà Vroom
-    C->>A: Gear P, 목적지 설정
-    A->>D: 화면: 볼 곳 2곳
+    rect rgba(31, 111, 235, 0.14)
+        Note over D,A: 장면 01 · 볼 곳 두 곳
+        C->>A: Gear P, 목적지 설정
+        A->>D: 화면: 볼 곳 2곳
+    end
+    Note over D,A: 장면 02 · 1 km 전 음성 안내
     C->>A: D, 지시등 OFF, 조향 0°, TBT 1,000 m
     A->>D: 음성: "왼쪽은 유턴 전용, 지금 2차로로"
+    Note over D,A: 장면 03 · 정차 중 사진 한 장
     C->>A: 차속 0, 브레이크 ON
     A->>D: 화면: 다음 지점 사진 1장
+    Note over D,A: 장면 04 · 처음 가는 구간 진입
     C->>A: TBT 300 m, 이력에 없는 지점
     A->>D: 음성: "여기부터 처음 가는 길"
+    Note over D,A: 장면 05 · 입구 안내
     C->>A: 목적지 400 m, 서행
     A->>D: 음성: "입구는 정문이 아니라 뒤 골목"
+    Note over D,A: 장면 06 · 지하 주차 층 추정
     C->>A: 조향 540° × 2, Gear P
     A->>D: 폰: "B2 · 램프 내려서 왼쪽"
+    Note over D,A: 장면 07 · 복기
     C->>A: Gear P (도착)
     A->>D: 화면: 복기
 ```

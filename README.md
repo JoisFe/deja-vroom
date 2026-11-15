@@ -67,16 +67,37 @@ Déjà Vroom은 이 예습을 차가 대신 해 주면 어떨까에서 출발했
 
 출발 전 로드뷰 예습에는 한계가 있다. 회전 스무 개를 다 외울 수는 없고, 두 시간 뒤 열두 번째 교차로는 기억에 남지 않는다. 가장 헷갈리는 도착지 주차장 입구는 로드뷰에 나오지도 않는다.
 
-Déjà Vroom은 **외우게 하지 않는다.** 볼 곳은 차가 고르고, 필요한 순간에만 꺼낸다.
+Déjà Vroom은 **외우게 하지 않는다.** 볼 곳은 차가 고르고, 필요한 순간에만 꺼낸다. 파란 칸은 지금 프로토타입에 있고, 점선 칸은 목표 설계다.
 
 ```mermaid
 flowchart LR
-    A["출발 전 · P<br/>볼 곳 2곳만"] --> B["주행 · D<br/>1 km 전 한 문장"]
-    B --> C["신호 대기<br/>다음 지점 사진 1장"]
-    C --> D["처음 가는 갈림길<br/>'여기부터 처음 가는 길'"]
-    D --> E["도착 60초 전<br/>입구 안내"]
-    E --> F["지하 주차<br/>조향각으로 층 추정"]
-    F --> G["도착 후 · P<br/>망설인 지점 복기"]
+    subgraph before["출발 전 · 기어 P"]
+        direction TB
+        pick("볼 곳 고르기<br/>헷갈리기 쉬운 곳만"):::now
+        preview("로드뷰 미리보기<br/>분기점에 닿기 전 시점"):::now
+        pick --> preview
+    end
+    subgraph driving["주행 중 · 기어 D"]
+        direction TB
+        say("1 km 전 한 문장<br/>한가한 순간에만"):::plan
+        photo("신호 대기<br/>다음 지점 사진 1장"):::plan
+        first("처음 가는 갈림길<br/>'여기부터 처음 가는 길'"):::plan
+        say --> photo --> first
+    end
+    subgraph arriving["도착"]
+        direction TB
+        entrance("도착 60초 전<br/>입구 안내"):::plan
+        parking("지하 주차<br/>조향각으로 층 추정"):::plan
+        recap("도착 후 · 기어 P<br/>망설인 지점 복기"):::plan
+        entrance --> parking --> recap
+    end
+    before --> driving --> arriving
+
+    classDef now fill:#1f6feb,stroke:#1158c7,color:#ffffff
+    classDef plan fill:none,stroke:#8b949e,stroke-dasharray:5 4
+    style before fill:none,stroke:#8b949e
+    style driving fill:none,stroke:#8b949e
+    style arriving fill:none,stroke:#8b949e
 ```
 
 | 기능 | 방법 | 쓰는 차량 신호 |
@@ -117,7 +138,7 @@ cd deja-vroom
 | 장소 검색 | 제공자는 `config/search.yml`의 `placeSearch.provider`. 기본 Kakao는 로드뷰와 같은 키·페이지 주소를 쓴다. [장소 검색 설정](docs/place-search-setup.md) |
 | 로드뷰 | 제공자는 `config/roadview.yml`. Kakao는 페이지 주소, Mapillary는 `local.properties`의 `mapillaryClientToken` (비어 있으면 앱이 설정 안내를 보여 준다). [로드뷰 설정](docs/roadview-setup.md) |
 | 알고리즘 조정 값 | `config/briefing.yml` (카드 수, 가중치, 몇 초 앞에서 보여 줄지). 고치고 다시 빌드하면 적용된다. [볼 곳 선정 알고리즘](docs/algorithm.md#조정-값) |
-| 비밀 값 | 저장소에 두지 않는다. Kakao JavaScript 키는 저장소 Secret `KAKAO_JS_KEY`, 그 밖의 값은 `secrets.properties`(git 제외) |
+| 비밀 값 | 저장소에 두지 않는다. Kakao JavaScript 키는 저장소 Secret `KAKAO_JS_KEY`, 그 밖의 값은 `local.properties`(git 제외) |
 
 ## APK
 
@@ -130,27 +151,53 @@ cd deja-vroom
 
 ```mermaid
 flowchart TB
-    subgraph Car["차량 (Pleos Connect)"]
-        V["Vehicle SDK<br/>TurnSignal · SteeringWheel · Brake"]
-        A["AAOS CarPropertyManager<br/>GEAR_SELECTION · 차속"]
-        N["NaviHelper 3.0.5<br/>TBT · 재탐색 · 현재 위치"]
+    subgraph car["차량 · Pleos Connect"]
+        direction LR
+        navi("NaviHelper 3.0.5<br/>현재 위치"):::pleos
+        signals("Vehicle SDK · AAOS<br/>지시등 · 조향 · 기어 · 차속"):::plan
+        tts("Pleos TextToSpeech<br/>한 문장 안내"):::plan
+        navi ~~~ signals ~~~ tts
     end
-    subgraph App["Déjà Vroom 앱"]
-        S["신호 수집<br/>(Repository, SDK는 여기서만 호출)"]
-        P["볼 곳 선정<br/>점수 + 상한"]
-        T["타이밍 판정<br/>한가함 · 정차 · 서행"]
-        H["이력 · 복기<br/>처음 · 익숙함"]
-        UI["Compose 화면<br/>P 카드 · 정차 카드 · 복기"]
+    subgraph app["Déjà Vroom 앱"]
+        direction LR
+        ui("ui<br/>Compose 화면"):::app
+        vm("feature<br/>ViewModel · UiState"):::app
+        data("data<br/>Repository · 제공자 구현"):::app
+        domain("domain<br/>볼 곳 선정 · 시점 계산"):::domain
+        config["config/*.yml<br/>조정 값 · 제공자 선택"]:::config
+        ui --> vm --> data --> domain
+        vm --> domain
+        config --> data
     end
-    O["TTS<br/>한 문장 안내"]
-    X["외부 경로 · 로드뷰 API<br/>(약관 확인 후)"]
+    subgraph outside["외부 서비스"]
+        direction LR
+        osrm("OSRM<br/>경로 · 회전 목록"):::ext
+        places("Kakao · Photon<br/>장소 검색"):::ext
+        roadview("Kakao 로드뷰 · Mapillary<br/>도로 사진"):::ext
+        osrm ~~~ places ~~~ roadview
+    end
+    car -->|"현재 위치"| app
+    app -->|"경로 · 장소 · 도로 사진"| outside
 
-    V & A & N --> S --> P & T & H
-    X -.-> P
-    P & T --> UI
-    T --> O
-    H --> UI
+    classDef app fill:#1f6feb,stroke:#1158c7,color:#ffffff
+    classDef domain fill:#8250df,stroke:#6639ba,color:#ffffff
+    classDef pleos fill:#1a7f37,stroke:#116329,color:#ffffff
+    classDef ext fill:#bf5b04,stroke:#953800,color:#ffffff
+    classDef config fill:#57606a,stroke:#424a53,color:#ffffff
+    classDef plan fill:none,stroke:#8b949e,stroke-dasharray:5 4
+    style car fill:none,stroke:#8b949e
+    style app fill:none,stroke:#8b949e
+    style outside fill:none,stroke:#8b949e
 ```
+
+| 색 | 뜻 |
+|---|---|
+| 파랑 | 앱 코드 |
+| 보라 | 순수 Kotlin 도메인 로직 |
+| 초록 | 연동한 Pleos SDK |
+| 주황 | 외부 서비스 |
+| 회색 | 설정 파일 |
+| 점선 | 아직 연결하지 않은 계획 |
 
 계층, SDK 매핑, 한계는 [구성도 문서](docs/architecture.md)에 있다.
 
@@ -159,16 +206,20 @@ flowchart TB
 후보 지점의 도로 사진은 제공자를 바꿔 끼울 수 있다. 화면과 ViewModel은 `RoadViewProvider` 인터페이스와 결과 타입만 알고, 어떤 구현체를 쓸지는 `config/roadview.yml`이 정한다.
 
 ```mermaid
-flowchart LR
-    Y["config/roadview.yml<br/>provider: kakao"] --> F["RoadViewProviderFactory"]
-    L["local.properties<br/>(덮어쓰기 · 토큰)"] --> F
-    F --> I{{"RoadViewProvider<br/>lookup(target)"}}
-    I --> K["KakaoRoadViewProvider<br/>GitHub Pages 페이지 · 파노라마"]
-    I --> M["MapillaryRoadViewProvider<br/>Graph API · 사진 1장"]
-    I --> D["DemoRoadViewProvider<br/>자체 그림"]
-    I --> U["UnconfiguredRoadViewProvider<br/>설정 안내"]
-    K & M & D & U --> R["RoadViewLookupResult<br/>InteractivePage · StillImage · Illustration"]
-    R --> UI["화면 (내용 타입으로만 분기)"]
+flowchart TB
+    yml["config/roadview.yml<br/>provider: kakao"]:::config --> factory("RoadViewProviderFactory"):::app
+    local["local.properties<br/>덮어쓰기 · 토큰"]:::config --> factory
+    factory --> port{{"RoadViewProvider<br/>lookup(target)"}}:::app
+    port --> kakao("KakaoRoadViewProvider<br/>로드뷰 페이지 · 파노라마"):::ext
+    port --> mapillary("MapillaryRoadViewProvider<br/>Graph API · 사진 1장"):::ext
+    port --> demo("DemoRoadViewProvider<br/>자체 그림"):::app
+    port --> unconfigured("UnconfiguredRoadViewProvider<br/>설정 안내"):::app
+    kakao & mapillary & demo & unconfigured --> result("RoadViewLookupResult<br/>InteractivePage · StillImage · Illustration"):::app
+    result --> screen(["화면<br/>내용 타입으로만 분기"]):::app
+
+    classDef app fill:#1f6feb,stroke:#1158c7,color:#ffffff
+    classDef ext fill:#bf5b04,stroke:#953800,color:#ffffff
+    classDef config fill:#57606a,stroke:#424a53,color:#ffffff
 ```
 
 | 구현체 | `provider` | 결과 | 필요한 설정 |

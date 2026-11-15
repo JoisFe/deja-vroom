@@ -33,13 +33,31 @@ kakao:
 
 ## Kakao
 
+키를 받아 페이지를 배포한 뒤(1~3단계), 그 주소를 앱 빌드에 넣는다(4단계). 주황은 외부 서비스, 회색은 키와 설정 값, 파랑은 앱이다.
+
 ```mermaid
-flowchart LR
-    K["Kakao Developers<br/>JavaScript 키 + Web 도메인"] --> S["저장소 Secret<br/>KAKAO_JS_KEY"]
-    S --> A["GitHub Actions<br/>Roadview Pages"]
-    A --> P["GitHub Pages<br/>…/deja-vroom/roadview/"]
-    P --> L["local.properties<br/>roadviewBaseUrl"]
-    L --> APP["앱 빌드"]
+flowchart TB
+    subgraph deploy["1~3단계 · 키와 페이지 배포"]
+        direction LR
+        K("Kakao Developers<br/>JavaScript 키 + Web 도메인"):::ext
+        S["저장소 Secret<br/>KAKAO_JS_KEY"]:::config
+        A("GitHub Actions<br/>Roadview Pages"):::ext
+        P("GitHub Pages<br/>…/deja-vroom/roadview/"):::ext
+        K --> S --> A --> P
+    end
+    subgraph mac["4단계 · 앱에 주소 넣기"]
+        direction LR
+        L["local.properties<br/>roadviewBaseUrl"]:::config
+        APP("앱 빌드"):::app
+        L --> APP
+    end
+    deploy -->|"페이지 주소"| mac
+
+    classDef app fill:#1f6feb,stroke:#1158c7,color:#ffffff
+    classDef ext fill:#bf5b04,stroke:#953800,color:#ffffff
+    classDef config fill:#57606a,stroke:#424a53,color:#ffffff
+    style deploy fill:none,stroke:#8b949e
+    style mac fill:none,stroke:#8b949e
 ```
 
 ### 1. Kakao JavaScript 키와 Web 도메인

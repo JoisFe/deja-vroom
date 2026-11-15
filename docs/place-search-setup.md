@@ -31,21 +31,32 @@ roadviewBaseUrl=http://localhost:8080/roadview/
 
 ## 동작 방식
 
+앱과 검색 페이지는 메시지로 주고받는다. 주황 구간은 네트워크(검색 페이지와 Kakao를 불러오고 묻는 일)이고, 파랑 구간은 앱과 페이지 사이의 메시지다.
+
 ```mermaid
 sequenceDiagram
-    participant U as 운전자
-    participant A as 앱 (KakaoPlaceSearchRepository)
-    participant P as 검색 페이지 (places.html, 화면에 보이지 않음)
-    participant K as Kakao
-    A->>P: 앱이 열릴 때 페이지를 불러온다
-    P->>K: 지도 SDK + services 라이브러리 (JavaScript 키)
-    P-->>A: ready
-    U->>A: "강남역" 입력
-    A->>P: {type: "search", id, query}
-    P->>K: 장소 검색 + 주소 검색
-    K-->>P: 결과
-    P-->>A: {type: "places", id, items}
-    A-->>U: 추천 검색어 (아래에 "장소 정보 © Kakao")
+    autonumber
+    actor driver as 운전자
+    participant app as 앱<br/>KakaoPlaceSearchRepository
+    participant page as 검색 페이지<br/>places.html · 화면에 보이지 않음
+    participant kakao as Kakao
+    rect rgba(191, 91, 4, 0.14)
+        app->>page: 앱이 열릴 때 페이지를 불러온다
+        page->>kakao: 지도 SDK + services 라이브러리 (JavaScript 키)
+    end
+    rect rgba(31, 111, 235, 0.14)
+        page-->>app: ready
+        driver->>app: "강남역" 입력
+        app->>page: {type: "search", id, query}
+    end
+    rect rgba(191, 91, 4, 0.14)
+        page->>kakao: 장소 검색 + 주소 검색
+        kakao-->>page: 결과
+    end
+    rect rgba(31, 111, 235, 0.14)
+        page-->>app: {type: "places", id, items}
+        app-->>driver: 추천 검색어 (아래에 "장소 정보 © Kakao")
+    end
 ```
 
 | 파일 | 역할 |
