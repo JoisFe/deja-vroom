@@ -137,6 +137,7 @@ private fun RoadViewPageThumbnail(content: RoadViewContent.InteractivePage, modi
 
                     /** Returning true keeps the app alive; the message replaces the view and onRelease destroys it. */
                     override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                        view.tag = RendererGone
                         loadFailed = true
                         return true
                     }
@@ -144,14 +145,20 @@ private fun RoadViewPageThumbnail(content: RoadViewContent.InteractivePage, modi
                 loadUrl(url)
             }
         },
-        update = { view -> if (view.tag != url) { view.tag = url; view.loadUrl(url) } },
+        update = { view -> if (view.tag != RendererGone && view.tag != url) { view.tag = url; view.loadUrl(url) } },
         onRelease = { view ->
-            view.stopLoading()
-            view.loadUrl("about:blank")
+            // A view whose renderer died cannot load anything again; it is only destroyed.
+            if (view.tag != RendererGone) {
+                view.stopLoading()
+                view.loadUrl("about:blank")
+            }
             view.destroy()
         },
     )
 }
+
+/** Tag of a thumbnail WebView whose renderer died. */
+private object RendererGone
 
 private sealed interface ImageLoad {
     data object Loading : ImageLoad

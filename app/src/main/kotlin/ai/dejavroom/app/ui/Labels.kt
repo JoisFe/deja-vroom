@@ -76,7 +76,13 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-/** Why the route search did not end in cards, in the driver's words: never a service name or an error code. */
+/** The header entry that opens the road view without a route. Only the team's own debug builds show it. */
+internal const val DEVELOPER_ROAD_VIEW_LABEL = "로드뷰 점검"
+
+/**
+ * Why the route search did not end in cards. A route failure is put in the driver's words, never a service
+ * name or an error code. A place-search hint is shown as written: it tells the team what to set up.
+ */
 internal fun searchProblemText(problem: SearchProblem): String = when (problem) {
     is SearchProblem.RouteFailed -> routeFailureText(problem.reason)
     // The setup hint says what to fix; without one, the driver is asked for a clearer place.

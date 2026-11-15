@@ -110,6 +110,7 @@ CI처럼 파일을 쓰지 않을 때는 `./gradlew :app:assembleRelease -Proadvi
 | `roadviewBaseUrl` | 앱 (`BuildConfig.ROADVIEW_BASE_URL_OVERRIDE`) | `config/roadview.yml`의 `kakao.baseUrl`. 그것도 비면 설정 안내 |
 | `mapillaryClientToken` | 앱 (`BuildConfig.MAPILLARY_CLIENT_TOKEN`) | `provider: mapillary`일 때 설정 안내 |
 | `kakaoJsKey` | `scripts/roadview/serve.py` (로컬 확인 전용) | 로컬 페이지가 키 오류를 보여 준다 |
+| `developerEntry` | 앱 (`BuildConfig.DEVELOPER_ENTRY`). `true`이면 debug 빌드의 머리글에 "로드뷰 점검"이 보이고, 누르면 경로 없이 로드뷰를 연다 | 버튼이 보이지 않는다 |
 
 `https` 주소와 `http://localhost`만 받는다. 그 밖의 `http` 주소는 설정되지 않은 것으로 본다.
 

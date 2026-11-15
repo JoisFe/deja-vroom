@@ -62,8 +62,9 @@ android {
         // Only a Mapillary build reads the token, so no other build carries it.
         val mapillaryClientToken = if (roadviewProvider == "mapillary") localSetting("mapillaryClientToken") else ""
         buildConfigField("String", "MAPILLARY_CLIENT_TOKEN", buildConfigString(mapillaryClientToken))
-        // The "로드뷰 점검" entry in the header opens the road view without a route. It is off in every build,
-        // including the debug build the demo video is recorded from; developerEntry=true in local.properties turns it on.
+        // The "로드뷰 점검" entry in the header opens the road view without a route. It stays off unless
+        // developerEntry=true is set in local.properties, so the debug build the demo video is recorded from
+        // does not show it. The header also asks for a debug build: the entry's fixture is a debug asset.
         buildConfigField("boolean", "DEVELOPER_ENTRY", (localSetting("developerEntry") == "true").toString())
     }
 

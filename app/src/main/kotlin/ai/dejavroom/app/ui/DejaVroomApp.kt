@@ -146,6 +146,8 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
     val type = DejaVroomTheme.type
     val route = state.route
     val wordmark = type.bodyLarge.copy(fontWeight = FontWeight.Bold)
+    // A release build never shows the developer entry, whatever local.properties says: its fixture is a debug asset.
+    val developerEntry = BuildConfig.DEBUG && BuildConfig.DEVELOPER_ENTRY
     // A rehearsal edit to config/*.yml that broke the file must not go unnoticed; release builds never show it.
     val configProblem = state.configProblem
     if (BuildConfig.DEBUG && configProblem != null) {
@@ -163,8 +165,8 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
                     Text("${route.origin}  ›  ${route.destination}     약 ${route.durationMinutes}분 · ${route.distanceKm}km", Modifier.weight(1f), color = colors.onSurfaceVariant, style = type.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (state.screen != DejaVroomScreen.DESTINATION) EditRouteButton(vm::editRoute)
                 }
-            } else if (BuildConfig.DEVELOPER_ENTRY) {
-                TextAction("로드뷰 점검", Modifier.align(Alignment.End), onClick = vm::openDeveloperRoadView)
+            } else if (developerEntry) {
+                TextAction(DEVELOPER_ROAD_VIEW_LABEL, Modifier.align(Alignment.End), onClick = vm::openDeveloperRoadView)
             }
         }
         return
@@ -188,9 +190,9 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
             }
         } else {
             Text("출발 전 주행 미리보기", color = colors.onSurfaceVariant, style = type.labelMedium, maxLines = 1)
-            if (BuildConfig.DEVELOPER_ENTRY) {
+            if (developerEntry) {
                 Spacer(Modifier.width(dimens.spaceS))
-                TextAction("로드뷰 점검", onClick = vm::openDeveloperRoadView)
+                TextAction(DEVELOPER_ROAD_VIEW_LABEL, onClick = vm::openDeveloperRoadView)
             }
         }
     }

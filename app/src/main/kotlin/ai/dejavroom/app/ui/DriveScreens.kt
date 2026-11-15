@@ -39,7 +39,7 @@ internal fun NavigationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, c
     val type = DejaVroomTheme.type
     if (compact) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center) {
-            Text("미리 본 곳을 가는 순서대로 정리했습니다", color = colors.onSurface, style = type.headlineSmall)
+            Text(NAVIGATION_HEADLINE, color = colors.onSurface, style = type.headlineSmall)
             Spacer(Modifier.height(dimens.spaceL))
             if (route != null) Text("${route.origin}  →  ${route.destination}  ·  약 ${route.durationMinutes}분 · ${route.distanceKm}km", color = colors.onSurface, style = type.bodyLarge)
             Spacer(Modifier.height(dimens.spaceL))
@@ -53,7 +53,7 @@ internal fun NavigationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, c
     }
     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(dimens.dp(56)), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("미리 본 곳을 가는 순서대로 정리했습니다", color = colors.onSurface, style = type.headline)
+            Text(NAVIGATION_HEADLINE, color = colors.onSurface, style = type.headline)
             Spacer(Modifier.height(dimens.spaceL))
             if (route != null) Text("${route.origin}  →  ${route.destination}  ·  약 ${route.durationMinutes}분 · ${route.distanceKm}km", color = colors.onSurface, style = type.bodyLarge)
             Spacer(Modifier.height(dimens.spaceXl))
