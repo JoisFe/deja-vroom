@@ -22,8 +22,6 @@ import ai.dejavroom.app.core.designsystem.DejaVroomTheme
 import ai.dejavroom.app.core.designsystem.DejaVroomDimens
 import ai.dejavroom.app.core.designsystem.DejaVroomIcons
 import ai.dejavroom.app.core.designsystem.DejaVroomScale
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.vector.ImageVector
 import ai.dejavroom.app.core.designsystem.dejaVroomColors
 import ai.dejavroom.app.data.RoadViewLookupResult
 import ai.dejavroom.app.feature.DejaVroomScreen
@@ -114,94 +112,35 @@ internal fun DejaVroomApp(darkTheme: Boolean, vm: DejaVroomViewModel = viewModel
                         return@DejaVroomScale
                     }
                     val dimens = DejaVroomTheme.dimens
-                    Row(Modifier.fillMaxSize()) {
-                        NavigationRail(state.screen, compact)
-                        // The side and bottom padding of every screen lives here, so screens add none of their own.
-                        Column(Modifier.weight(1f).fillMaxHeight().padding(horizontal = if (compact) dimens.screenPaddingCompact else dimens.screenPadding)) {
-                            DejaVroomHeader(state, compact, vm)
-                            Box(Modifier.weight(1f).fillMaxWidth().padding(bottom = if (compact) dimens.spaceL else dimens.dp(40))) {
-                                when (state.screen) {
-                                    DejaVroomScreen.DESTINATION -> DestinationScreen(state, remember(vm) { vm.destinationActions() }, compact)
-                                    DejaVroomScreen.SUMMARY -> SummaryScreen(state, vm, compact)
-                                    DejaVroomScreen.BRIEFING -> BriefingScreen(state, vm, compact)
-                                    DejaVroomScreen.COMPLETE -> CompleteScreen(state, vm, compact)
-                                    DejaVroomScreen.NAVIGATION -> NavigationScreen(state, vm, compact)
-                                    DejaVroomScreen.ROADVIEW_TEST -> RoadViewScreen(
-                                        lookup = state.roadViewLookups[
-                                            state.shownSegments.getOrNull(state.segmentIndex)?.id ?: DejaVroomViewModel.DEVELOPER_FIXTURE_KEY
-                                        ],
-                                        route = state.route,
-                                        candidates = state.shownSegments,
-                                        selectedIndex = state.segmentIndex,
-                                        onBack = vm::closeRoadViewTest,
-                                        onPrevious = { vm.openSegmentRoadView(state.segmentIndex - 1) },
-                                        onNext = { vm.openSegmentRoadView(state.segmentIndex + 1) },
-                                    )
-                                }
+                    // The car's status bar and navigation bar are system UI outside this window, so the app draws
+                    // no rail of its own and its content takes the full width.
+                    // The side and bottom padding of every screen lives here, so screens add none of their own.
+                    Column(Modifier.fillMaxSize().padding(horizontal = if (compact) dimens.screenPaddingCompact else dimens.screenPadding)) {
+                        DejaVroomHeader(state, compact, vm)
+                        Box(Modifier.weight(1f).fillMaxWidth().padding(bottom = if (compact) dimens.spaceL else dimens.dp(40))) {
+                            when (state.screen) {
+                                DejaVroomScreen.DESTINATION -> DestinationScreen(state, remember(vm) { vm.destinationActions() }, compact)
+                                DejaVroomScreen.SUMMARY -> SummaryScreen(state, vm, compact)
+                                DejaVroomScreen.BRIEFING -> BriefingScreen(state, vm, compact)
+                                DejaVroomScreen.COMPLETE -> CompleteScreen(state, vm, compact)
+                                DejaVroomScreen.NAVIGATION -> NavigationScreen(state, vm, compact)
+                                DejaVroomScreen.ROADVIEW_TEST -> RoadViewScreen(
+                                    lookup = state.roadViewLookups[
+                                        state.shownSegments.getOrNull(state.segmentIndex)?.id ?: DejaVroomViewModel.DEVELOPER_FIXTURE_KEY
+                                    ],
+                                    route = state.route,
+                                    candidates = state.shownSegments,
+                                    selectedIndex = state.segmentIndex,
+                                    onBack = vm::closeRoadViewTest,
+                                    onPrevious = { vm.openSegmentRoadView(state.segmentIndex - 1) },
+                                    onNext = { vm.openSegmentRoadView(state.segmentIndex + 1) },
+                                )
                             }
                         }
                     }
                 }
             }
         }
-    }
-}
-
-private data class RailItem(val icon: ImageVector, val label: String)
-
-private val RailItems = listOf(
-    RailItem(DejaVroomIcons.Home, "지도"),
-    RailItem(DejaVroomIcons.Navigation, "내비게이션"),
-    RailItem(DejaVroomIcons.Music, "미디어"),
-    RailItem(DejaVroomIcons.Phone, "전화"),
-    RailItem(DejaVroomIcons.Car, "차량"),
-)
-
-@Composable
-internal fun NavigationRail(screen: DejaVroomScreen, compact: Boolean) {
-    val colors = DejaVroomTheme.colors
-    val dimens = DejaVroomTheme.dimens
-    val type = DejaVroomTheme.type
-    val activeLabel = when (screen) {
-        DejaVroomScreen.DESTINATION -> "검색"
-        DejaVroomScreen.SUMMARY, DejaVroomScreen.BRIEFING, DejaVroomScreen.COMPLETE, DejaVroomScreen.NAVIGATION, DejaVroomScreen.ROADVIEW_TEST -> "내비게이션"
-    }
-    Row(Modifier.fillMaxHeight()) {
-        Column(
-            Modifier.width(if (compact) dimens.railWidthCompact else dimens.railWidth).fillMaxHeight().background(colors.frame).padding(top = dimens.dp(30), bottom = dimens.dp(22)),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("Pleos", color = colors.onSurface, style = type.bodySmall.copy(fontWeight = FontWeight.SemiBold), maxLines = 1)
-            Spacer(Modifier.height(dimens.spaceL))
-            RailItems.forEach { item ->
-                val selected = item.label == activeLabel
-                Column(Modifier.fillMaxWidth().padding(vertical = dimens.dp(4)), horizontalAlignment = Alignment.CenterHorizontally) {
-                    RailTile(item.icon, selected)
-                    if (!compact && (selected || item.label == "지도")) {
-                        Text(item.label, color = if (selected) colors.onSurface else colors.onSurfaceVariant, style = type.labelSmall.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal), maxLines = 1)
-                    }
-                }
-            }
-            Spacer(Modifier.weight(1f))
-            RailTile(DejaVroomIcons.Apps, selected = false)
-            RailTile(DejaVroomIcons.Settings, selected = false)
-        }
-        Box(Modifier.width(1.dp).fillMaxHeight().background(colors.hairline))
-    }
-}
-
-@Composable
-private fun RailTile(icon: ImageVector, selected: Boolean) {
-    val colors = DejaVroomTheme.colors
-    val dimens = DejaVroomTheme.dimens
-    val shape = RoundedCornerShape(dimens.radiusMedium)
-    Box(
-        Modifier.size(dimens.touchTarget).then(
-            if (selected) Modifier.shadow(dimens.dp(12), shape, clip = false, ambientColor = colors.primary, spotColor = colors.primary).background(colors.primary, shape) else Modifier,
-        ),
-        contentAlignment = Alignment.Center,
-    ) {
-        AppIcon(icon, tint = if (selected) colors.onPrimary else colors.onSurfaceVariant)
     }
 }
 
@@ -215,8 +154,6 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
     if (compact) {
         Column(Modifier.fillMaxWidth().padding(vertical = dimens.spaceM)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Pleos", color = colors.onSurface, style = wordmark, maxLines = 1)
-                HeaderDivider()
                 Text("Déjà Vroom", color = colors.onSurface, style = wordmark, maxLines = 1)
                 Spacer(Modifier.width(dimens.spaceS))
                 Text("브리핑", color = colors.onSurfaceVariant, style = type.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -226,15 +163,13 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
                     Text("${route.origin}  ›  ${route.destination}     약 ${route.durationMinutes}분 · ${route.distanceKm}km", Modifier.weight(1f), color = colors.onSurfaceVariant, style = type.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (state.screen != DejaVroomScreen.DESTINATION) EditRouteButton(vm::editRoute)
                 }
-            } else if (BuildConfig.DEBUG) {
-                TextAction("Kakao Roadview 개발 테스트", Modifier.align(Alignment.End), onClick = vm::openRoadViewTest)
+            } else if (BuildConfig.DEVELOPER_ENTRY) {
+                TextAction("로드뷰 점검", Modifier.align(Alignment.End), onClick = vm::openRoadViewTest)
             }
         }
         return
     }
     Row(Modifier.fillMaxWidth().height(dimens.headerHeight), verticalAlignment = Alignment.CenterVertically) {
-        Text("Pleos", color = colors.onSurface, style = wordmark, maxLines = 1)
-        HeaderDivider()
         Text("Déjà Vroom", color = colors.onSurface, style = wordmark, maxLines = 1)
         Spacer(Modifier.width(dimens.spaceM))
         Text("초행길 사전 브리핑", Modifier.weight(1f), color = colors.onSurfaceVariant, style = type.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -253,9 +188,9 @@ internal fun DejaVroomHeader(state: DejaVroomUiState, compact: Boolean, vm: Deja
             }
         } else {
             Text("출발 전 주행 미리보기", color = colors.onSurfaceVariant, style = type.labelMedium, maxLines = 1)
-            if (BuildConfig.DEBUG) {
+            if (BuildConfig.DEVELOPER_ENTRY) {
                 Spacer(Modifier.width(dimens.spaceS))
-                TextAction("Kakao Roadview 개발 테스트", onClick = vm::openRoadViewTest)
+                TextAction("로드뷰 점검", onClick = vm::openRoadViewTest)
             }
         }
     }

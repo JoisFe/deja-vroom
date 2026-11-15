@@ -86,15 +86,10 @@ internal fun RoadViewPhoto(
                 .background(PhotoOverlay.scrim).padding(horizontal = dimens.spaceS, vertical = dimens.spaceXs),
         ) {
             Text(view.attribution.orEmpty(), color = PhotoOverlay.onScrim, style = type.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (showDetails) {
-                Text(
-                    listOfNotNull(
-                        view.capturedAt?.let { "촬영 $it" },
-                        "${content.distanceMeters}m 거리",
-                        "방향 차이 ${content.headingDifferenceDegrees}°",
-                    ).joinToString(" · "),
-                    color = PhotoOverlay.onScrimVariant, style = type.labelSmall, maxLines = 1,
-                )
+            // How far the photo is from the point and how its heading differs are how it was picked, not driver information.
+            val capturedAt = view.capturedAt
+            if (showDetails && capturedAt != null) {
+                Text("촬영 $capturedAt", color = PhotoOverlay.onScrimVariant, style = type.labelSmall, maxLines = 1)
             }
         }
     }

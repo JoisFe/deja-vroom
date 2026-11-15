@@ -51,6 +51,9 @@ android {
         buildConfigField("String", "ROADVIEW_BASE_URL_OVERRIDE", buildConfigString(localSetting("roadviewBaseUrl")))
         buildConfigField("String", "ROADVIEW_PAGE_REVISION", buildConfigString(roadviewPageRevision))
         buildConfigField("String", "MAPILLARY_CLIENT_TOKEN", buildConfigString(localSetting("mapillaryClientToken")))
+        // The "로드뷰 점검" entry in the header opens the road view without a route. It is off in every build,
+        // including the debug build the demo video is recorded from; developerEntry=true in local.properties turns it on.
+        buildConfigField("boolean", "DEVELOPER_ENTRY", (localSetting("developerEntry") == "true").toString())
     }
 
     buildFeatures {

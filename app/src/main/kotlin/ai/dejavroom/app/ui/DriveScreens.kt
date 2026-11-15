@@ -76,15 +76,9 @@ internal fun NavigationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, c
     val type = DejaVroomTheme.type
     if (compact) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center) {
-            Eyebrow("주행 시작  ·  시연 화면")
-            Spacer(Modifier.height(dimens.spaceS))
-            Text("주행을 시작합니다", color = colors.onSurface, style = type.headlineSmall)
-            Spacer(Modifier.height(dimens.spaceS))
-            Text("미리 본 지점을 가는 순서대로 다시 정리했습니다.", color = colors.onSurfaceVariant, style = type.bodyMedium)
+            Text("미리 본 곳을 가는 순서대로 정리했습니다", color = colors.onSurface, style = type.headlineSmall)
             Spacer(Modifier.height(dimens.spaceL))
             if (route != null) Text("${route.origin}  →  ${route.destination}  ·  약 ${route.durationMinutes}분 · ${route.distanceKm}km", color = colors.onSurface, style = type.bodyLarge)
-            Spacer(Modifier.height(dimens.spaceL))
-            NoticeBanner("실제 내비 안내로 넘어가는 기능은 아직 연결되지 않았습니다.", Modifier.fillMaxWidth())
             Spacer(Modifier.height(dimens.spaceL))
             SecondaryButton("목록으로 돌아가기", Modifier.fillMaxWidth(), size = ButtonSize.Medium, onClick = vm::backToSummary)
             Spacer(Modifier.height(dimens.spaceXl))
@@ -96,15 +90,9 @@ internal fun NavigationScreen(state: DejaVroomUiState, vm: DejaVroomViewModel, c
     }
     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(dimens.dp(56)), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Eyebrow("주행 시작  ·  시연 화면")
-            Spacer(Modifier.height(dimens.spaceM))
-            Text("주행을 시작합니다", color = colors.onSurface, style = type.headline)
-            Spacer(Modifier.height(dimens.spaceS))
-            Text("미리 본 지점을 가는 순서대로 다시 정리했습니다.", color = colors.onSurfaceVariant, style = type.bodyMedium)
+            Text("미리 본 곳을 가는 순서대로 정리했습니다", color = colors.onSurface, style = type.headline)
             Spacer(Modifier.height(dimens.spaceL))
             if (route != null) Text("${route.origin}  →  ${route.destination}  ·  약 ${route.durationMinutes}분 · ${route.distanceKm}km", color = colors.onSurface, style = type.bodyLarge)
-            Spacer(Modifier.height(dimens.spaceXl))
-            NoticeBanner("실제 내비 안내로 넘어가는 기능은 아직 연결되지 않았습니다.")
             Spacer(Modifier.height(dimens.spaceXl))
             SecondaryButton("목록으로 돌아가기", Modifier.width(dimens.dp(360)), size = ButtonSize.Medium, onClick = vm::backToSummary)
         }
