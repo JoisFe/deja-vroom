@@ -8,12 +8,41 @@
 
 Pleos Connect(Android Automotive) 차량 앱 · 현대자동차그룹 차량용 앱 개발 공모전 출품작
 
-[서비스](#서비스) · [시연 시나리오](docs/scenario.md) · [구성도](docs/architecture.md) · [코드 컨벤션](docs/conventions.md) · [Discussions](../../discussions)
+[시연 영상](#시연-영상) · [서비스](#서비스) · [시연 시나리오](docs/scenario.md) · [구성도](docs/architecture.md) · [코드 컨벤션](docs/conventions.md) · [Discussions](../../discussions)
 
 </div>
 
 > [!NOTE]
 > **현재 상태: 기획과 에뮬레이터용 앱 프로토타입.** 아래 구현은 경로 미리보기 실험이며 Déjà Vroom의 Pleos 차량 기능이 완성된 상태는 아니다. Pleos SDK는 NaviHelper의 현재 위치 조회 하나만 연결했고(빌드·단위 테스트 확인, Pleos 환경 동작은 확인 전), 차량 신호는 아직 연결되지 않았다. [사용 현황](docs/pleos-sdk.md)
+
+## 시연 영상
+
+[![시연 영상: 용인서울고속도로 진출로 로드뷰가 분기점에 닿아 "바로 여기"를 알리는 장면](docs/media/deja-vroom-demo.jpg)](docs/media/deja-vroom-demo.mp4)
+
+**[▶ 시연 영상 보기](docs/media/deja-vroom-demo.mp4)** (3분 17초, 한국어 음성·자막, 1080p). 그림을 눌러도 열린다.
+
+| 시각 | 내용 |
+|---|---|
+| 0:00 | 처음 가는 갈림길에서 당황하는 운전자 (연출) |
+| 0:13 | 만든 계기 |
+| 0:43 | 앱 시연 (Pleos Connect 에뮬레이터 화면 녹화): 광교중앙역 → 현대자동차 양재 본사. 헷갈리기 쉬운 6곳을 가는 순서로 고르고, 고속도로 진출로 2곳을 분기점까지 로드뷰로 미리 본다 |
+| 2:13 | 첫 장면의 갈림길을 다시 만나는 장면 |
+| 2:26 | 2차 심사까지 개발할 주행 중 안내(화면 시안)와 그다음 계획 |
+
+도로 영상과 효과음은 출처 표기 의무가 없는 Wikimedia Commons의 CC0·퍼블릭 도메인 자료다.
+
+<details>
+<summary>사용한 자료</summary>
+
+| 자료 | 라이선스 | 쓴 곳 |
+|---|---|---|
+| [Interchange 8 Pohjantie Oulu 20260307.webm](https://commons.wikimedia.org/wiki/File:Interchange_8_Pohjantie_Oulu_20260307.webm) | CC0 | 인트로 첫 장면 (항공 촬영 인터체인지) |
+| [Great Eastern Highway and Roe Highway interchange.ogv](https://commons.wikimedia.org/wiki/File:Great_Eastern_Highway_and_Roe_Highway_interchange.ogv) | CC0 | 첫 장면 도로, 마무리의 같은 출구 표지 |
+| [Distracted Driving Spot (1018169).webm](https://commons.wikimedia.org/wiki/File:Distracted_Driving_Spot_(1018169).webm) | Public domain | 첫 장면 운전자 실내 |
+| [Dashcam Recording (urban).ogv](https://commons.wikimedia.org/wiki/File:Dashcam_Recording_(urban).ogv) | CC0 | 인트로 도심 주행 |
+| [Car Horn.wav](https://commons.wikimedia.org/wiki/File:Car_Horn.wav) | CC0 | 첫 장면 뒤차 경적 |
+
+</details>
 
 ## 이름
 
