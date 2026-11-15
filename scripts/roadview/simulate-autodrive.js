@@ -5,10 +5,12 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 let src = fs.readFileSync(process.argv[2] || path.join(__dirname, "../../web/roadview/roadview.js"), "utf8");
-src = src.replace("AUTO_DRIVE_START_DELAY_MS = 1800", "AUTO_DRIVE_START_DELAY_MS = 30").replace("AUTO_DRIVE_STEP_MS = 1200", "AUTO_DRIVE_STEP_MS = 20");
+src = src.replace("AUTO_DRIVE_START_DELAY_MS = 1800", "AUTO_DRIVE_START_DELAY_MS = 30").replace("AUTO_DRIVE_STEP_MS = 1200", "AUTO_DRIVE_STEP_MS = 20")
+  .replace("AUTO_DRIVE_ARRIVAL_HOLD_MS = 2800", "AUTO_DRIVE_ARRIVAL_HOLD_MS = 160");
 
 const messages = [], panoCalls = [], viewpoints = [];
 let fakeRoadview = null;
+const stamps = [];
 function el(id) {
   const listeners = {};
   return {
@@ -55,7 +57,7 @@ const windowListeners = {};
 const context = {
   document, kakao, console, setTimeout, clearTimeout, URLSearchParams,
   MutationObserver: class { observe() {} disconnect() {} },
-  DejaVroomBridge: { postMessage: (m) => messages.push(m) },
+  DejaVroomBridge: { postMessage: (m) => { messages.push(m); stamps.push([m, Date.now()]); } },
   location: { search: "" },
   addEventListener(type, fn) { windowListeners[type] = fn; },
 };
@@ -79,7 +81,7 @@ const assert = (ok, what) => { if (!ok) { console.log("FAIL:", what); process.ex
   await wait(40);
   assert(messages.includes("ready") && messages.includes("sdk-ready"), "page reaches ready and sdk-ready");
   windowListeners.message({ data: JSON.stringify(config) });
-  await wait(700);
+  await wait(900);
   const button = elements.autodrive;
   assert(messages.includes("shown") && messages.includes("route-candidate-selected:0"), "panorama shown for the candidate");
   assert(messages.filter((m) => m === "drive-finished").length === 1, "drive finishes exactly once (init re-fire does not restart it)");
@@ -89,6 +91,14 @@ const assert = (ok, what) => { if (!ok) { console.log("FAIL:", what); process.ex
   assert(panoCalls.length === drive.length, "one panorama per frame (first by the page, the rest by the drive): " + panoCalls.length);
   assert(viewpoints[viewpoints.length - 1] === 90, "camera ends facing the way the route leaves the junction");
   assert(button.hidden === false && button.textContent === "분기점까지 다시 보기", "replay button is offered: " + button.textContent);
+  // The drive lingers on the junction frame and nowhere else.
+  const frames = stamps.filter(([m]) => m.startsWith("drive-progress:")).slice(1);
+  // Time spent on a frame before the next one; NaN (a failed check, not a crash) when either is missing.
+  const gapAfter = (value) => {
+    const i = frames.findIndex(([m]) => m === `drive-progress:${value}`);
+    return i >= 0 && frames[i + 1] ? frames[i + 1][1] - frames[i][1] : NaN;
+  };
+  assert(gapAfter(0) >= 140 && gapAfter(25) < 100 && gapAfter(-25) < 100, `the drive holds on the junction frame: ${gapAfter(25)}ms, ${gapAfter(0)}ms, ${gapAfter(-25)}ms`);
 
   messages.length = 0; panoCalls.length = 0;
   button.dispatch("click");

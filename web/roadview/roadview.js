@@ -21,6 +21,8 @@
   // Auto drive: plays the approach like a slow drive, from the viewpoint through the junction.
   const AUTO_DRIVE_START_DELAY_MS = 1800;
   const AUTO_DRIVE_STEP_MS = 1200;
+  // Reaching the junction is the moment the whole drive is for: it stays there long enough to take in.
+  const AUTO_DRIVE_ARRIVAL_HOLD_MS = 2800;
   const AUTO_DRIVE_LOOKUP_TIMEOUT_MS = 2500;
   const AUTO_DRIVE_RADIUS_METERS = 20;
   const AUTO_DRIVE_MAX_POSES = 40;
@@ -214,11 +216,14 @@
       return;
     }
     const pose = drive.poses[drive.index];
+    const previous = drive.poses[drive.index - 1];
     const active = () => autoDrive === drive && drive.playing;
+    // The arrival is the frame where the junction stops being ahead.
+    const arrival = Number(pose.remainingMeters) <= 0 && !(previous && Number(previous.remainingMeters) <= 0);
     const proceed = () => {
       if (!active()) return;
       if (Number.isFinite(pose.remainingMeters)) send(`drive-progress:${Math.round(pose.remainingMeters)}`);
-      drive.timer = window.setTimeout(stepAutoDrive, AUTO_DRIVE_STEP_MS);
+      drive.timer = window.setTimeout(stepAutoDrive, arrival ? AUTO_DRIVE_ARRIVAL_HOLD_MS : AUTO_DRIVE_STEP_MS);
     };
     let answered = false;
     // A lookup that never answers must not freeze the drive; skip the frame instead.

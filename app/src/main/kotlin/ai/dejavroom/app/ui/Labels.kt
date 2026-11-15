@@ -8,6 +8,7 @@ import ai.dejavroom.app.data.RoadViewLookupResult
 import ai.dejavroom.app.feature.DejaVroomScreen
 import ai.dejavroom.app.feature.DejaVroomUiState
 import ai.dejavroom.app.feature.DejaVroomViewModel
+import ai.dejavroom.app.model.ApproachPhase
 import ai.dejavroom.app.model.BriefingSegment
 import ai.dejavroom.app.model.ManeuverCue
 import ai.dejavroom.app.model.RoadViewContentOrigin
@@ -141,15 +142,27 @@ internal fun cardSubtitle(segment: BriefingSegment): String {
     return selectionReasons(segment).ifBlank { selectionSourceLabel(segment.selectionSource) }
 }
 
-/** "140m" for a preview that starts that far before the point; null when it starts right at it. */
-internal fun leadLabel(leadMeters: Int?): String? = leadMeters?.takeIf { it >= MIN_LEAD_TO_MENTION }?.let { "${it / 10 * 10}m" }
+/**
+ * "140m" for a view that far before its point, rounded to the nearest 10 m; null when it already stands
+ * on the point (or past it), where a distance would only be noise.
+ */
+internal fun leadLabel(leadMeters: Int?): String? =
+    leadMeters?.takeIf { ApproachPhase.at(it) == ApproachPhase.APPROACHING }?.let { "${(it + 5) / 10 * 10}m" }
 
-/** Headline of the banner over a road view: "300m 앞 · 오른쪽 진출로". */
-internal fun bannerTitle(cue: ManeuverCue, leadMeters: Int?): String =
-    leadLabel(leadMeters)?.let { "$it 앞 · ${cue.action}" } ?: cue.action
+/**
+ * Headline of the banner over a road view. It counts down ("300m 앞 · 오른쪽 진출로"), announces the point
+ * itself ("바로 여기 · 오른쪽 진출로") and then lets go ("지나옴 · 오른쪽 진출로"). A destination is
+ * arrived at rather than acted on: "도착 80m 전 · 목적지는 오른쪽", then "도착 · 목적지는 오른쪽".
+ */
+internal fun bannerTitle(cue: ManeuverCue, remainingMeters: Int?): String = when (ApproachPhase.at(remainingMeters)) {
+    ApproachPhase.APPROACHING -> when (val distance = leadLabel(remainingMeters)) {
+        null -> cue.action
+        else -> if (cue.arrival) "도착 $distance 전 · ${cue.action}" else "$distance 앞 · ${cue.action}"
+    }
+    ApproachPhase.AT_POINT -> if (cue.arrival) "도착 · ${cue.action}" else "바로 여기 · ${cue.action}"
+    ApproachPhase.PASSED -> "지나옴 · ${cue.action}"
+}
 
 /** One line per point on the final screen: "출발 후 30.0km · 오른쪽 진출로 · 표지 양재". */
 internal fun recapLine(segment: BriefingSegment): String =
     "출발 후 ${String.format(java.util.Locale.KOREA, "%.1f", segment.distanceFromStartKm)}km · ${cardSubtitle(segment)}"
-
-private const val MIN_LEAD_TO_MENTION = 20

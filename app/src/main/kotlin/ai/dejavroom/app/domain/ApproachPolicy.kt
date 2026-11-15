@@ -42,7 +42,7 @@ data class ApproachPolicy(
         require(arrivalLeadMeters >= 0.0 && previousManeuverMarginMeters >= 0.0) { "approach의 거리 값은 0 이상이어야 한다" }
         require(driveStepMeters >= 5.0) { "approach.driveStepMeters는 5 이상이어야 한다" }
         require(drivePastMeters in 0.0..300.0) { "approach.drivePastMeters는 0~300이어야 한다" }
-        require(driveMaxSteps in 1..30) { "approach.driveMaxSteps는 1~30이어야 한다" }
+        require(driveMaxSteps in 2..30) { "approach.driveMaxSteps는 2~30이어야 한다" }
     }
 
     /** Meters before the point at [routeOffsetMeters] where its preview should stand. */

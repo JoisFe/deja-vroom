@@ -114,6 +114,8 @@ class RouteAnalyzerTest {
         assertEquals(144, drive.first().remainingMeters)
         assertEquals(-60, drive.last().remainingMeters)
         assertTrue(drive.size in 2..11)
+        // Reaching the junction is its own frame: that is where the road view makes its announcement.
+        assertEquals(segment.coordinate, drive.single { it.remainingMeters == 0 }.coordinate)
         // An arrival is the end of the road: its drive stops there.
         val arrivalDrive = RouteAnalyzer().analyze(route(), listOf(arrival())).single().approachDrive
         assertEquals(0, arrivalDrive.last().remainingMeters)

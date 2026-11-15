@@ -7,6 +7,7 @@ import ai.dejavroom.app.model.RouteSnapshot
 import ai.dejavroom.app.model.RouteSource
 import ai.dejavroom.app.model.TurnDirection
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -51,6 +52,7 @@ class ManeuverCueTest {
         val segments = RouteAnalyzer().analyze(route, TurnByTurnRoute(steps).previewFeatures("r"))
         assertEquals(listOf("가로 → 나로", "도착 지점"), segments.map { it.name })
         assertEquals(ManeuverCue(TurnDirection.LEFT, "좌회전"), segments[0].cue)
-        assertEquals(ManeuverCue(TurnDirection.RIGHT, "목적지는 오른쪽"), segments[1].cue)
+        assertEquals(ManeuverCue(TurnDirection.RIGHT, "목적지는 오른쪽", arrival = true), segments[1].cue)
+        assertFalse(segments[0].cue!!.arrival)
     }
 }
